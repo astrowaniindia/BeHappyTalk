@@ -140,7 +140,36 @@
 
         <!-- Sessions Tab -->
         <div id="content-sessions" class="hidden">
-          <h2 class="text-2xl font-bold mb-6">Recent Sessions (Ledger)</h2>
+          <h2 class="text-2xl font-bold mb-6">Call Ledger</h2>
+          
+          <!-- Earnings Summary -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
+              <h3 class="text-gray-500 text-xs font-semibold uppercase">Chat Earnings</h3>
+              <p class="text-xl font-bold mt-1 text-blue-600">₹<span id="earn-chat">0.00</span></p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 border-l-4 border-orange-500">
+              <h3 class="text-gray-500 text-xs font-semibold uppercase">Audio Earnings</h3>
+              <p class="text-xl font-bold mt-1 text-orange-600">₹<span id="earn-audio">0.00</span></p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 border-l-4 border-pink-500">
+              <h3 class="text-gray-500 text-xs font-semibold uppercase">Video Earnings</h3>
+              <p class="text-xl font-bold mt-1 text-pink-600">₹<span id="earn-video">0.00</span></p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 border-l-4 border-green-500 bg-green-50">
+              <h3 class="text-green-700 text-xs font-semibold uppercase">Total Earnings</h3>
+              <p class="text-xl font-bold mt-1 text-green-600">₹<span id="earn-total">0.00</span></p>
+            </div>
+          </div>
+
+          <!-- Filters -->
+          <div class="flex space-x-2 mb-4">
+            <button onclick="filterSessions('all')" id="btn-filt-all" class="px-4 py-2 bg-purple-600 text-white font-bold rounded-lg text-sm shadow">All</button>
+            <button onclick="filterSessions('Chat')" id="btn-filt-chat" class="px-4 py-2 bg-white text-gray-700 font-bold rounded-lg text-sm border hover:bg-gray-50">Chat</button>
+            <button onclick="filterSessions('Audio')" id="btn-filt-audio" class="px-4 py-2 bg-white text-gray-700 font-bold rounded-lg text-sm border hover:bg-gray-50">Audio Call</button>
+            <button onclick="filterSessions('Video')" id="btn-filt-video" class="px-4 py-2 bg-white text-gray-700 font-bold rounded-lg text-sm border hover:bg-gray-50">Video Call</button>
+          </div>
+
           <div class="bg-white rounded-lg shadow overflow-hidden">
             <table class="min-w-full">
               <thead class="bg-gray-50">
@@ -279,18 +308,55 @@
       } catch (e) { alert('Error processing withdrawal.'); }
     }
 
+    let allSessions = [];
+
     async function loadData(type) {
       try {
-        const endpoint = type === 'payouts' ? 'payout-requests' : type;
-        const res = await fetch('/api/admin/' + endpoint, {
+        const res = await fetch('/api/admin/' + type, {
           headers: {'Authorization': 'Bearer ' + token}
         });
         if (res.status === 401 || res.status === 403) return logout();
         const data = await res.json();
-        renderTable(type, data);
+        
+        if (type === 'sessions') {
+          allSessions = data;
+          calculateEarnings();
+          renderTable('sessions', allSessions);
+          filterSessions('all'); // Reset buttons
+        } else {
+          renderTable(type, data);
+        }
       } catch(e) {
         console.error('Error loading data', e);
       }
+    }
+
+    function calculateEarnings() {
+      let c = 0, a = 0, v = 0;
+      allSessions.forEach(s => {
+        const earn = (s.cost || 0) / 2;
+        if (s.type === 'Chat') c += earn;
+        else if (s.type === 'Audio') a += earn;
+        else if (s.type === 'Video') v += earn;
+      });
+      document.getElementById('earn-chat').innerText = c.toFixed(2);
+      document.getElementById('earn-audio').innerText = a.toFixed(2);
+      document.getElementById('earn-video').innerText = v.toFixed(2);
+      document.getElementById('earn-total').innerText = (c + a + v).toFixed(2);
+    }
+
+    function filterSessions(filterType) {
+      ['all', 'chat', 'audio', 'video'].forEach(f => {
+        const b = document.getElementById('btn-filt-' + f);
+        if(b) { b.classList.remove('bg-purple-600', 'text-white', 'shadow'); b.classList.add('bg-white', 'text-gray-700', 'border'); }
+      });
+      const activeBtn = document.getElementById('btn-filt-' + filterType.toLowerCase());
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-white', 'text-gray-700', 'border');
+        activeBtn.classList.add('bg-purple-600', 'text-white', 'shadow');
+      }
+      if (filterType === 'all') renderTable('sessions', allSessions);
+      else renderTable('sessions', allSessions.filter(s => s.type === filterType));
     }
 
     function renderTable(type, data) {
@@ -344,35 +410,9 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">₹${row.cost || 0}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-bold">₹${((row.cost || 0)/2).toFixed(2)}</td>
           `;
-        } else if (type === 'payouts') {
-          const d = new Date(row.date).toLocaleString();
-          tr.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${d}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.providerName}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">₹${row.amount}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₹${row.walletBalance}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-              <button onclick="approvePayout('${row.id}', '${row.providerId}', ${row.amount})" class="text-white bg-green-500 hover:bg-green-600 px-3 py-1 rounded shadow"><i class="fa-solid fa-check"></i> Mark as Paid</button>
-            </td>
-          `;
         }
         tbody.appendChild(tr);
       });
-    }
-
-    async function approvePayout(requestId, providerId, amount) {
-      if(!confirm(`Did you manually transfer ₹${amount} to this provider? Clicking OK will approve this and deduct it from their wallet.`)) return;
-      try {
-        const res = await fetch('/api/admin/approve-payout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ requestId, providerId, amount })
-        });
-        if (res.ok) {
-          alert('Payout Approved!');
-          loadData('payouts');
-        }
-      } catch (e) { alert('Error approving payout'); }
     }
 
     async function updateWallet(type, id) {

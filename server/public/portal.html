@@ -314,7 +314,11 @@
         </div>
         <div class="nav-item" data-view="earnings">
           <i class="fas fa-wallet"></i>
-          <span>Wallet & History</span>
+          <span>Wallet</span>
+        </div>
+        <div class="nav-item" data-view="sessions">
+          <i class="fas fa-phone"></i>
+          <span>Sessions</span>
         </div>
         <div class="nav-item" data-view="withdraw">
           <i class="fas fa-money-bill-transfer"></i>
@@ -407,6 +411,24 @@
 
         <!-- View: Earnings -->
         <div id="view-earnings" class="view-content">
+           <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; margin-bottom: 32px; display: flex; align-items: center; justify-content: space-between;">
+             <div>
+               <h3 style="margin: 0 0 8px; color: var(--text-dim); font-size: 12px; text-transform: uppercase; font-weight: 700; letter-spacing: 1.5px;">Current Wallet Balance</h3>
+               <h2 id="wallet-balance-big" style="margin: 0; font-size: 40px; color: var(--success); font-weight: 800;">₹0.00</h2>
+             </div>
+           </div>
+        </div>
+
+        <!-- View: Sessions -->
+        <div id="view-sessions" class="view-content">
+           <div style="display: flex; gap: 8px; margin-bottom: 24px;">
+             <button onclick="filterProvSessions('all')" id="btn-ps-all" style="padding: 8px 16px; border-radius: 8px; border: none; background: var(--primary); color: var(--bg-darker); font-weight: bold; cursor: pointer;">All</button>
+             <button onclick="filterProvSessions('Chat')" id="btn-ps-chat" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer;">Chat</button>
+             <button onclick="filterProvSessions('Audio')" id="btn-ps-audio" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer;">Audio Call</button>
+             <button onclick="filterProvSessions('Video')" id="btn-ps-video" style="padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer;">Video Call</button>
+           </div>
+           
+           <div class="history-card">
               <table class="hist-table">
                 <thead>
                   <tr>
@@ -414,11 +436,10 @@
                     <th>Username</th>
                     <th>Media Type</th>
                     <th>Duration</th>
-                    <th>Wallet Credit</th>
+                    <th>Your Earning (50%)</th>
                   </tr>
                 </thead>
                 <tbody id="history-target">
-                  <!-- History rows here -->
                 </tbody>
               </table>
            </div>
@@ -558,7 +579,8 @@
           document.getElementById(viewId).classList.add('active');
           document.getElementById('view-title').innerText = btn.querySelector('span').innerText;
           if (btn.dataset.view === 'inbox') fetchInbox();
-          if (btn.dataset.view === 'earnings') fetchHistory();
+          if (btn.dataset.view === 'earnings') fetchStats();
+          if (btn.dataset.view === 'sessions') fetchHistory();
           if (btn.dataset.view === 'withdraw') { fetchStats(); fetchWithdrawals(); }
         };
       });
@@ -952,10 +974,33 @@
       if (wAvail) wAvail.innerText = `₹${(data.walletBalance / 2).toFixed(2)}`;
     }
 
+    let allProvSessions = [];
+
     async function fetchHistory() {
       const res = await fetch(`/api/provider/history/${provider.id}`);
-      const sessions = await res.json();
-      renderHistory(sessions);
+      allProvSessions = await res.json();
+      renderHistory(allProvSessions);
+      filterProvSessions('all');
+    }
+
+    function filterProvSessions(type) {
+      ['all', 'chat', 'audio', 'video'].forEach(f => {
+        const b = document.getElementById('btn-ps-' + f);
+        if(b) {
+          b.style.background = 'transparent';
+          b.style.color = 'var(--text)';
+          b.style.border = '1px solid var(--border)';
+        }
+      });
+      const activeBtn = document.getElementById('btn-ps-' + type.toLowerCase());
+      if(activeBtn) {
+        activeBtn.style.background = 'var(--primary)';
+        activeBtn.style.color = 'var(--bg-darker)';
+        activeBtn.style.border = 'none';
+      }
+      
+      if (type === 'all') renderHistory(allProvSessions);
+      else renderHistory(allProvSessions.filter(s => s.type === type));
     }
 
     function renderHistory(sessions) {
