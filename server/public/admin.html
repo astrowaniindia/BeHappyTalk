@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BeHappyTalk Super Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 text-gray-800">
+  <!-- Login Screen -->
+  <div id="login-screen" class="min-h-screen flex items-center justify-center bg-gray-100">
+    <div class="bg-white p-8 rounded-lg shadow-md w-96">
+      <h2 class="text-2xl font-bold text-center mb-6 text-purple-600">Super Admin</h2>
+      <input type="text" id="admin-username" placeholder="Username" class="w-full mb-4 px-4 py-2 border rounded focus:outline-none focus:border-purple-500">
+      <input type="password" id="admin-password" placeholder="Password" class="w-full mb-6 px-4 py-2 border rounded focus:outline-none focus:border-purple-500">
+      <button onclick="login()" class="w-full bg-purple-600 text-white font-bold py-2 rounded hover:bg-purple-700 transition">Log In</button>
+      <p id="login-error" class="text-red-500 text-sm mt-4 text-center hidden"></p>
+    </div>
+  </div>
+
+  <!-- Dashboard Screen -->
+  <div id="dashboard-screen" class="hidden min-h-screen flex flex-col">
+    <nav class="bg-purple-700 text-white p-4 shadow-lg flex justify-between items-center">
+      <h1 class="text-xl font-bold"><i class="fa-solid fa-shield-halved mr-2"></i> BeHappyTalk Admin</h1>
+      <button onclick="logout()" class="bg-purple-800 px-4 py-1 rounded hover:bg-purple-900 text-sm">Logout</button>
+    </nav>
+    
+    <div class="flex flex-1">
+      <!-- Sidebar -->
+      <aside class="w-64 bg-white shadow-md">
+        <ul class="mt-4">
+          <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-purple-700 font-bold border-l-4 border-purple-600" id="tab-users" onclick="switchTab('users')">
+            <i class="fa-solid fa-users w-6"></i> Users (Customers)
+          </li>
+          <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-gray-600 border-l-4 border-transparent" id="tab-providers" onclick="switchTab('providers')">
+            <i class="fa-solid fa-user-tie w-6"></i> Providers
+          </li>
+          <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-gray-600 border-l-4 border-transparent" id="tab-sessions" onclick="switchTab('sessions')">
+            <i class="fa-solid fa-phone w-6"></i> Call Sessions
+          </li>
+        </ul>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="flex-1 p-8 overflow-auto">
+        <div id="content-users">
+          <h2 class="text-2xl font-bold mb-6">Manage Users</h2>
+          <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wallet ($)</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                </tr>
+              </thead>
+              <tbody id="users-table" class="divide-y divide-gray-200"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="content-providers" class="hidden">
+          <h2 class="text-2xl font-bold mb-6">Manage Providers</h2>
+          <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wallet ($)</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                </tr>
+              </thead>
+              <tbody id="providers-table" class="divide-y divide-gray-200"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="content-sessions" class="hidden">
+          <h2 class="text-2xl font-bold mb-6">Recent Sessions</h2>
+          <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cost</th>
+                </tr>
+              </thead>
+              <tbody id="sessions-table" class="divide-y divide-gray-200"></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    let token = localStorage.getItem('adminToken');
+    
+    if (token) {
+      showDashboard();
+    }
+
+    async function login() {
+      const u = document.getElementById('admin-username').value;
+      const p = document.getElementById('admin-password').value;
+      const err = document.getElementById('login-error');
+      
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username: u, password: p})
+        });
+        const data = await res.json();
+        
+        if (data.token) {
+          token = data.token;
+          localStorage.setItem('adminToken', token);
+          showDashboard();
+        } else {
+          err.innerText = data.error || 'Login failed';
+          err.classList.remove('hidden');
+        }
+      } catch (e) {
+        err.innerText = 'Server error';
+        err.classList.remove('hidden');
+      }
+    }
+
+    function logout() {
+      token = null;
+      localStorage.removeItem('adminToken');
+      document.getElementById('login-screen').classList.remove('hidden');
+      document.getElementById('dashboard-screen').classList.add('hidden');
+    }
+
+    function showDashboard() {
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('dashboard-screen').classList.remove('hidden');
+      switchTab('users');
+    }
+
+    function switchTab(tab) {
+      ['users', 'providers', 'sessions'].forEach(t => {
+        document.getElementById('content-' + t).classList.add('hidden');
+        const tabEl = document.getElementById('tab-' + t);
+        tabEl.classList.remove('text-purple-700', 'font-bold', 'border-purple-600', 'bg-purple-50');
+        tabEl.classList.add('text-gray-600', 'border-transparent');
+      });
+      
+      document.getElementById('content-' + tab).classList.remove('hidden');
+      const activeTab = document.getElementById('tab-' + tab);
+      activeTab.classList.remove('text-gray-600', 'border-transparent');
+      activeTab.classList.add('text-purple-700', 'font-bold', 'border-purple-600', 'bg-purple-50');
+      
+      loadData(tab);
+    }
+
+    async function loadData(type) {
+      try {
+        const res = await fetch('/api/admin/' + type, {
+          headers: {'Authorization': 'Bearer ' + token}
+        });
+        if (res.status === 401 || res.status === 403) return logout();
+        const data = await res.json();
+        renderTable(type, data);
+      } catch(e) {
+        console.error('Error loading data', e);
+      }
+    }
+
+    function renderTable(type, data) {
+      const tbody = document.getElementById(type + '-table');
+      tbody.innerHTML = '';
+      
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        
+        if (type === 'users') {
+          tr.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.id}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.name}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.phone}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">
+              <input type="number" id="wallet-user-${row.id}" value="${row.walletBalance}" class="w-20 border px-2 py-1 rounded">
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <button onclick="updateWallet('user', '${row.id}')" class="text-purple-600 hover:text-purple-900 bg-purple-100 px-3 py-1 rounded">Save</button>
+            </td>
+          `;
+        } else if (type === 'providers') {
+          tr.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.id}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.name}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.phone}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">
+              <input type="number" id="wallet-provider-${row.id}" value="${row.walletBalance}" class="w-20 border px-2 py-1 rounded">
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+              <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${row.status==='online' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${row.status}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <button onclick="updateWallet('provider', '${row.id}')" class="text-purple-600 hover:text-purple-900 bg-purple-100 px-3 py-1 rounded">Save</button>
+            </td>
+          `;
+        } else if (type === 'sessions') {
+          tr.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.id}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.userName || row.userId}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.providerName || row.providerId}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 uppercase">${row.type}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.status}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold text-green-600">$${row.cost || 0}</td>
+          `;
+        }
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function updateWallet(type, id) {
+      const amount = document.getElementById(`wallet-${type}-${id}`).value;
+      try {
+        const res = await fetch('/api/admin/update-wallet', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify({ type, id, amount: Number(amount) })
+        });
+        if (res.ok) {
+          alert('Wallet updated successfully!');
+        } else {
+          alert('Failed to update wallet');
+        }
+      } catch (e) {
+        alert('Error updating wallet');
+      }
+    }
+  </script>
+</body>
+</html>

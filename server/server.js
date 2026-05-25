@@ -378,6 +378,66 @@ app.get('/api/chat/:userId/:providerId', (req, res) => {
   );
 });
 
+// ─── Admin Endpoints ──────────────────────────────────────────────────────────
+app.post('/api/admin/login', (req, res) => {
+  const { username, password } = req.body;
+  const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
+  if (username === 'admin' && password === adminPass) {
+    const token = jwt.sign({ id: 'admin', role: 'admin' }, JWT_SECRET, { expiresIn: '1d' });
+    res.json({ token });
+  } else {
+    res.status(401).json({ error: 'Invalid admin credentials' });
+  }
+});
+
+const authenticateAdmin = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Access denied.' });
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err || user.role !== 'admin') return res.status(403).json({ error: 'Forbidden.' });
+    req.user = user;
+    next();
+  });
+};
+
+app.get('/api/admin/users', authenticateAdmin, (req, res) => {
+  db.all('SELECT id, name, phone, walletBalance FROM users', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.get('/api/admin/providers', authenticateAdmin, (req, res) => {
+  db.all('SELECT id, name, phone, walletBalance, status FROM providers', [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.get('/api/admin/sessions', authenticateAdmin, (req, res) => {
+  const query = `
+    SELECT sessions.*, users.name as userName, providers.name as providerName 
+    FROM sessions 
+    LEFT JOIN users ON sessions.userId = users.id 
+    LEFT JOIN providers ON sessions.providerId = providers.id 
+    ORDER BY startTime DESC LIMIT 100
+  `;
+  db.all(query, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/admin/update-wallet', authenticateAdmin, (req, res) => {
+  const { type, id, amount } = req.body;
+  const table = type === 'user' ? 'users' : 'providers';
+  db.run(`UPDATE ${table} SET walletBalance = ? WHERE id = ?`, [amount, id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
 // ─── Billing Internals ────────────────────────────────────────────────────────
 const activeBillingTimers = {};
 
