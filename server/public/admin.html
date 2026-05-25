@@ -42,9 +42,6 @@
           <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-gray-600 border-l-4 border-transparent" id="tab-sessions" onclick="switchTab('sessions')">
             <i class="fa-solid fa-phone w-6"></i> Call Ledger
           </li>
-          <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-gray-600 border-l-4 border-transparent" id="tab-payouts" onclick="switchTab('payouts')">
-            <i class="fa-solid fa-money-bill-transfer w-6"></i> Provider Payouts
-          </li>
         </ul>
       </aside>
 
@@ -161,25 +158,6 @@
             </table>
           </div>
         </div>
-
-        <!-- Payouts Tab -->
-        <div id="content-payouts" class="hidden">
-          <h2 class="text-2xl font-bold mb-6">Pending Provider Payouts</h2>
-          <div class="bg-white rounded-lg shadow overflow-hidden flex flex-col min-h-[400px]">
-            <table class="min-w-full">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requested Amount</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wallet Balance</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="payouts-table" class="divide-y divide-gray-200"></tbody>
-            </table>
-          </div>
-        </div>
       </main>
     </div>
   </div>
@@ -232,7 +210,7 @@
     }
 
     function switchTab(tab) {
-      ['overview', 'users', 'providers', 'sessions', 'payouts'].forEach(t => {
+      ['overview', 'users', 'providers', 'sessions'].forEach(t => {
         document.getElementById('content-' + t).classList.add('hidden');
         const tabEl = document.getElementById('tab-' + t);
         tabEl.classList.remove('text-purple-700', 'font-bold', 'border-purple-600', 'bg-purple-50');

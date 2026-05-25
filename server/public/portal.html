@@ -316,6 +316,10 @@
           <i class="fas fa-wallet"></i>
           <span>Wallet & History</span>
         </div>
+        <div class="nav-item" data-view="withdraw">
+          <i class="fas fa-money-bill-transfer"></i>
+          <span>Withdraw Funds</span>
+        </div>
       </div>
       <div class="sidebar-footer">
         <div class="profile-card" id="logout-trigger">
@@ -403,18 +407,6 @@
 
         <!-- View: Earnings -->
         <div id="view-earnings" class="view-content">
-           <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; margin-bottom: 32px; display: flex; align-items: center; justify-content: space-between;">
-             <div>
-               <h3 style="margin: 0 0 8px; color: var(--text-dim); font-size: 12px; text-transform: uppercase; font-weight: 700; letter-spacing: 1.5px;">Current Wallet Balance</h3>
-               <h2 id="wallet-balance-big" style="margin: 0; font-size: 40px; color: var(--success); font-weight: 800;">$0.00</h2>
-               <p style="margin: 8px 0 0; font-size: 13px; color: var(--text-dim);">You can request up to 50% of your earnings early.</p>
-             </div>
-             <div>
-               <button onclick="requestPayout()" style="background: var(--primary); color: var(--bg-darker); border: none; padding: 16px 28px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,245,255,0.3); font-size: 14px; text-transform: uppercase;">Request Early Payout</button>
-             </div>
-           </div>
-
-           <div class="history-card">
               <table class="hist-table">
                 <thead>
                   <tr>
@@ -427,6 +419,47 @@
                 </thead>
                 <tbody id="history-target">
                   <!-- History rows here -->
+                </tbody>
+              </table>
+           </div>
+        </div>
+
+        <!-- View: Withdraw -->
+        <div id="view-withdraw" class="view-content">
+           <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; margin-bottom: 32px; max-width: 500px;">
+             <h3 style="margin: 0 0 16px; color: var(--text); font-size: 20px; font-weight: 700;">Withdraw Earnings</h3>
+             <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 24px;">According to company policy, you can cash out up to 50% of your total earnings before the 30-day timeline.</p>
+             
+             <div style="background: rgba(0,0,0,0.3); padding: 16px; border-radius: 12px; margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span style="color: var(--text-dim); font-size: 13px;">Total Balance</span>
+                  <span id="withdraw-total" style="font-weight: 700; color: var(--text);">$0.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: var(--text-dim); font-size: 13px;">Available to Withdraw (50%)</span>
+                  <span id="withdraw-avail" style="font-weight: 700; color: var(--success);">$0.00</span>
+                </div>
+             </div>
+
+             <div class="input-grp" style="margin-bottom: 24px;">
+               <label>Amount to Withdraw ($)</label>
+               <input type="number" id="withdraw-input" placeholder="e.g. 50">
+             </div>
+
+             <button onclick="processWithdrawal()" style="width: 100%; background: var(--primary); color: var(--bg-darker); border: none; padding: 16px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,245,255,0.3); font-size: 14px; text-transform: uppercase;">Confirm Withdrawal</button>
+           </div>
+           
+           <h3 style="color: var(--text); font-size: 18px; margin-bottom: 16px;">Withdrawal History</h3>
+           <div class="history-card">
+              <table class="hist-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Amount Withdrawn</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="withdrawals-target">
                 </tbody>
               </table>
            </div>
@@ -526,6 +559,7 @@
           document.getElementById('view-title').innerText = btn.querySelector('span').innerText;
           if (btn.dataset.view === 'inbox') fetchInbox();
           if (btn.dataset.view === 'earnings') fetchHistory();
+          if (btn.dataset.view === 'withdraw') { fetchStats(); fetchWithdrawals(); }
         };
       });
 
@@ -866,33 +900,44 @@
     };
 
     // Global Functions
-    async function requestPayout() {
+    async function processWithdrawal() {
       if (!provider) return;
+      const input = document.getElementById('withdraw-input').value;
+      const amount = Number(input);
+      if (!amount || amount <= 0) return alert('Enter a valid amount');
+      
       try {
-        const resStats = await fetch('/api/provider/' + provider.id);
-        const provData = await resStats.json();
-        const balance = provData.walletBalance || 0;
-        
-        if (balance <= 0) return alert('No funds to withdraw.');
-        const amount = prompt(`Your balance is $${balance.toFixed(2)}.\nYou can request up to 50% ($${(balance/2).toFixed(2)}).\n\nEnter amount to request:`);
-        if (!amount) return;
-        
-        const reqAmount = Number(amount);
-        if (reqAmount <= 0) return alert('Invalid amount');
-        if (reqAmount > (balance / 2) + 0.1) return alert('You can only request up to 50% of your total balance.');
-        
-        const res = await fetch('/api/provider/request-payout', {
+        const res = await fetch('/api/provider/withdraw', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ providerId: provider.id, amount: reqAmount })
+          body: JSON.stringify({ providerId: provider.id, amount })
         });
         
-        if (res.ok) alert('Payout request sent to admin for approval!');
-        else {
+        if (res.ok) {
+          alert('Withdrawal Successful! Funds have been deducted.');
+          document.getElementById('withdraw-input').value = '';
+          fetchStats();
+          fetchWithdrawals();
+        } else {
           const d = await res.json();
-          alert('Error: ' + d.error);
+          alert(d.error); // Will show the 50% policy popup from server
         }
-      } catch (e) { alert('Failed to send request'); }
+      } catch (e) { alert('Failed to process withdrawal'); }
+    }
+
+    async function fetchWithdrawals() {
+      if(!provider) return;
+      try {
+        const res = await fetch('/api/provider/withdrawals/' + provider.id);
+        const data = await res.json();
+        const tbody = document.getElementById('withdrawals-target');
+        tbody.innerHTML = '';
+        if (data.length === 0) tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color: var(--text-dim); padding: 32px;">No withdrawals yet.</td></tr>';
+        data.forEach(row => {
+          const d = new Date(row.date).toLocaleString();
+          tbody.innerHTML += `<tr><td style="color: var(--text-dim);">${d}</td><td style="font-weight: 800; color: var(--success);">$${row.amount.toFixed(2)}</td><td><span class="type-badge type-call">Completed</span></td></tr>`;
+        });
+      } catch(e){}
     }
 
     async function fetchStats() {
@@ -900,8 +945,11 @@
       const data = await res.json();
       document.getElementById('stat-balance').innerText = `$${data.walletBalance.toFixed(2)}`;
       document.getElementById('stat-today').innerText = `$${(data.walletBalance % 500).toFixed(2)}`;
-      const bigBal = document.getElementById('wallet-balance-big');
-      if (bigBal) bigBal.innerText = `$${data.walletBalance.toFixed(2)}`;
+      
+      const wTotal = document.getElementById('withdraw-total');
+      const wAvail = document.getElementById('withdraw-avail');
+      if (wTotal) wTotal.innerText = `$${data.walletBalance.toFixed(2)}`;
+      if (wAvail) wAvail.innerText = `$${(data.walletBalance / 2).toFixed(2)}`;
     }
 
     async function fetchHistory() {

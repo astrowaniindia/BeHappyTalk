@@ -508,7 +508,7 @@ app.get('/api/admin/withdrawals', authenticateAdmin, (req, res) => {
 });
 
 // Provider requests payout
-app.post('/api/provider/request-payout', (req, res) => {
+app.post('/api/provider/withdraw', (req, res) => {
   const { providerId, amount } = req.body;
   if (!providerId || !amount || amount <= 0) return res.status(400).json({ error: 'Invalid payout' });
   
@@ -516,34 +516,23 @@ app.post('/api/provider/request-payout', (req, res) => {
     if (!row || row.walletBalance < amount) return res.status(400).json({ error: 'Insufficient funds' });
     
     // Allow up to 50%
-    if (amount > (row.walletBalance / 2) + 0.1) return res.status(400).json({ error: 'Can only request up to 50% of balance' });
+    if (amount > (row.walletBalance / 2) + 0.1) {
+      return res.status(400).json({ error: "According to company's policy you can cash out only 50% of your total earning" });
+    }
     
-    db.run('INSERT INTO payout_requests (providerId, amount) VALUES (?, ?)', [providerId, amount], function(err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ success: true });
+    // Auto-approve and deduct
+    db.run('UPDATE providers SET walletBalance = walletBalance - ? WHERE id = ?', [amount, providerId], (err) => {
+      db.run('INSERT INTO provider_withdrawals (providerId, amount) VALUES (?, ?)', [providerId, amount], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+      });
     });
   });
 });
 
-// Admin fetches pending payouts
-app.get('/api/admin/payout-requests', authenticateAdmin, (req, res) => {
-  db.all(`
-    SELECT p.id, p.providerId, p.amount, p.status, p.date, prov.name as providerName, prov.walletBalance
-    FROM payout_requests p
-    JOIN providers prov ON p.providerId = prov.id
-    ORDER BY p.date DESC
-  `, [], (err, rows) => {
+app.get('/api/provider/withdrawals/:providerId', (req, res) => {
+  db.all('SELECT * FROM provider_withdrawals WHERE providerId = ? ORDER BY date DESC', [req.params.providerId], (err, rows) => {
     res.json(rows || []);
-  });
-});
-
-// Admin approves payout
-app.post('/api/admin/approve-payout', authenticateAdmin, (req, res) => {
-  const { requestId, providerId, amount } = req.body;
-  db.run('UPDATE providers SET walletBalance = walletBalance - ? WHERE id = ?', [amount, providerId], (err) => {
-    db.run('UPDATE payout_requests SET status = "approved" WHERE id = ?', [requestId], (err) => {
-      res.json({ success: true });
-    });
   });
 });
 
@@ -743,11 +732,10 @@ db.run(`CREATE TABLE IF NOT EXISTS admin_withdrawals (
   amount REAL,
   date DATETIME DEFAULT CURRENT_TIMESTAMP
 )`);
-db.run(`CREATE TABLE IF NOT EXISTS payout_requests (
+db.run(`CREATE TABLE IF NOT EXISTS provider_withdrawals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   providerId TEXT,
   amount REAL,
-  status TEXT DEFAULT 'pending',
   date DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(providerId) REFERENCES providers(id)
 )`);
