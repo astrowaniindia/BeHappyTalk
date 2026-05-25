@@ -428,8 +428,7 @@
                   <input type="file" id="file-input" style="display: none;" onchange="sendFile(event)" accept="image/*">
                   <button class="send-btn" style="background: transparent; color: var(--text-dim);" onclick="document.getElementById('file-input').click()"><i class="fas fa-paperclip"></i></button>
                   
-                  <input type="text" id="msg-input" placeholder="Compose your response..." maxlength="500" oninput="updateCharCount(); sendTyping()">
-                  <span id="char-count" style="position: absolute; right: 90px; top: -15px; font-size: 10px; color: var(--text-dim);">0/500</span>
+                  <input type="text" id="msg-input" placeholder="Compose your response..." oninput="sendTyping()">
                   
                   <button class="send-btn" id="msg-send"><i class="fas fa-paper-plane-top"></i></button>
                </div>
@@ -1134,13 +1133,7 @@
     function insertReply(txt) {
       const inp = document.getElementById('msg-input');
       inp.value = txt;
-      updateCharCount();
       inp.focus();
-    }
-
-    function updateCharCount() {
-      const inp = document.getElementById('msg-input');
-      document.getElementById('char-count').innerText = inp.value.length + '/500';
     }
 
     let typingTimeout;
