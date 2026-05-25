@@ -946,6 +946,7 @@
 
   <script>
     let socket;
+    let currentIncomingReq = null;
     let provider = null;
     let users = [];
     let activeUserId = null;
@@ -1097,8 +1098,8 @@
         }, 1000);
 
         // Start WebRTC Media
-        if (type !== 'Chat') {
-           startMedia(type);
+        if (type === 'Chat') {
+           startMedia(type); // Only start chat automatically
         }
       });
 
@@ -1369,11 +1370,7 @@
     
     
     // --- VIDEO CALLING PROTOTYPE LOGIC ---
-    let vidCalls = [
-      { id: 'v1', name: 'Simran', status: 'waiting', time: 'Just now', duration: 0 },
-      { id: 'v2', name: 'Kabir', status: 'missed', time: '10m ago', duration: 0 },
-      { id: 'v3', name: 'Ananya', status: 'ended', time: '2h ago', duration: 840 }
-    ];
+    let vidCalls = [];
     
     let curVid = null;
     let vidTimer = null;
@@ -1472,7 +1469,11 @@
       setVidState('waiting');
     }
 
-    function declineVideoCall() { clearTimeout(vidMissTimeout); curVid.status = 'ended'; renderVidQueue(); setVidState('idle'); }
+    function declineVideoCall() {
+      clearTimeout(vidMissTimeout); 
+      if (currentIncomingReq) socket.emit('reject_interaction', { userId: currentIncomingReq.userId, providerId: provider.id });
+      curVid.status = 'ended'; renderVidQueue(); setVidState('idle'); 
+    }
 
     function joinVideoCall() {
       clearInterval(vidWaitTimer);
@@ -1604,23 +1605,13 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => renderVidQueue(), 1000);
-      setInterval(() => {
-        if(!isVidDND && curVid?.status !== 'active' && curVid?.status !== 'waiting' && curVid?.status !== 'connecting' && Math.random() > 0.8) {
-           const id = 'v' + Date.now();
-           vidCalls.unshift({ id, name: 'Video User ' + Math.floor(Math.random()*100), status: 'waiting', time: 'Just now', duration: 0 });
-           renderVidQueue();
-        }
-      }, 15000);
+      
     });
 
 
 
     // --- AUDIO CALLING PROTOTYPE LOGIC ---
-    let audioCalls = [
-      { id: 'c1', name: 'Ridhi', status: 'waiting', time: 'Just now', duration: 0 },
-      { id: 'c2', name: 'Aarav', status: 'missed', time: '5m ago', duration: 0 },
-      { id: 'c3', name: 'Vandana', status: 'ended', time: '1h ago', duration: 320 }
-    ];
+    let audioCalls = [];
     
     let currentAudioCall = null;
     let audioTimerInt = null;
@@ -1740,10 +1731,9 @@
     }
     
     function declineAudioCall() {
-      clearTimeout(missedTimeout);
-      currentAudioCall.status = 'ended';
-      renderAudioQueue();
-      setAudioState('idle');
+      clearTimeout(audioMissTimeout); 
+      if (currentIncomingReq) socket.emit('reject_interaction', { userId: currentIncomingReq.userId, providerId: provider.id });
+      curAudioCall.status = 'ended'; renderAudioQueue(); setAudioState('idle'); 
     }
 
     function tickAudio() {
@@ -2181,12 +2171,14 @@ function renderMsg(msg) {
     }
 
     async function startMedia(type) {
-       // Guard against double-call (accept button + session_started both firing)
        if (localStream) {
          console.log('[WebRTC] startMedia called but stream already exists — skipping duplicate');
          return;
        }
-       document.getElementById('media-overlay').style.display = 'flex';
+       
+       if (type === 'Chat') {
+         document.getElementById('media-overlay').style.display = 'flex';
+       }
        document.getElementById('media-name').innerText = document.getElementById('active-chat-name').innerText;
        document.getElementById('media-desc').innerText = `Connecting...`;
        document.getElementById('call-cam').style.display = type === 'Video' ? 'flex' : 'none';
@@ -2204,13 +2196,21 @@ function renderMsg(msg) {
            });
 
            if (type === 'Video') {
-              const localVideo = document.getElementById('local-video');
+              let localVideo = document.getElementById('local-video');
+              if (currentIncomingReq && currentIncomingReq.type === 'Video') {
+                  localVideo = document.getElementById('vid-pip');
+                  document.getElementById('vid-pip-cam').style.display = 'none';
+                  document.getElementById('vid-pip-off').style.display = 'none';
+              }
               localVideo.innerHTML = '';
               const videoEl = document.createElement('video');
               videoEl.srcObject = localStream;
               videoEl.autoplay = true;
               videoEl.playsInline = true;
               videoEl.muted = true;
+              if (currentIncomingReq && currentIncomingReq.type === 'Video') {
+                 videoEl.style.width = '100%'; videoEl.style.height = '100%'; videoEl.style.objectFit = 'cover';
+              }
               localVideo.appendChild(videoEl);
            }
 
