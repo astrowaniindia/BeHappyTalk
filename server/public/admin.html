@@ -21,7 +21,7 @@
 
   <!-- Dashboard Screen -->
   <div id="dashboard-screen" class="hidden min-h-screen flex flex-col">
-    <nav class="bg-purple-700 text-white p-4 shadow-lg flex justify-between items-center">
+    <nav class="bg-purple-700 text-white p-4 shadow-lg flex justify-between items-center z-10">
       <h1 class="text-xl font-bold"><i class="fa-solid fa-shield-halved mr-2"></i> BeHappyTalk Admin</h1>
       <button onclick="logout()" class="bg-purple-800 px-4 py-1 rounded hover:bg-purple-900 text-sm">Logout</button>
     </nav>
@@ -30,7 +30,10 @@
       <!-- Sidebar -->
       <aside class="w-64 bg-white shadow-md">
         <ul class="mt-4">
-          <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-purple-700 font-bold border-l-4 border-purple-600" id="tab-users" onclick="switchTab('users')">
+          <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-purple-700 font-bold border-l-4 border-purple-600" id="tab-overview" onclick="switchTab('overview')">
+            <i class="fa-solid fa-chart-line w-6"></i> Overview
+          </li>
+          <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-gray-600 border-l-4 border-transparent" id="tab-users" onclick="switchTab('users')">
             <i class="fa-solid fa-users w-6"></i> Users (Customers)
           </li>
           <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-gray-600 border-l-4 border-transparent" id="tab-providers" onclick="switchTab('providers')">
@@ -44,7 +47,32 @@
 
       <!-- Main Content -->
       <main class="flex-1 p-8 overflow-auto">
-        <div id="content-users">
+        
+        <!-- Overview Tab -->
+        <div id="content-overview">
+          <h2 class="text-2xl font-bold mb-6">System Overview</h2>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+              <h3 class="text-gray-500 text-sm font-semibold uppercase">Total Users</h3>
+              <p class="text-3xl font-bold mt-2" id="stat-users">0</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
+              <h3 class="text-gray-500 text-sm font-semibold uppercase">Total Providers</h3>
+              <p class="text-3xl font-bold mt-2" id="stat-providers">0</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-500">
+              <h3 class="text-gray-500 text-sm font-semibold uppercase">Total Sessions</h3>
+              <p class="text-3xl font-bold mt-2" id="stat-sessions">0</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+              <h3 class="text-gray-500 text-sm font-semibold uppercase">Total Revenue</h3>
+              <p class="text-3xl font-bold mt-2 text-green-600">$<span id="stat-revenue">0</span></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Users Tab -->
+        <div id="content-users" class="hidden">
           <h2 class="text-2xl font-bold mb-6">Manage Users</h2>
           <div class="bg-white rounded-lg shadow overflow-hidden">
             <table class="min-w-full">
@@ -54,7 +82,7 @@
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wallet ($)</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody id="users-table" class="divide-y divide-gray-200"></tbody>
@@ -62,6 +90,7 @@
           </div>
         </div>
 
+        <!-- Providers Tab -->
         <div id="content-providers" class="hidden">
           <h2 class="text-2xl font-bold mb-6">Manage Providers</h2>
           <div class="bg-white rounded-lg shadow overflow-hidden">
@@ -70,10 +99,10 @@
                 <tr>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wallet ($)</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Verification</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody id="providers-table" class="divide-y divide-gray-200"></tbody>
@@ -81,6 +110,7 @@
           </div>
         </div>
 
+        <!-- Sessions Tab -->
         <div id="content-sessions" class="hidden">
           <h2 class="text-2xl font-bold mb-6">Recent Sessions</h2>
           <div class="bg-white rounded-lg shadow overflow-hidden">
@@ -147,11 +177,11 @@
     function showDashboard() {
       document.getElementById('login-screen').classList.add('hidden');
       document.getElementById('dashboard-screen').classList.remove('hidden');
-      switchTab('users');
+      switchTab('overview');
     }
 
     function switchTab(tab) {
-      ['users', 'providers', 'sessions'].forEach(t => {
+      ['overview', 'users', 'providers', 'sessions'].forEach(t => {
         document.getElementById('content-' + t).classList.add('hidden');
         const tabEl = document.getElementById('tab-' + t);
         tabEl.classList.remove('text-purple-700', 'font-bold', 'border-purple-600', 'bg-purple-50');
@@ -163,7 +193,20 @@
       activeTab.classList.remove('text-gray-600', 'border-transparent');
       activeTab.classList.add('text-purple-700', 'font-bold', 'border-purple-600', 'bg-purple-50');
       
-      loadData(tab);
+      if (tab === 'overview') loadStats();
+      else loadData(tab);
+    }
+
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/admin/stats', { headers: {'Authorization': 'Bearer ' + token} });
+        if (res.status === 401 || res.status === 403) return logout();
+        const data = await res.json();
+        document.getElementById('stat-users').innerText = data.users;
+        document.getElementById('stat-providers').innerText = data.providers;
+        document.getElementById('stat-sessions').innerText = data.sessions;
+        document.getElementById('stat-revenue').innerText = data.revenue || 0;
+      } catch(e) {}
     }
 
     async function loadData(type) {
@@ -191,26 +234,33 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.id}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.name}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.phone}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">
-              <input type="number" id="wallet-user-${row.id}" value="${row.walletBalance}" class="w-20 border px-2 py-1 rounded">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold flex items-center">
+              $<input type="number" id="wallet-user-${row.id}" value="${row.walletBalance}" class="ml-1 w-20 border px-2 py-1 rounded">
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-              <button onclick="updateWallet('user', '${row.id}')" class="text-purple-600 hover:text-purple-900 bg-purple-100 px-3 py-1 rounded">Save</button>
+              <button onclick="updateWallet('user', '${row.id}')" class="text-white bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded mr-2"><i class="fa-solid fa-save"></i> Save</button>
+              <button onclick="deleteAccount('user', '${row.id}')" class="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded"><i class="fa-solid fa-trash"></i> Ban</button>
             </td>
           `;
         } else if (type === 'providers') {
+          const verified = row.verified === 1;
           tr.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.id}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.name}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.phone}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">
-              <input type="number" id="wallet-provider-${row.id}" value="${row.walletBalance}" class="w-20 border px-2 py-1 rounded">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.name} <br> <span class="text-gray-400 text-xs">${row.phone}</span></td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold flex items-center">
+              $<input type="number" id="wallet-provider-${row.id}" value="${row.walletBalance}" class="ml-1 w-20 border px-2 py-1 rounded">
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
-              <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${row.status==='online' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${row.status}</span>
+              <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${row.status==='online' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">${row.status}</span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm">
+              <button onclick="toggleVerify('${row.id}', ${verified ? 0 : 1})" class="px-3 py-1 rounded text-white text-xs font-bold ${verified ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-400 hover:bg-gray-500'}">
+                ${verified ? '<i class="fa-solid fa-check-circle"></i> Verified' : 'Unverified'}
+              </button>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-              <button onclick="updateWallet('provider', '${row.id}')" class="text-purple-600 hover:text-purple-900 bg-purple-100 px-3 py-1 rounded">Save</button>
+              <button onclick="updateWallet('provider', '${row.id}')" class="text-white bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded mr-2"><i class="fa-solid fa-save"></i> Save</button>
+              <button onclick="deleteAccount('provider', '${row.id}')" class="text-white bg-red-500 hover:bg-red-600 px-3 py-1 rounded"><i class="fa-solid fa-trash"></i> Delete</button>
             </td>
           `;
         } else if (type === 'sessions') {
@@ -232,20 +282,35 @@
       try {
         const res = await fetch('/api/admin/update-wallet', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
           body: JSON.stringify({ type, id, amount: Number(amount) })
         });
-        if (res.ok) {
-          alert('Wallet updated successfully!');
-        } else {
-          alert('Failed to update wallet');
-        }
-      } catch (e) {
-        alert('Error updating wallet');
-      }
+        if (res.ok) alert('Wallet updated successfully!');
+      } catch (e) { alert('Error updating wallet'); }
+    }
+
+    async function toggleVerify(id, verifyVal) {
+      if(!confirm('Change verification status?')) return;
+      try {
+        const res = await fetch('/api/admin/verify-provider', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ id, verified: verifyVal })
+        });
+        if (res.ok) loadData('providers');
+      } catch (e) { alert('Error verifying provider'); }
+    }
+
+    async function deleteAccount(type, id) {
+      if(!confirm(`Are you absolutely sure you want to permanently delete this ${type}? This cannot be undone.`)) return;
+      try {
+        const res = await fetch(`/api/admin/delete-${type}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ id })
+        });
+        if (res.ok) loadData(type + 's');
+      } catch (e) { alert('Error deleting account'); }
     }
   </script>
 </body>

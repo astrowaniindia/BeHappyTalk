@@ -438,6 +438,53 @@ app.post('/api/admin/update-wallet', authenticateAdmin, (req, res) => {
   });
 });
 
+app.post('/api/admin/delete-user', authenticateAdmin, (req, res) => {
+  const { id } = req.body;
+  db.run('DELETE FROM messages WHERE userId = ?', [id], () => {
+    db.run('DELETE FROM sessions WHERE userId = ?', [id], () => {
+      db.run('DELETE FROM users WHERE id = ?', [id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+      });
+    });
+  });
+});
+
+app.post('/api/admin/delete-provider', authenticateAdmin, (req, res) => {
+  const { id } = req.body;
+  db.run('DELETE FROM messages WHERE providerId = ?', [id], () => {
+    db.run('DELETE FROM sessions WHERE providerId = ?', [id], () => {
+      db.run('DELETE FROM providers WHERE id = ?', [id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+      });
+    });
+  });
+});
+
+app.post('/api/admin/verify-provider', authenticateAdmin, (req, res) => {
+  const { id, verified } = req.body;
+  db.run('UPDATE providers SET verified = ? WHERE id = ?', [verified, id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+app.get('/api/admin/stats', authenticateAdmin, (req, res) => {
+  db.get('SELECT COUNT(*) as users FROM users', [], (err1, row1) => {
+    db.get('SELECT COUNT(*) as providers FROM providers', [], (err2, row2) => {
+      db.get('SELECT COUNT(*) as sessions, SUM(cost) as revenue FROM sessions', [], (err3, row3) => {
+        res.json({
+          users: row1 ? row1.users : 0,
+          providers: row2 ? row2.providers : 0,
+          sessions: row3 ? row3.sessions : 0,
+          revenue: row3 ? row3.revenue : 0
+        });
+      });
+    });
+  });
+});
+
 // ─── Billing Internals ────────────────────────────────────────────────────────
 const activeBillingTimers = {};
 
