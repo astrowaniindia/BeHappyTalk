@@ -396,7 +396,7 @@
           <div class="avatar" id="avatar-letter">P</div>
           <div class="profile-info">
             <span class="p-name" id="p-name-card">Creator</span>
-            <span class="p-status">● Live Now</span>
+            <span class="p-status" id="p-status-card">● Live Now</span>
           </div>
           <i class="fas fa-power-off" style="color: var(--text-dim); font-size: 18px;"></i>
         </div>
@@ -405,13 +405,30 @@
 
     <div class="main-wrapper">
       <header>
+        
         <div class="header-left">
           <button class="toggle-sidebar" id="sidebar-toggle"><i class="fas fa-bars-staggered"></i></button>
           <h1 id="view-title">Studio Dashboard</h1>
         </div>
-        <div style="font-size: 14px; color: var(--text-dim); font-weight: 600; display: flex; align-items: center; gap: 10px;">
-          <i class="far fa-calendar-check" style="color: var(--primary);"></i> <span id="current-date">--</span>
+        
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <!-- Specific Medium Toggles -->
+          <div style="display: flex; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 12px; gap: 4px;">
+            <button id="toggle-chat" onclick="toggleMedium('chat')" style="border: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: 0.3s; background: var(--success); color: var(--bg-darker);"><i class="fas fa-comment-dots"></i> Chat</button>
+            <button id="toggle-audio" onclick="toggleMedium('audio')" style="border: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: 0.3s; background: var(--success); color: var(--bg-darker);"><i class="fas fa-phone"></i> Call</button>
+            <button id="toggle-video" onclick="toggleMedium('video')" style="border: none; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; transition: 0.3s; background: var(--success); color: var(--bg-darker);"><i class="fas fa-video"></i> Video</button>
+          </div>
+          
+          <!-- Master Toggle -->
+          <button id="toggle-master" onclick="toggleMasterStatus()" style="border: none; padding: 8px 24px; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: pointer; transition: 0.3s; background: var(--success); color: var(--bg-darker); box-shadow: 0 4px 15px rgba(0,255,148,0.3);"><i class="fas fa-signal-stream"></i> ONLINE</button>
+          
+          <div style="width: 1px; height: 24px; background: var(--border);"></div>
+          
+          <div style="font-size: 14px; color: var(--text-dim); font-weight: 600; display: flex; align-items: center; gap: 8px;">
+            <i class="far fa-calendar-check" style="color: var(--primary);"></i> <span id="current-date">--</span>
+          </div>
         </div>
+
       </header>
 
       <div class="content-area">
@@ -995,6 +1012,62 @@
       initApp();
     }
 
+    
+    let isMasterOnline = true;
+    let providerSettings = { chat: true, audio: true, video: true };
+    let isTalking = false;
+
+    function emitProviderStatus() {
+       if(!socket || !provider) return;
+       socket.emit('update_provider_status', { 
+           providerId: provider.id, 
+           isOnline: isMasterOnline, 
+           isTalking: isTalking, 
+           settings: providerSettings 
+       });
+       
+       // Update UI
+       document.getElementById('p-status-card').innerHTML = isTalking ? '● Talking...' : (isMasterOnline ? '● Live Now' : '○ Offline');
+       document.getElementById('p-status-card').style.color = isTalking ? '#FACC15' : (isMasterOnline ? 'var(--success)' : 'var(--text-dim)');
+    }
+
+    function toggleMasterStatus() {
+       isMasterOnline = !isMasterOnline;
+       const btn = document.getElementById('toggle-master');
+       if(isMasterOnline) {
+          btn.style.background = 'var(--success)';
+          btn.style.color = 'var(--bg-darker)';
+          btn.style.boxShadow = '0 4px 15px rgba(0,255,148,0.3)';
+          btn.innerHTML = '<i class="fas fa-signal-stream"></i> ONLINE';
+       } else {
+          btn.style.background = 'rgba(255,255,255,0.1)';
+          btn.style.color = 'var(--text-dim)';
+          btn.style.boxShadow = 'none';
+          btn.innerHTML = '<i class="fas fa-power-off"></i> OFFLINE';
+       }
+       emitProviderStatus();
+    }
+
+    function toggleMedium(type) {
+       providerSettings[type] = !providerSettings[type];
+       const btn = document.getElementById('toggle-' + type);
+       if(providerSettings[type]) {
+          btn.style.background = 'var(--success)';
+          btn.style.color = 'var(--bg-darker)';
+       } else {
+          btn.style.background = 'rgba(255,255,255,0.1)';
+          btn.style.color = 'var(--text-dim)';
+       }
+       emitProviderStatus();
+    }
+    
+    // We want to default it immediately when provider finishes login:
+    function setTalkingState(talking) {
+       isTalking = talking;
+       emitProviderStatus();
+    }
+
+
     // Date
     document.getElementById('current-date').innerText = new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'short' });
 
@@ -1027,6 +1100,7 @@
         if (reason === 'io server disconnect') socket.connect();
       });
       socket.emit('provider_online', { providerId: provider.id });
+      setTimeout(emitProviderStatus, 500); // Initial sync
 
       // Views Swapping
       document.querySelectorAll('.nav-item').forEach(btn => {
@@ -1120,6 +1194,7 @@
       });
 
       socket.on('session_started', async ({ sessionId, type, duration, agoraChannel, agoraRole }) => {
+        setTalkingState(true);
         currentSessionId = sessionId;
         timeRemaining = duration * 60;
         document.getElementById('chat-timer').style.display = 'block';
@@ -1138,6 +1213,7 @@
       });
 
       socket.on('session_ended', () => {
+        setTalkingState(false);
         clearInterval(timerInt);
         currentSessionId = null; // Clear session reference
         document.getElementById('chat-timer').style.display = 'none';
@@ -1524,6 +1600,7 @@
         }, 15000);
       } else if (curVid.status === 'active') {
         setVidState('active');
+        setTalkingState(true);
       } else {
         setVidState('idle');
       }
@@ -1554,7 +1631,8 @@
     function declineVideoCall() {
       clearTimeout(vidMissTimeout); 
       if (currentIncomingReq) socket.emit('reject_interaction', { userId: currentIncomingReq.userId, providerId: provider.id });
-      curVid.status = 'ended'; renderVidQueue(); setVidState('idle'); 
+      curVid.status = 'ended'; renderVidQueue();
+      setTalkingState(false); setVidState('idle'); 
     }
 
     function joinVideoCall() {
@@ -1767,6 +1845,7 @@
         }, 15000);
       } else if (currentAudioCall.status === 'active') {
         setAudioState('active');
+        setTalkingState(true);
       } else {
         setAudioState('idle');
       }
@@ -1838,6 +1917,7 @@
       document.getElementById('ended-earnings').innerText = document.getElementById('active-earnings').innerText;
       
       setAudioState('ended');
+      setTalkingState(false);
     }
 
     function toggleActiveMic() {

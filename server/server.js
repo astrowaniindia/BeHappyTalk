@@ -62,6 +62,10 @@ if (!firebaseInitialized) {
   console.log('⚠️ Firebase OTP verification is currently disabled.');
 }
 
+
+// ─── Provider State Tracking ──────────────────────────────────────────────────
+const providerStates = {};
+
 // ─── App setup ────────────────────────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_local_dev_only';
 const app = express();
@@ -602,7 +606,36 @@ io.on('connection', (socket) => {
     console.log(`[Socket] User ${userId} joined their room.`);
   });
 
+  
+  socket.on('update_provider_status', ({ providerId, isOnline, isTalking, settings }) => {
+    if (!providerStates[providerId]) {
+      providerStates[providerId] = { isOnline: true, isTalking: false, settings: { chat: true, audio: true, video: true } };
+    }
+    
+    if (isOnline !== undefined) providerStates[providerId].isOnline = isOnline;
+    if (isTalking !== undefined) providerStates[providerId].isTalking = isTalking;
+    if (settings !== undefined) providerStates[providerId].settings = { ...providerStates[providerId].settings, ...settings };
+
+    // Broadcast to ALL connected clients so mobile users see the change immediately
+    io.emit('provider_status_changed', { providerId, state: providerStates[providerId] });
+    console.log(`[Socket] Provider ${providerId} status updated: `, providerStates[providerId]);
+  });
+
+  socket.on('get_all_provider_statuses', (data, callback) => {
+    if (typeof callback === 'function') {
+      callback(providerStates);
+    }
+  });
+
   socket.on('provider_online', ({ providerId }) => {
+    if (!providerStates[providerId]) {
+      providerStates[providerId] = { isOnline: true, isTalking: false, settings: { chat: true, audio: true, video: true } };
+    } else {
+      // Just ensure they are marked online
+      providerStates[providerId].isOnline = true;
+    }
+    io.emit('provider_status_changed', { providerId, state: providerStates[providerId] });
+
     socket.join(`provider_room_${providerId}`);
     console.log(`[Socket] Provider ${providerId} joined their room.`);
   });
@@ -726,6 +759,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    // We don't know the providerId directly from the socket disconnect unless we map it.
+    // Let's iterate and find if this socket belonged to a provider (optional cleanup).
+
     console.log('Socket disconnected:', socket.id);
   });
 });

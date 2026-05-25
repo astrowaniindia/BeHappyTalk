@@ -74,10 +74,38 @@ export default function Home() {
       
       const joinRoom = () => {
         socketRef.current.emit('user_online', { userId: user.id });
+        socketRef.current.emit('get_all_provider_statuses', {}, (statuses: any) => {
+           setProviders(prev => prev.map(p => {
+              const state = statuses[p.id];
+              if (state) {
+                 return { 
+                   ...p, 
+                   isOnline: state.isOnline, 
+                   status: state.isOnline ? (state.isTalking ? 'busy' : 'online') : 'offline',
+                   settings: state.settings 
+                 };
+              }
+              return p;
+           }));
+        });
       };
 
       socketRef.current.on('connect', joinRoom);
       if (socketRef.current.connected) joinRoom();
+
+      socketRef.current.on('provider_status_changed', ({ providerId, state }: any) => {
+         setProviders(prev => prev.map(p => {
+            if (p.id === providerId) {
+               return { 
+                 ...p, 
+                 isOnline: state.isOnline, 
+                 status: state.isOnline ? (state.isTalking ? 'busy' : 'online') : 'offline',
+                 settings: state.settings 
+               };
+            }
+            return p;
+         }));
+      });
 
       socketRef.current.on('session_accepted', ({ providerId, sessionId, type, duration, agoraChannel }: any) => {
         console.log('[Socket] Session Accepted received! Channel:', agoraChannel);
@@ -162,7 +190,7 @@ export default function Home() {
     <TouchableOpacity style={styles.recentItem} onPress={() => router.push(`/chat/${item.id}`)}>
       <View style={styles.recentAvatarCt}>
         <Image source={item.image} style={styles.recentAvatar} />
-        <View style={[styles.statusDot, { backgroundColor: item.status === 'online' ? '#34D399' : '#EF4444' }]} />
+        <View style={[styles.statusDot, { backgroundColor: item.status === 'online' ? '#34D399' : (item.status === 'busy' ? '#FACC15' : 'rgba(255,255,255,0.2)') }]} />
       </View>
       <Text style={styles.recentName} numberOfLines={1}>{item.name}</Text>
     </TouchableOpacity>
@@ -179,6 +207,7 @@ export default function Home() {
           <View style={styles.nameRow}>
             <Text style={styles.providerName}>{item.name}</Text>
             {item.verified ? <MaterialCommunityIcons name="check-decagram" size={16} color="#FDE047" /> : null}
+            {item.status === 'busy' && <Text style={{color: '#FACC15', fontSize: 11, fontWeight: 'bold', marginLeft: 4, fontStyle: 'italic'}}>Talking...</Text>}
           </View>
           <Text style={styles.providerDemo}>{item.demographic}</Text>
           <Text style={styles.providerRating}>
@@ -461,6 +490,7 @@ export default function Home() {
                        <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginTop: 4 }}>Select an interaction type to continue</Text>
                     </View>
 
+                    {(!selectedProvider.settings || selectedProvider.settings.chat !== false) && (
                     <TouchableOpacity style={styles.interactionOption} onPress={() => promptDuration('Chat', selectedProvider.priceChat)}>
                        <MaterialCommunityIcons name="chat-processing" size={28} color="#34D399" />
                        <View style={styles.interactionInfo}>
@@ -469,8 +499,10 @@ export default function Home() {
                        </View>
                        <MaterialIcons name="chevron-right" size={24} color="rgba(255,255,255,0.25)" />
                     </TouchableOpacity>
+                    )}
 
-                    <TouchableOpacity style={styles.interactionOption} onPress={() => promptDuration('Call', selectedProvider.priceCall)}>
+                    {(!selectedProvider.settings || selectedProvider.settings.audio !== false) && (
+                    <TouchableOpacity style={styles.interactionOption} onPress={() => promptDuration('Audio', selectedProvider.priceCall)}>
                        <MaterialCommunityIcons name="phone" size={28} color="#00E5FF" />
                        <View style={styles.interactionInfo}>
                           <Text style={styles.interactionTitle}>Voice Call</Text>
@@ -478,7 +510,9 @@ export default function Home() {
                        </View>
                        <MaterialIcons name="chevron-right" size={24} color="rgba(255,255,255,0.25)" />
                     </TouchableOpacity>
+                    )}
 
+                    {(!selectedProvider.settings || selectedProvider.settings.video !== false) && (
                     <TouchableOpacity style={styles.interactionOption} onPress={() => promptDuration('Video', selectedProvider.priceVideo)}>
                        <MaterialCommunityIcons name="video" size={28} color="#FACC15" />
                        <View style={styles.interactionInfo}>
@@ -487,6 +521,7 @@ export default function Home() {
                        </View>
                        <MaterialIcons name="chevron-right" size={24} color="rgba(255,255,255,0.25)" />
                     </TouchableOpacity>
+                    )}
                  </>
               )}
            </View>
@@ -522,8 +557,8 @@ export default function Home() {
         <View style={styles.modalOverlay}>
            <View style={[styles.anonModalContent, { alignItems: 'center', padding: 32 }]}>
               <ActivityIndicator size="large" color="#3B82F6" style={{ marginBottom: 16 }} />
-              <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 16, fontWeight: 'bold' }}>Requesting Session...</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginTop: 8, textAlign: 'center', marginBottom: 20 }}>Waiting for provider to accept</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 16, fontWeight: 'bold' }}>{selectedProvider?.status === 'busy' ? 'Joining Waitlist...' : 'Requesting Session...'}</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginTop: 8, textAlign: 'center', marginBottom: 20 }}>{selectedProvider?.status === 'busy' ? 'You are in queue. Provider will accept when free.' : 'Waiting for provider to accept'}</Text>
               
               <TouchableOpacity
                  style={{ borderWidth: 1, borderColor: '#EF4444', borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 }}
