@@ -51,7 +51,7 @@
         <!-- Overview Tab -->
         <div id="content-overview">
           <h2 class="text-2xl font-bold mb-6">System Overview</h2>
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
               <h3 class="text-gray-500 text-sm font-semibold uppercase">Total Users</h3>
               <p class="text-3xl font-bold mt-2" id="stat-users">0</p>
@@ -64,9 +64,13 @@
               <h3 class="text-gray-500 text-sm font-semibold uppercase">Total Sessions</h3>
               <p class="text-3xl font-bold mt-2" id="stat-sessions">0</p>
             </div>
-            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-              <h3 class="text-gray-500 text-sm font-semibold uppercase">Total Revenue</h3>
-              <p class="text-3xl font-bold mt-2 text-green-600">$<span id="stat-revenue">0</span></p>
+            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-gray-500">
+              <h3 class="text-gray-500 text-sm font-semibold uppercase">Gross Revenue</h3>
+              <p class="text-3xl font-bold mt-2 text-gray-600">$<span id="stat-revenue">0</span></p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500 bg-green-50">
+              <h3 class="text-green-700 text-sm font-semibold uppercase">Admin Earnings</h3>
+              <p class="text-3xl font-bold mt-2 text-green-600">$<span id="stat-adminEarnings">0</span></p>
             </div>
           </div>
         </div>
@@ -206,6 +210,7 @@
         document.getElementById('stat-providers').innerText = data.providers;
         document.getElementById('stat-sessions').innerText = data.sessions;
         document.getElementById('stat-revenue').innerText = data.revenue || 0;
+        document.getElementById('stat-adminEarnings').innerText = data.adminEarnings || 0;
       } catch(e) {}
     }
 

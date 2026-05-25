@@ -473,12 +473,15 @@ app.post('/api/admin/verify-provider', authenticateAdmin, (req, res) => {
 app.get('/api/admin/stats', authenticateAdmin, (req, res) => {
   db.get('SELECT COUNT(*) as users FROM users', [], (err1, row1) => {
     db.get('SELECT COUNT(*) as providers FROM providers', [], (err2, row2) => {
-      db.get('SELECT COUNT(*) as sessions, SUM(cost) as revenue FROM sessions', [], (err3, row3) => {
+      db.get('SELECT COUNT(*) as sessions, SUM(cost) as revenue, SUM(adminEarnings) as adminEarnings FROM sessions', [], (err3, row3) => {
+        const rev = row3 ? row3.revenue : 0;
+        const adm = row3 && row3.adminEarnings !== null ? row3.adminEarnings : (rev / 2);
         res.json({
           users: row1 ? row1.users : 0,
           providers: row2 ? row2.providers : 0,
           sessions: row3 ? row3.sessions : 0,
-          revenue: row3 ? row3.revenue : 0
+          revenue: rev,
+          adminEarnings: adm
         });
       });
     });
@@ -523,10 +526,12 @@ function startBillingInterval(sessionId, userId, providerId, rate, room, passedD
       }
 
       const newUserBalance = userBalance - rate;
+      const providerShare = rate / 2;
+      const adminShare = rate - providerShare;
 
       db.run('UPDATE users SET walletBalance = ? WHERE id = ?', [newUserBalance, userId]);
-      db.run('UPDATE providers SET walletBalance = walletBalance + ? WHERE id = ?', [rate, providerId]);
-      db.run('UPDATE sessions SET duration = duration + 1, cost = cost + ? WHERE id = ?', [rate, sessionId]);
+      db.run('UPDATE providers SET walletBalance = walletBalance + ? WHERE id = ?', [providerShare, providerId]);
+      db.run('UPDATE sessions SET duration = duration + 1, cost = cost + ?, adminEarnings = adminEarnings + ? WHERE id = ?', [rate, adminShare, sessionId]);
 
       minutesPassed++;
 
@@ -673,6 +678,7 @@ io.on('connection', (socket) => {
 });
 
 // ─── Start ─────────────────────────────────────────────────────────────────────
+db.run("ALTER TABLE sessions ADD COLUMN adminEarnings REAL DEFAULT 0.0", () => {});
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`✅  BeHappyTalk server running on http://localhost:${PORT}`);
