@@ -197,9 +197,11 @@
       display: none; position: fixed; inset: 0; background: #000; z-index: 3000; flex-direction: column;
     }
     .video-viewport { flex: 1; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-    #remote-video { width: 100%; height: 100%; object-fit: cover; }
-    #local-video { position: absolute; top: 40px; right: 40px; width: 220px; height: 140px; border-radius: 20px; border: 2px solid var(--primary); object-fit: cover; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
-    .media-info { position: absolute; top: 40px; left: 40px; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+    #remote-video { position: absolute; inset: 0; width: 100%; height: 100%; background: #111; z-index: 1; }
+    #remote-video * { width: 100% !important; height: 100% !important; object-fit: cover !important; display: block !important; }
+    #local-video { position: absolute; top: 40px; right: 40px; width: 220px; height: 140px; border-radius: 20px; border: 2px solid var(--primary); box-shadow: 0 10px 40px rgba(0,0,0,0.8); overflow: hidden; z-index: 10; }
+    #local-video video { width: 100% !important; height: 100% !important; object-fit: cover !important; display: block !important; }
+    .media-info { position: absolute; top: 40px; left: 40px; text-shadow: 0 2px 10px rgba(0,0,0,0.8); z-index: 20; }
     .media-info h2 { margin: 0; font-size: 32px; color: white; font-weight: 800; letter-spacing: -1px; }
     .media-info span { color: var(--primary); font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
     
@@ -430,9 +432,8 @@
       <span id="media-desc">Incoming Voice Connection...</span>
     </div>
     <div class="video-viewport">
-       <video id="remote-video" autoplay playsinline></video>
-       <audio id="remote-audio" autoplay playsinline></audio>
-       <video id="local-video" autoplay playsinline muted></video>
+       <div id="remote-video"></div>
+       <div id="local-video" style="display: none;"></div>
     </div>
     <div class="call-controls">
        <div class="c-btn" id="call-mic"><i class="fas fa-microphone"></i></div>
@@ -487,7 +488,20 @@
         document.querySelector('.sidebar').classList.toggle('collapsed');
       };
 
-      socket = io();
+      socket = io({
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000
+      });
+      
+      socket.on('connect_error', (err) => { console.error('[Socket] Connection Error:', err); });
+      socket.on('disconnect', (reason) => {
+        console.warn('[Socket] Disconnected:', reason);
+        if (reason === 'io server disconnect') socket.connect();
+      });
       socket.emit('provider_online', { providerId: provider.id });
 
       // Views Swapping
@@ -515,20 +529,56 @@
         modal.style.display = 'flex';
         
         document.getElementById('m-btn-acc').onclick = async () => {
-          modal.style.display = 'none';
-          document.querySelector('[data-view="inbox"]').click(); // Jump to inbox
-          const u = { id: req.userId, name: req.userName };
-          if (!users.find(x => x.id === u.id)) users.unshift(u);
-          activeUserId = u.id; // SET ACTIVE USER IMMEDIATELY
-          openChat(u);
-          
-          // CRITICAL: WebRTC getUserMedia MUST be called here, triggered by a direct user click.
-          // Otherwise modern browsers (Chrome/Safari) will block the camera.
-          if (req.type !== 'Chat') {
-             await startMedia(req.type);
+          try {
+            console.log('[Dashboard] Accept clicked. Socket Status:', socket ? socket.connected : 'null');
+            
+            if (!socket || !socket.connected) {
+               alert('Connection Lost: Reconnecting to server... Please wait 2 seconds and try again.');
+               return;
+            }
+
+            if (!provider || !provider.id) {
+               throw new Error('Provider profile not loaded.');
+            }
+
+            // SIGNAL IMMEDIATELY
+            socket.emit('accept_interaction', { 
+               userId: req.userId, 
+               providerId: provider.id, 
+               type: req.type, 
+               rate: req.rate, 
+               duration: req.duration 
+            });
+
+            console.log('[Dashboard] Signal SENT to server');
+            modal.style.display = 'none';
+            document.querySelector('[data-view="inbox"]').click(); 
+            
+            const u = { id: req.userId, name: req.userName };
+            if (!users.find(x => x.id === u.id)) users.unshift(u);
+            activeUserId = u.id; 
+            openChat(u);
+            
+            const overlay = document.getElementById('media-overlay');
+            overlay.style.display = 'flex';
+            document.getElementById('media-name').innerText = req.userName;
+            document.getElementById('media-desc').innerText = `Establishing ${req.type} session...`;
+            
+            if (req.type === 'Video') {
+               document.getElementById('local-video').style.display = 'block';
+               document.getElementById('call-cam').style.display = 'flex';
+            } else {
+               document.getElementById('local-video').style.display = 'none';
+               document.getElementById('call-cam').style.display = 'none';
+            }
+
+            // NOTE: Do NOT call startMedia here.
+            // The server sends 'session_started' after accept_interaction is processed.
+            // startMedia is called there — calling it here AND there causes double PeerConnection.
+          } catch (err) {
+            console.error('[Dashboard] Accept Error:', err);
+            alert('Handshake Error: ' + err.message);
           }
-          
-          socket.emit('accept_interaction', { ...req, providerId: provider.id });
         };
         
         document.getElementById('m-btn-rej').onclick = () => {
@@ -541,7 +591,7 @@
         document.getElementById('incoming-modal').style.display = 'none';
       });
 
-      socket.on('session_started', ({ sessionId, type, duration }) => {
+      socket.on('session_started', async ({ sessionId, type, duration, agoraChannel, agoraRole }) => {
         currentSessionId = sessionId;
         timeRemaining = duration * 60;
         document.getElementById('chat-timer').style.display = 'block';
@@ -553,7 +603,10 @@
           if (timeRemaining <= 0) clearInterval(timerInt);
         }, 1000);
 
-        // if (type !== 'Chat') startMedia(type); // MOVED to Accept button click to satisfy Browser User Activation policy
+        // Start WebRTC Media
+        if (type !== 'Chat') {
+           startMedia(type);
+        }
       });
 
       socket.on('session_ended', () => {
@@ -578,38 +631,7 @@
       };
       // Add WebRTC and message DOM events
       socket.on('webrtc_signal', async ({ signal }) => {
-         console.log('[WebRTC] Signal Received:', signal.type);
-         
-         // Auto-open overlay if an offer or candidate comes in and we're not connected
-         if (signal.type === 'offer' || signal.type === 'candidate') {
-            const overlay = document.getElementById('media-overlay');
-            if (overlay.style.display !== 'flex') {
-               overlay.style.display = 'flex';
-               document.getElementById('media-name').innerText = document.getElementById('active-chat-name').innerText || 'User';
-               document.getElementById('media-desc').innerText = 'Connecting Secure Stream...';
-            }
-         }
-
-         if (!pc) createPeerConnection();
-         
-         try {
-           if (signal.type === 'offer') { 
-             if (pc.signalingState !== 'stable') return console.log('[WebRTC] Offer ignored: state is', pc.signalingState);
-             await pc.setRemoteDescription(new RTCSessionDescription(signal)); 
-             const ans = await pc.createAnswer(); 
-             await pc.setLocalDescription(ans); 
-             socket.emit('webrtc_signal', { to: `chat_${activeUserId}_${provider.id}`, signal: pc.localDescription }); 
-           }
-           else if (signal.type === 'answer') { 
-             if (pc.signalingState !== 'have-local-offer') return console.log('[WebRTC] Answer ignored: state is', pc.signalingState);
-             await pc.setRemoteDescription(new RTCSessionDescription(signal)); 
-           }
-           else if (signal.type === 'candidate' && signal.candidate) { 
-             await pc.addIceCandidate(new RTCIceCandidate(signal.candidate)); 
-           }
-         } catch (e) {
-           console.error('[WebRTC] Signaling Error:', e, 'at state:', pc.signalingState);
-         }
+          handleWebRTCSignal(signal);
       });
 
       document.getElementById('call-end').onclick = () => socket.emit('end_interaction', { sessionId: currentSessionId });
@@ -923,71 +945,173 @@
       document.getElementById('stat-time').innerText = `${m}:${s}`;
     }
 
-    // WebRTC helpers (global, no socket dependency)
-    let pc, localStream;
+    // WebRTC Implementation
+    let pc = null;
+    let localStream = null;
+    let pendingCandidates = [];
+
+    const ICE_CONFIG = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        // TURN servers — required when user and provider are on different networks (mobile data vs WiFi)
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+      ],
+      iceCandidatePoolSize: 10,
+    };
+
+    function createPeerConnection() {
+      // Always clean up any old connection first — never reuse a closed/broken pc
+      if (pc) {
+        pc.onicecandidate = null;
+        pc.ontrack = null;
+        pc.oniceconnectionstatechange = null;
+        pc.close();
+        pc = null;
+      }
+      pendingCandidates = [];
+      pc = new RTCPeerConnection(ICE_CONFIG);
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('webrtc_signal', {
+            to: `chat_${activeUserId}_${provider.id}`,
+            signal: { type: 'candidate', candidate: event.candidate }
+          });
+        }
+      };
+
+      pc.ontrack = (event) => {
+        const stream = event.streams[0] || new MediaStream([event.track]);
+        const remoteVideo = document.getElementById('remote-video');
+        
+        // Remove existing video element if any
+        remoteVideo.innerHTML = '';
+        
+        const videoEl = document.createElement('video');
+        videoEl.srcObject = stream;
+        videoEl.autoplay = true;
+        videoEl.playsInline = true;
+        
+        remoteVideo.appendChild(videoEl);
+        document.getElementById('media-desc').innerText = 'Connected';
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log('[WebRTC] ICE state:', pc.iceConnectionState);
+        if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+           stopMedia();
+        }
+      };
+
+      return pc;
+    }
+
+    async function handleWebRTCSignal(signal) {
+      // Only create PC automatically when an offer arrives (mobile sends the offer)
+      // For candidates, if there's no PC yet, queue them — don't create a PC with no media tracks
+      if (signal.type === 'offer' && !pc) createPeerConnection();
+
+      if (!pc) { // No PC yet — queue candidates, ignore others
+        if (signal.type === 'candidate') pendingCandidates.push(signal.candidate);
+        return;
+      }
+
+      try {
+        if (signal.type === 'offer') {
+          if (pc.signalingState !== 'stable') return;
+          await pc.setRemoteDescription(new RTCSessionDescription(signal));
+          
+          for (const c of pendingCandidates) {
+            await pc.addIceCandidate(new RTCIceCandidate(c));
+          }
+          pendingCandidates = [];
+
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          
+          socket.emit('webrtc_signal', {
+            to: `chat_${activeUserId}_${provider.id}`,
+            signal: pc.localDescription
+          });
+          
+        } else if (signal.type === 'answer') {
+           // Portal does not send offers, so shouldn't receive answers, but just in case
+           if (pc.signalingState !== 'have-local-offer') return;
+           await pc.setRemoteDescription(new RTCSessionDescription(signal));
+           for (const c of pendingCandidates) {
+             await pc.addIceCandidate(new RTCIceCandidate(c));
+           }
+           pendingCandidates = [];
+        } else if (signal.type === 'candidate') {
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          } else {
+            pendingCandidates.push(signal.candidate);
+          }
+        }
+      } catch (err) {
+        console.error('[WebRTC] Signal Error:', err);
+      }
+    }
+
     async function startMedia(type) {
+       // Guard against double-call (accept button + session_started both firing)
+       if (localStream) {
+         console.log('[WebRTC] startMedia called but stream already exists — skipping duplicate');
+         return;
+       }
        document.getElementById('media-overlay').style.display = 'flex';
        document.getElementById('media-name').innerText = document.getElementById('active-chat-name').innerText;
-       document.getElementById('media-desc').innerText = `${type} Connection Active...`;
+       document.getElementById('media-desc').innerText = `Connecting...`;
        document.getElementById('call-cam').style.display = type === 'Video' ? 'flex' : 'none';
        document.getElementById('local-video').style.display = type === 'Video' ? 'block' : 'none';
 
-       try {
-          console.log('[Media] Acquiring devices for type:', type);
-          localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'Video' });
-          document.getElementById('local-video').srcObject = localStream;
-          
-          if (!pc) createPeerConnection();
-          
-          localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-          
-          const offer = await pc.createOffer({
-            offerToReceiveAudio: true,
-            offerToReceiveVideo: type === 'Video'
-          });
-          await pc.setLocalDescription(offer);
-          console.log('[WebRTC] Sending Offer');
-          socket.emit('webrtc_signal', { to: `chat_${activeUserId}_${provider.id}`, signal: {type:'offer', sdp:pc.localDescription}});
-       } catch (e) { console.error('Media Start Error:', e); }
-    }
+       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+           document.getElementById('media-desc').innerText = 'FATAL: Camera/Microphone API blocked.';
+           return;
+       }
 
-    function createPeerConnection() {
-      console.log('[WebRTC] Creating RTCPeerConnection');
-      pc = new RTCPeerConnection({ 
-         iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            // Public test TURN servers - replace with personal Metered.ca credentials for production
-            { urls: 'turn:relay.metered.ca:80', username: 'metered', credential: 'password' },
-            { urls: 'turn:relay.metered.ca:443', username: 'metered', credential: 'password' }
-         ] 
-      });
-      
-      pc.onicecandidate = e => { 
-        if(e.candidate) {
-          console.log('[WebRTC] Local ICE candidate found');
-          socket.emit('webrtc_signal', { to: `chat_${activeUserId}_${provider.id}`, signal: {type:'candidate', candidate:e.candidate}}); 
-        }
-      };
-      
-      pc.ontrack = e => { 
-        console.log('[WebRTC] Received remote track:', e.track.kind);
-        const stream = e.streams[0] || new MediaStream([e.track]);
-        if (e.track.kind === 'video') {
-         document.getElementById('remote-video').srcObject = stream;
-        } else {
-         document.getElementById('remote-audio').srcObject = stream;
-        }
-      };
-      
-      pc.oniceconnectionstatechange = () => console.log('[WebRTC] ICE State:', pc.iceConnectionState);
+       try {
+           localStream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+              video: type === 'Video'
+           });
+
+           if (type === 'Video') {
+              const localVideo = document.getElementById('local-video');
+              localVideo.innerHTML = '';
+              const videoEl = document.createElement('video');
+              videoEl.srcObject = localStream;
+              videoEl.autoplay = true;
+              videoEl.playsInline = true;
+              videoEl.muted = true;
+              localVideo.appendChild(videoEl);
+           }
+
+           createPeerConnection();
+           localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+           document.getElementById('media-desc').innerText = 'Waiting for connection...';
+       } catch (err) {
+           console.error('[WebRTC] Media Error:', err);
+           document.getElementById('media-desc').innerText = 'ERROR: ' + err.message;
+       }
     }
 
     function stopMedia() {
-       if (localStream) localStream.getTracks().forEach(t => t.stop());
-       if (pc) pc.close();
-       pc = null;
+       if (localStream) {
+         localStream.getTracks().forEach(t => t.stop());
+         localStream = null;
+       }
+       if (pc) {
+         pc.close();
+         pc = null;
+       }
+       pendingCandidates = [];
+       document.getElementById('remote-video').innerHTML = '';
+       document.getElementById('local-video').innerHTML = '';
        document.getElementById('media-overlay').style.display = 'none';
     }
   </script>

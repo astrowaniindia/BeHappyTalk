@@ -8,7 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons, MaterialIcons, Feather, AntDesign } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth, clearUser } from '../hooks/useAuth';
-import { API_URL, SOCKET_URL } from '../constants/ServerConfig';
+import { API_URL, SOCKET_URL, secureFetch } from '../constants/ServerConfig';
 import io from 'socket.io-client';
 
 const { width } = Dimensions.get('window');
@@ -45,10 +45,10 @@ export default function Home() {
     setLoading(true);
 
     Promise.all([
-      fetch(`${API_URL}/providers`).then(r => r.json()),
-      fetch(`${API_URL}/inbox/${user.id}`).then(r => r.json()),
-      fetch(`${API_URL}/recents/${user.id}`).then(r => r.json()),
-      fetch(`${API_URL}/user/${user.id}`).then(r => r.json()),
+      secureFetch(`${API_URL}/providers`).then(r => r.json()),
+      secureFetch(`${API_URL}/inbox/${user.id}`).then(r => r.json()),
+      secureFetch(`${API_URL}/recents/${user.id}`).then(r => r.json()),
+      secureFetch(`${API_URL}/user/${user.id}`).then(r => r.json()),
     ])
       .then(([prov, inbox, recents, userData]) => {
         setProviders(prov.map((p: any) => ({ ...p, image: PROVIDER_IMAGE })));
@@ -66,17 +66,25 @@ export default function Home() {
     fetchData();
 
     if (user) {
-      socketRef.current = io(SOCKET_URL, { transports: ['websocket'] });
-      
-      socketRef.current.on('connect', () => {
-        socketRef.current.emit('user_online', { userId: user.id });
+      socketRef.current = io(SOCKET_URL, { 
+        transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: Infinity
       });
+      
+      const joinRoom = () => {
+        socketRef.current.emit('user_online', { userId: user.id });
+      };
 
-      socketRef.current.on('session_accepted', ({ providerId, sessionId, type, duration }: { providerId: string, sessionId: string, type: string, duration: number }) => {
+      socketRef.current.on('connect', joinRoom);
+      if (socketRef.current.connected) joinRoom();
+
+      socketRef.current.on('session_accepted', ({ providerId, sessionId, type, duration, agoraChannel }: any) => {
+        console.log('[Socket] Session Accepted received! Channel:', agoraChannel);
         setConnectingModal(false);
         setSelectedProvider(null);
         setDurationModal(false);
-        router.push(`/chat/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}`);
+        router.push(`/chat/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
       });
 
       socketRef.current.on('session_rejected', () => {
@@ -88,14 +96,12 @@ export default function Home() {
          setWalletBalance(walletBalance);
       });
     }
-
-    return () => socketRef.current?.disconnect();
   }, [user]);
 
   // Refresh inbox when switching to Inbox tab
   useEffect(() => {
     if (activeTab === 'Inbox' && user) {
-      fetch(`${API_URL}/inbox/${user.id}`)
+      secureFetch(`${API_URL}/inbox/${user.id}`)
         .then(r => r.json())
         .then(inbox =>
           setInboxItems(inbox.map((i: any) => ({ ...i, image: i.isSystem ? null : PROVIDER_IMAGE })))

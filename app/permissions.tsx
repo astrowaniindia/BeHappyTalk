@@ -3,27 +3,22 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, Statu
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useCameraPermissions } from 'expo-camera';
-import { mediaDevices } from 'react-native-webrtc';
+import { useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 
 export default function Permissions() {
   const router = useRouter();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const [isRequesting, setIsRequesting] = useState(false);
 
   const handleContinue = async () => {
     setIsRequesting(true);
     try {
-      // 1. Request Camera Permission via Expo
+      // 1. Request Camera & Microphone Permissions via Expo
       const camRes = await requestCameraPermission();
-      
-      // 2. Request Audio Permission via WebRTC (Standard for RN-WebRTC)
-      // On Android, getUserMedia often triggers the system popup if not already granted.
-      // But we can also use a dummy constraint check.
-      const stream = await mediaDevices.getUserMedia({ audio: true, video: true });
-      stream.getTracks().forEach(t => t.stop()); // Stop immediately, just to trigger popup
+      const micRes = await requestMicPermission();
 
-      if (camRes.granted) {
+      if (camRes.granted && micRes.granted) {
         router.replace('/home');
       } else {
         Alert.alert("Permissions Required", "Please grant Camera and Microphone access to use calling features.");

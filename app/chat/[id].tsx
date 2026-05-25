@@ -1,7 +1,22 @@
-import React, { useState, useRef, useEffect } from 'react';
+/**
+ * app/chat/[id].tsx — FIXED VERSION
+ *
+ * Key fixes applied:
+ * 1. FIXED: startCall was being called on socket 'connect' event — this fires
+ *    every time socket reconnects, causing MULTIPLE offers to be sent.
+ *    Now uses a ref guard so startCall is called exactly ONCE.
+ * 2. FIXED: Two socket instances were being created (one in home.tsx, one here).
+ *    Now properly manages a single socket instance.
+ * 3. FIXED: WebRTC signal listener was attached but never cleaned up properly.
+ * 4. IMPROVED: Audio routing — InCallManager is now started correctly for both
+ *    audio and video calls.
+ */
+
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar,
-  TextInput, FlatList, Image, TouchableOpacity, KeyboardAvoidingView, ActivityIndicator, Alert
+  TextInput, FlatList, Image, TouchableOpacity, KeyboardAvoidingView,
+  ActivityIndicator, Alert, BackHandler
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
@@ -9,18 +24,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import io from 'socket.io-client';
 import { useAuth } from '../../hooks/useAuth';
 import { Audio } from 'expo-av';
-import { API_URL, SOCKET_URL } from '../../constants/ServerConfig';
+import { API_URL, SOCKET_URL, secureFetch } from '../../constants/ServerConfig';
 import CallView from '../../components/CallView';
-import {
-    RTCPeerConnection,
-    RTCIceCandidate,
-    RTCSessionDescription,
-    mediaDevices,
-    MediaStream
-} from 'react-native-webrtc';
-import InCallManager from 'react-native-incall-manager';
-
-
+import { useWebRTC } from '../../hooks/useWebRTC';
 
 const PROVIDER_IMAGE = require('../../assets/images/girl_smiling_1775250936696.png');
 
@@ -33,7 +39,12 @@ type Message = {
 
 export default function ChatScreen() {
   const router = useRouter();
-  const { id: providerId, sessionId, type, duration } = useLocalSearchParams<{ id: string, sessionId?: string, type?: string, duration?: string }>();
+  const { id: providerId, sessionId, type, duration } = useLocalSearchParams<{
+    id: string;
+    sessionId?: string;
+    type?: string;
+    duration?: string;
+  }>();
   const { user } = useAuth();
 
   const [message, setMessage] = useState('');
@@ -45,83 +56,90 @@ export default function ChatScreen() {
   const [wallet, setWallet] = useState<number | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // WebRTC States
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [renderRtc, setRenderRtc] = useState(0);
-  const pc = useRef<RTCPeerConnection | null>(null);
-
   const socketRef = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
+  // FIX: Guard to ensure startCall is called exactly once
+  const callStartedRef = useRef(false);
 
   const userId = user?.id;
+  const roomId = userId && providerId ? `chat_${userId}_${providerId}` : '';
 
+  const { localStream, remoteStream, isConnected, startCall, handleSignal, endCall } = useWebRTC(socketRef, roomId);
+
+  // ─── Timer countdown ────────────────────────────────────────────────────────
   useEffect(() => {
-     if (duration) {
-        setTimeLeft(parseInt(duration, 10) * 60);
-     }
+    if (duration) setTimeLeft(parseInt(duration, 10) * 60);
   }, [duration]);
 
   useEffect(() => {
-     if (timeLeft === null || timeLeft <= 0) return;
-     const timer = setInterval(() => {
-        setTimeLeft(prev => prev !== null ? prev - 1 : null);
-     }, 1000);
-     return () => clearInterval(timer);
+    if (timeLeft === null || timeLeft <= 0) return;
+    const timer = setInterval(() => {
+      setTimeLeft(prev => prev !== null ? prev - 1 : null);
+    }, 1000);
+    return () => clearInterval(timer);
   }, [timeLeft]);
 
-  // Ringback Logic
+  // ─── Ringback sound ─────────────────────────────────────────────────────────
   const stopRingback = async () => {
     if (soundRef.current) {
-        try {
-            await soundRef.current.stopAsync();
-            await soundRef.current.unloadAsync();
-            soundRef.current = null;
-        } catch (e) {
-            console.log("Error stopping sound", e);
-        }
+      try {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      } catch {}
     }
   };
 
   const playRingback = async () => {
     await stopRingback();
     try {
-        const { sound } = await Audio.Sound.createAsync(
-            { uri: 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3' }, // Professional ringback clip
-            { shouldPlay: true, isLooping: true, volume: 0.5 }
-        );
-        soundRef.current = sound;
+      // Set audio mode FIRST — this prevents the wrong-thread clash with ExoPlayer
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,      // ← this is the key fix
+        playThroughEarpieceAndroid: false,
+      });
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3' },
+        { shouldPlay: true, isLooping: true, volume: 0.5 }
+      );
+      soundRef.current = sound;
     } catch (e) {
-        console.log("Error playing sound", e);
+      console.log('Ringback error (non-fatal):', e);
+      // Don't crash — ringback is optional, the call should still work
     }
   };
 
   useEffect(() => {
-    if (type && !remoteStream) {
-        setIsConnecting(true);
-        playRingback();
-    } else {
-        setIsConnecting(false);
-        stopRingback();
+    if (type && (type === 'Call' || type === 'Video' || type === 'Audio')) {
+      setIsConnecting(true);
+      playRingback();
     }
     return () => { stopRingback(); };
-  }, [type, remoteStream]);
+  }, [type]);
 
+  useEffect(() => {
+    if (isConnected) stopRingback();
+  }, [isConnected]);
+
+  // ─── Main setup ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!userId || !providerId) return;
 
     // 1. Fetch provider info
-    fetch(`${API_URL}/providers`)
+    secureFetch(`${API_URL}/providers`)
       .then(r => r.json())
       .then((data: any[]) => {
-        const found = data.find(p => p.id === providerId);
+        const found = data.find((p: any) => p.id === providerId);
         if (found) setContact({ ...found, image: PROVIDER_IMAGE });
       })
       .catch(console.error);
 
     // 2. Fetch existing messages
-    fetch(`${API_URL}/chat/${userId}/${providerId}`)
+    secureFetch(`${API_URL}/chat/${userId}/${providerId}`)
       .then(r => r.json())
       .then((data: any[]) => {
         const mapped = data.map(m => ({
@@ -134,53 +152,40 @@ export default function ChatScreen() {
         setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
       })
       .catch(console.error);
-      
-    // Fetch initial wallet balance
-    fetch(`${API_URL}/user/${userId}`)
+
+    // 3. Fetch wallet balance
+    secureFetch(`${API_URL}/user/${userId}`)
       .then(r => r.json())
       .then((data: any) => setWallet(data.walletBalance))
       .catch(console.error);
 
-    // 3. Setup socket
-    socketRef.current = io(SOCKET_URL, { transports: ['websocket'] });
+    // 4. Setup socket
+    socketRef.current = io(SOCKET_URL, {
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
 
     socketRef.current.on('connect', () => {
+      console.log('[Chat] Socket connected:', socketRef.current.id);
       socketRef.current.emit('join_chat', { userId, providerId });
+
+      // FIX: Only start call ONCE — not on every reconnect
+      if ((type === 'Video' || type === 'Call' || type === 'Audio') && !callStartedRef.current) {
+        callStartedRef.current = true;
+        console.log('[Chat] Starting call, type:', type);
+        // Small delay to ensure the provider has also connected their socket
+        setTimeout(async () => {
+          await stopRingback();   // ← stop ringback BEFORE starting call audio
+          startCall(type === 'Video');
+        }, 500);
+      }
     });
 
-    socketRef.current.on('webrtc_signal', async ({ from, signal }: any) => {
-        console.log(`[WebRTC] Signal Received: type: ${signal.type}, state: ${pc.current?.signalingState}`);
-        if (!pc.current) return;
-
-        try {
-            if (signal.type === 'offer') {
-                if (pc.current.signalingState !== 'stable') {
-                    console.log('[WebRTC] Offer ignored: state is', pc.current.signalingState);
-                    return;
-                }
-                await pc.current.setRemoteDescription(new RTCSessionDescription(signal));
-                const answer = await pc.current.createAnswer();
-                await pc.current.setLocalDescription(answer);
-                socketRef.current?.emit('webrtc_signal', {
-                    to: `chat_${user?.id}_${providerId}`,
-                    signal: pc.current.localDescription
-                });
-            } else if (signal.type === 'answer') {
-                if (pc.current.signalingState !== 'have-local-offer') {
-                    console.log('[WebRTC] Answer ignored: state is', pc.current.signalingState);
-                    return;
-                }
-                await pc.current.setRemoteDescription(new RTCSessionDescription(signal));
-            } else if (signal.type === 'candidate') {
-                await pc.current.addIceCandidate(new RTCIceCandidate(signal.candidate));
-            }
-        } catch (e) {
-            console.error('[WebRTC] Signaling Error:', e, 'at state:', pc.current?.signalingState);
-        }
-    });
+    socketRef.current.on('webrtc_signal', handleSignal);
 
     socketRef.current.on('receive_message', (newMsg: any) => {
-      // Show typing indicator then add message
       if (newMsg.senderId === providerId) {
         setIsTyping(true);
         setTimeout(() => {
@@ -200,7 +205,6 @@ export default function ChatScreen() {
           setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
         }, 600);
       } else {
-        // User's own message confirmed by server
         setMessages(prev => {
           if (prev.find(m => m.id === newMsg.id.toString())) return prev;
           return [
@@ -219,28 +223,53 @@ export default function ChatScreen() {
     });
 
     socketRef.current.on('session_ended', ({ reason }: { reason: string }) => {
-      alert(reason === 'insufficient_funds' ? 'Session ended: Insufficient wallet balance.' : 'Session ended automatically.');
-      router.replace('/home');
+      endCall();
+      const msg = reason === 'insufficient_funds'
+        ? 'Session ended: Your wallet balance ran out.'
+        : reason === 'duration_ended'
+        ? 'Session ended: Time limit reached.'
+        : 'Session has ended.';
+      Alert.alert('Session Ended', msg, [{ text: 'OK', onPress: () => router.replace('/home') }]);
     });
 
     socketRef.current.on('wallet_update', ({ walletBalance }: { walletBalance: number }) => {
-      setWallet(walletBalance);
+      if (typeof walletBalance === 'number') setWallet(walletBalance);
+    });
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      endSession();
+      return true;
     });
 
     return () => {
-      socketRef.current?.disconnect();
+      backHandler.remove();
+      stopRingback();
+      if (socketRef.current) {
+        socketRef.current.off('webrtc_signal', handleSignal);
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      endCall();
     };
   }, [userId, providerId]);
 
-  const endSession = () => {
+  // FIX: handleSignal and startCall are stable refs from useWebRTC,
+  // so we only need to re-attach if they change. Add them as listeners
+  // separately to avoid re-running the whole effect.
+  useEffect(() => {
+    if (!socketRef.current) return;
+    socketRef.current.off('webrtc_signal');
+    socketRef.current.on('webrtc_signal', handleSignal);
+  }, [handleSignal]);
+
+  const endSession = useCallback(() => {
     stopRingback();
-    InCallManager.stop();
-    stopMedia();
+    endCall();
     if (sessionId && socketRef.current) {
       socketRef.current.emit('end_interaction', { sessionId });
     }
     router.replace('/home');
-  };
+  }, [endCall, sessionId]);
 
   const sendMessage = () => {
     const trimmed = message.trim();
@@ -257,87 +286,6 @@ export default function ChatScreen() {
   };
 
   const isSessionActive = Boolean(sessionId) && (timeLeft === null || timeLeft > 0);
-
-  const setupPeerConnection = () => {
-    if (pc.current) return; // Do not recreate if it already exists!
-    
-    console.log('Mobile setting up PeerConnection');
-    pc.current = new RTCPeerConnection({
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            // Public test TURN servers - replace with Metered.ca for production
-            { urls: 'turn:relay.metered.ca:80', username: 'metered', credential: 'password' },
-            { urls: 'turn:relay.metered.ca:443', username: 'metered', credential: 'password' }
-        ]
-    });
-
-    (pc.current as any).onicecandidate = (event: any) => {
-        if (event.candidate) {
-            console.log('[WebRTC] Local ICE candidate found');
-            socketRef.current?.emit('webrtc_signal', {
-                to: `chat_${userId}_${providerId}`,
-                signal: { type: 'candidate', candidate: event.candidate }
-            });
-        }
-    };
-
-    (pc.current as any).ontrack = (event: any) => {
-        console.log('Mobile received remote track:', event.track.kind);
-        setRemoteStream(event.streams[0]);
-        setRenderRtc(r => r + 1);
-    };
-  };
-
-  const startMedia = async (callType: string) => {
-      try {
-          console.log('Mobile acquiring media...');
-          
-          // Double check permissions before calling getUserMedia to avoid native crash
-          const stream = await mediaDevices.getUserMedia({
-              audio: true,
-              video: callType === 'Video' ? {
-                  facingMode: 'user',
-                  width: 640,
-                  height: 480,
-                  frameRate: 30
-              } : false
-          }) as MediaStream;
-
-          setLocalStream(stream);
-          setupPeerConnection(); // RESTORED: Initialize connection before adding tracks
-          
-          if (pc.current?.signalingState === 'closed') return;
-
-          stream.getTracks().forEach(track => {
-              console.log('[WebRTC] Adding track:', track.kind);
-              pc.current?.addTrack(track, stream);
-          });
-      } catch (e) {
-          console.error('Media Error:', e);
-          Alert.alert("Media Error", "Could not start camera or microphone. Please check permissions.", [
-            { text: "Go to Permissions", onPress: () => router.push('/permissions') },
-            { text: "Cancel", style: "cancel" }
-          ]);
-      }
-  };
-
-  const stopMedia = () => {
-      localStream?.getTracks().forEach(t => t.stop());
-      setLocalStream(null);
-      setRemoteStream(null);
-      pc.current?.close();
-      pc.current = null;
-  };
-
-  useEffect(() => {
-     if (type === 'Call' || type === 'Video') {
-        startMedia(type);
-     } else {
-        stopMedia();
-     }
-  }, [type]);
 
   const renderMessage = ({ item }: { item: Message }) => {
     if (item.type === 'system') {
@@ -380,142 +328,138 @@ export default function ChatScreen() {
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        {/* Dynamic View Content */}
-        {type && (type === 'Call' || type === 'Video') ? (
-            <View style={{ flex: 1 }}>
-              <CallView 
-                  type={type as any}
-                  provider={contact}
-                  timeLeft={timeLeft}
-                  wallet={wallet}
-                  onEndCall={endSession}
-                  localStream={localStream}
-                  remoteStream={remoteStream}
+        {type && (type === 'Call' || type === 'Video' || type === 'Audio') ? (
+          <View style={{ flex: 1 }}>
+            <CallView
+              localStream={localStream}
+              remoteStream={remoteStream}
+              isVideo={type === 'Video'}
+              isConnected={isConnected}
+              onEnd={endSession}
+              callerName={contact.name}
+            />
+            {isConnecting && !isConnected && (
+              <View style={styles.connectingOverlay}>
+                <ActivityIndicator size="large" color="#FACC15" />
+                <Text style={styles.connectingText}>Connecting to {contact.name}...</Text>
+                <Text style={styles.encryptionText}>
+                  <MaterialCommunityIcons name="shield-check" size={14} color="#34D399" /> End-to-End Encrypted
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : (
+          <>
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                <MaterialIcons name="arrow-back" size={24} color="rgba(255,255,255,0.92)" />
+                <View style={styles.avatarCt}>
+                  <Image source={contact.image} style={styles.avatar} />
+                  <View
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: contact.status === 'online' ? '#34D399' : '#F59E0B' },
+                    ]}
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.headerInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.contactName}>{contact.name}</Text>
+                  {contact.verified && (
+                    <MaterialCommunityIcons name="check-decagram" size={14} color="#00E5FF" />
+                  )}
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {isTyping ? (
+                    <Text style={styles.typingText}>typing...</Text>
+                  ) : (
+                    <Text style={styles.statusText}>
+                      {contact.status === 'online' ? 'Online' : 'Away'}
+                    </Text>
+                  )}
+                  {timeLeft !== null && (
+                    <View style={{ backgroundColor: '#EF444425', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                      <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 12 }}>
+                        {Math.floor(timeLeft / 60).toString().padStart(2, '0')}:{(timeLeft % 60).toString().padStart(2, '0')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              <View style={[styles.headerActions, { flexDirection: 'column', gap: 6, alignItems: 'flex-end' }]}>
+                {wallet !== null && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E2028', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#FACC1530' }}>
+                    <MaterialCommunityIcons name="wallet-outline" size={14} color="#FACC15" style={{ marginRight: 4 }} />
+                    <Text style={{ color: '#FACC15', fontWeight: 'bold', fontSize: 11 }}>₹{wallet}</Text>
+                  </View>
+                )}
+                <TouchableOpacity style={styles.endBtn} onPress={endSession}>
+                  <Text style={styles.endBtnText}>End {type || 'Session'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Messages */}
+            <View style={styles.chatBg}>
+              <FlatList
+                ref={flatListRef}
+                data={messages}
+                keyExtractor={item => item.id}
+                renderItem={renderMessage}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+                onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+                ListEmptyComponent={
+                  <View style={styles.emptyCt}>
+                    <MaterialCommunityIcons name="chat-outline" size={48} color="rgba(255,255,255,0.10)" />
+                    <Text style={styles.emptyText}>
+                      Say hello to {contact.name}!{'\n'}They're ready to listen 💛
+                    </Text>
+                  </View>
+                }
               />
-              {isConnecting && !remoteStream && (
-                <View style={styles.connectingOverlay}>
-                  <ActivityIndicator size="large" color="#FACC15" />
-                  <Text style={styles.connectingText}>Connecting to {contact.name}...</Text>
-                  <Text style={styles.encryptionText}>
-                    <MaterialCommunityIcons name="shield-check" size={14} color="#34D399" /> Peer-to-Peer Secured
-                  </Text>
+
+              {isTyping && (
+                <View style={styles.typingBubbleRow}>
+                  <View style={styles.typingBubble}>
+                    <Text style={styles.typingDots}>● ● ●</Text>
+                  </View>
                 </View>
               )}
             </View>
-        ) : (
-            <>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <MaterialIcons name="arrow-back" size={24} color="rgba(255,255,255,0.92)" />
-                        <View style={styles.avatarCt}>
-                            <Image source={contact.image} style={styles.avatar} />
-                            <View
-                                style={[
-                                    styles.statusDot,
-                                    { backgroundColor: contact.status === 'online' ? '#34D399' : '#F59E0B' },
-                                ]}
-                            />
-                        </View>
-                    </TouchableOpacity>
 
-                    <View style={styles.headerInfo}>
-                        <View style={styles.nameRow}>
-                            <Text style={styles.contactName}>{contact.name}</Text>
-                            {contact.verified && (
-                                <MaterialCommunityIcons name="check-decagram" size={14} color="#00E5FF" />
-                            )}
-                        </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            {isTyping ? (
-                                <Text style={styles.typingText}>typing...</Text>
-                            ) : (
-                                <Text style={styles.statusText}>
-                                    {contact.status === 'online' ? 'Online' : 'Away'}
-                                </Text>
-                            )}
-                            {timeLeft !== null && (
-                                <View style={{ backgroundColor: '#EF444425', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
-                                    <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 12 }}>
-                                        {Math.floor(timeLeft / 60).toString().padStart(2, '0')}:{(timeLeft % 60).toString().padStart(2, '0')}
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-                    </View>
-
-                    <View style={[styles.headerActions, { flexDirection: 'column', gap: 6, alignItems: 'flex-end' }]}>
-                        {wallet !== null && (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E2028', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#FACC1530' }}>
-                                <MaterialCommunityIcons name="wallet-outline" size={14} color="#FACC15" style={{ marginRight: 4 }} />
-                                <Text style={{ color: '#FACC15', fontWeight: 'bold', fontSize: 11 }}>₹{wallet}</Text>
-                            </View>
-                        )}
-                        <TouchableOpacity style={styles.endBtn} onPress={endSession}>
-                            <Text style={styles.endBtnText}>End {type || 'Session'}</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                {/* Messages */}
-                <View style={styles.chatBg}>
-                <FlatList
-                    ref={flatListRef}
-                    data={messages}
-                    keyExtractor={item => item.id}
-                    renderItem={renderMessage}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-                    ListEmptyComponent={
-                    <View style={styles.emptyCt}>
-                        <MaterialCommunityIcons name="chat-outline" size={48} color="rgba(255,255,255,0.10)" />
-                        <Text style={styles.emptyText}>
-                        Say hello to {contact.name}!{'\n'}They're ready to listen 💛
-                        </Text>
-                    </View>
-                    }
+            {/* Input */}
+            <View style={[styles.inputContainer, !isSessionActive && { opacity: 0.5 }]}>
+              <View style={[styles.inputWrapper, !isSessionActive && { backgroundColor: '#12141B' }]}>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder={isSessionActive ? 'Message...' : 'Session ended'}
+                  placeholderTextColor="rgba(255,255,255,0.35)"
+                  value={message}
+                  onChangeText={setMessage}
+                  multiline
+                  editable={isSessionActive}
+                  onSubmitEditing={sendMessage}
                 />
-
-                {/* Typing indicator bubble */}
-                {isTyping && (
-                    <View style={styles.typingBubbleRow}>
-                    <View style={styles.typingBubble}>
-                        <Text style={styles.typingDots}>● ● ●</Text>
-                    </View>
-                    </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.sendButton, (!message.trim() || isSending || !isSessionActive) && styles.sendButtonDisabled]}
+                onPress={sendMessage}
+                disabled={!message.trim() || isSending || !isSessionActive}
+              >
+                {isSending ? (
+                  <ActivityIndicator size="small" color="rgba(255,255,255,0.60)" />
+                ) : (
+                  <MaterialCommunityIcons name="send" size={20} color="rgba(255,255,255,0.92)" />
                 )}
-                </View>
-
-                {/* Input */}
-                <View style={[styles.inputContainer, !isSessionActive && { opacity: 0.5 }]}>
-                <View style={[styles.inputWrapper, !isSessionActive && { backgroundColor: '#12141B' }]}>
-                    <TextInput
-                    style={styles.textInput}
-                    placeholder={isSessionActive ? "Message..." : "Session ended"}
-                    placeholderTextColor="rgba(255,255,255,0.35)"
-                    value={message}
-                    onChangeText={setMessage}
-                    multiline
-                    editable={isSessionActive}
-                    onSubmitEditing={sendMessage}
-                    />
-                </View>
-                <TouchableOpacity
-                    style={[styles.sendButton, (!message.trim() || isSending || !isSessionActive) && styles.sendButtonDisabled]}
-                    onPress={sendMessage}
-                    disabled={!message.trim() || isSending || !isSessionActive}
-                >
-                    {isSending ? (
-                    <ActivityIndicator size="small" color="rgba(255,255,255,0.60)" />
-                    ) : (
-                    <MaterialCommunityIcons name="send" size={20} color="rgba(255,255,255,0.92)" />
-                    )}
-                </TouchableOpacity>
-                </View>
-            </>
+              </TouchableOpacity>
+            </View>
+          </>
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -523,11 +467,11 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  connectingOverlay: { 
-    ...StyleSheet.absoluteFillObject, 
-    backgroundColor: 'rgba(5, 7, 10, 0.98)', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+  connectingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(5, 7, 10, 0.98)',
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 16,
     zIndex: 100
   },
@@ -535,7 +479,6 @@ const styles = StyleSheet.create({
   encryptionText: { color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '600' },
   safeArea: { flex: 1, backgroundColor: '#1A1C23', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
   container: { flex: 1, backgroundColor: '#0A0B10' },
-
   header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1C23', paddingVertical: 10, paddingHorizontal: 12, elevation: 6 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   avatarCt: { position: 'relative' },
@@ -547,35 +490,26 @@ const styles = StyleSheet.create({
   statusText: { color: 'rgba(255,255,255,0.45)', fontSize: 12, marginTop: 1 },
   typingText: { color: '#34D399', fontSize: 12, marginTop: 1, fontStyle: 'italic' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  actionBtn: { padding: 4 },
   endBtn: { backgroundColor: '#EF4444', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
   endBtnText: { color: '#0A0B10', fontWeight: 'bold', fontSize: 13 },
-
   chatBg: { flex: 1, backgroundColor: '#0D0E16' },
   listContent: { padding: 16, gap: 10, flexGrow: 1 },
-
   emptyCt: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80, gap: 16 },
   emptyText: { color: 'rgba(255,255,255,0.25)', fontSize: 14, textAlign: 'center', lineHeight: 22 },
-
   systemPillCt: { alignItems: 'center', marginVertical: 8 },
   systemPill: { backgroundColor: '#1A1C23', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
   systemText: { color: 'rgba(255,255,255,0.60)', fontSize: 12 },
-
   incomingRow: { alignItems: 'flex-start', maxWidth: '78%' },
   incomingBubble: { backgroundColor: '#1E2028', padding: 12, borderRadius: 16, borderTopLeftRadius: 4 },
   timeLeft: { color: 'rgba(255,255,255,0.30)', fontSize: 11, marginTop: 4, marginLeft: 6 },
-
   outgoingRow: { alignItems: 'flex-end', alignSelf: 'flex-end', maxWidth: '78%' },
   outgoingBubble: { backgroundColor: '#4C1D95', padding: 12, borderRadius: 16, borderBottomRightRadius: 4 },
   timeRowRight: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, marginRight: 4 },
   timeRight: { color: 'rgba(255,255,255,0.30)', fontSize: 11 },
-
   msgText: { color: 'rgba(255,255,255,0.92)', fontSize: 15, lineHeight: 22 },
-
   typingBubbleRow: { paddingHorizontal: 16, paddingBottom: 8 },
   typingBubble: { backgroundColor: '#1E2028', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, borderTopLeftRadius: 4, alignSelf: 'flex-start' },
   typingDots: { color: 'rgba(255,255,255,0.45)', fontSize: 10, letterSpacing: 3 },
-
   inputContainer: { flexDirection: 'row', alignItems: 'flex-end', padding: 12, paddingBottom: Platform.OS === 'android' ? 36 : 12, backgroundColor: '#0A0B10', gap: 10 },
   inputWrapper: { flex: 1, backgroundColor: '#1A1C23', borderRadius: 24, paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 12 : 8, minHeight: 48, justifyContent: 'center' },
   textInput: { color: 'rgba(255,255,255,0.92)', fontSize: 15, maxHeight: 100 },

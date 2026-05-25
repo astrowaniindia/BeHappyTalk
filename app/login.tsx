@@ -7,7 +7,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { saveUser } from '../hooks/useAuth';
-import { API_URL } from '../constants/ServerConfig';
+import { API_URL, secureFetch } from '../constants/ServerConfig';
 
 const { width } = Dimensions.get('window');
 
@@ -91,7 +91,7 @@ export default function Login() {
     if (mode === 'signup') body.name = name.trim();
 
     try {
-      const res = await fetch(`${API_URL}/${endpoint}`, {
+      const res = await secureFetch(`${API_URL}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

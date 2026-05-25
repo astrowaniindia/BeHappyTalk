@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../hooks/useAuth';
-import { API_URL } from '../constants/ServerConfig';
+import { API_URL, secureFetch } from '../constants/ServerConfig';
 
 const { width, height } = Dimensions.get('window');
 
@@ -31,7 +31,7 @@ export default function Wallet() {
 
   React.useEffect(() => {
     if (user) {
-      fetch(`${API_URL}/user/${user.id}`)
+      secureFetch(`${API_URL}/user/${user.id}`)
         .then(r => r.json())
         .then(data => setWalletBalance(data.walletBalance || Math.floor(data.walletbalance) || 500))
         .catch(console.error);

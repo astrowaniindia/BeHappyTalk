@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BeHappyTalk | Mobile Call</title>
+  <script src="https://developer.enablex.io/downloads/video/web/v3.1.10/EnxRtc.js"></script>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: transparent;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    
+    .container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #remote-video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      object-fit: cover;
+    }
+
+    #local-video {
+      position: absolute;
+      bottom: 120px;
+      right: 20px;
+      width: 100px;
+      height: 150px;
+      border-radius: 12px;
+      background-color: #1A1C23;
+      z-index: 10;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .loading-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 5;
+      color: white;
+    }
+
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 4px solid #FACC15;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    #status-text {
+      font-size: 16px;
+      font-weight: 500;
+      text-align: center;
+      padding: 0 20px;
+    }
+
+  </style>
+</head>
+<body>
+  
+  <div class="container">
+    <div id="loading" class="loading-container">
+      <div class="spinner"></div>
+      <div id="status-text">Connecting to Call...</div>
+    </div>
+    
+    <div id="remote-video"></div>
+    <div id="local-video" style="display: none;"></div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const type = urlParams.get('type') || 'Video';
+    
+    let enxRoom = null;
+    let localStream = null;
+
+    if (type === 'Video') {
+      document.getElementById('local-video').style.display = 'block';
+    }
+
+    function updateStatus(text) {
+      document.getElementById('status-text').innerText = text;
+    }
+
+    function hideLoading() {
+      document.getElementById('loading').style.display = 'none';
+    }
+
+    if (!token) {
+      updateStatus('Error: Missing token');
+    } else {
+      const options = {
+         audio: true,
+         video: type === 'Video',
+         data: false
+      };
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+         updateStatus('Error: Camera/Microphone blocked (Insecure Context). WebRTC calls require an HTTPS connection or localhost. Please access the server using a secure HTTPS origin (e.g. via ngrok or localtunnel).');
+      } else {
+        try {
+          updateStatus('Initializing EnableX...');
+        EnxRtc.joinRoom(token, options, function(success, error) {
+          if (error) {
+            console.error('[EnableX] Join Error:', error);
+            updateStatus('Connection Error: ' + JSON.stringify(error));
+            return;
+          }
+
+          enxRoom = success.room;
+          localStream = success.localStream;
+          console.log('[EnableX] Joined room successfully');
+          updateStatus('Waiting for other participant...');
+
+          // Play local camera in PIP
+          if (type === 'Video' && localStream) {
+            localStream.play('local-video');
+          }
+
+          // Publish our stream to the room so the other person can see us
+          enxRoom.publish(localStream);
+
+          // Remote stream added
+          enxRoom.addEventListener('stream-added', function(evt) {
+            console.log('[EnableX] Remote stream added');
+            enxRoom.subscribe(evt.stream);
+          });
+
+          // Remote stream ready to play
+          enxRoom.addEventListener('stream-subscribed', function(evt) {
+            console.log('[EnableX] Remote stream subscribed');
+            hideLoading();
+            const stream = evt.stream;
+            if (stream.hasVideo()) {
+              stream.play('remote-video');
+            } else {
+              stream.play(); // audio only
+            }
+          });
+
+          // Remote stream removed
+          enxRoom.addEventListener('stream-removed', function(evt) {
+            console.log('[EnableX] Remote stream removed');
+            document.getElementById('remote-video').innerHTML = '';
+            updateStatus('Participant left the call');
+            document.getElementById('loading').style.display = 'flex';
+          });
+          
+          enxRoom.addEventListener('room-disconnected', function(evt) {
+            console.log('[EnableX] Room disconnected');
+            if (localStream) localStream.close();
+            updateStatus('Call disconnected');
+            document.getElementById('loading').style.display = 'flex';
+          });
+        });
+      } catch (err) {
+        console.error('Fatal EnxRtc error:', err);
+        updateStatus('Fatal error: ' + err.message);
+      }
+    }
+    }
+  </script>
+</body>
+</html>
