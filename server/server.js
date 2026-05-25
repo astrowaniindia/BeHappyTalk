@@ -720,6 +720,11 @@ io.on('connection', (socket) => {
     socket.to(to).emit('webrtc_signal', { signal });
   });
 
+  socket.on('typing', ({ to, from }) => {
+    socket.to(`user_room_${to}`).emit('typing', { from });
+    socket.to(`provider_room_${to}`).emit('typing', { from });
+  });
+
   socket.on('disconnect', () => {
     console.log('Socket disconnected:', socket.id);
   });
