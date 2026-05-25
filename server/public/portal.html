@@ -290,6 +290,19 @@
     .tag-act { background: rgba(0,255,148,0.2); color: var(--success); }
     .tag-miss { background: rgba(255,77,77,0.2); color: var(--danger); }
 
+  
+    /* Video Calling Styles */
+    .vid-state { display: none; text-align: center; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; position: absolute; inset: 0; opacity: 0; transition: opacity 0.3s; z-index: 1; }
+    .vid-state.active { display: flex; opacity: 1; z-index: 10; }
+    
+    .idle-dev-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--primary); color: var(--bg-darker); cursor: pointer; transition: 0.2s; font-size: 16px; }
+    .idle-dev-btn.off { background: var(--danger); color: white; }
+    .idle-dev-btn.off i::before { content: "\f126"; } /* fa-video-slash approx */
+    
+    .v-chat-msg { background: rgba(0,0,0,0.4); padding: 10px 14px; border-radius: 12px; width: fit-content; max-width: 90%; }
+    .v-chat-msg.me { background: rgba(0,245,255,0.1); border: 1px solid var(--primary); align-self: flex-end; }
+    .v-chat-time { font-size: 9px; color: var(--text-dim); margin-top: 4px; text-align: right; }
+
   </style>
 </head>
 <body>
@@ -609,6 +622,217 @@
           </div>
         </div>
 
+        
+        <!-- View: Video Calls -->
+        <div id="view-video" class="view-content">
+          <div class="inbox-layout">
+            <div class="user-list" style="display:flex; flex-direction:column;">
+              <div style="padding: 20px; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:700; color:var(--text);">Do Not Disturb</span>
+                <label class="switch">
+                  <input type="checkbox" id="video-dnd-toggle" onchange="toggleVideoDND()">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+              <div id="video-queue-target" style="flex:1; overflow-y:auto;"></div>
+            </div>
+            
+            <div class="chat-container" id="video-states-container" style="position:relative; display:flex; align-items:center; justify-content:center; flex-direction:column; background: #000; overflow:hidden;">
+               
+               <!-- State 1: IDLE -->
+               <div id="vid-state-idle" class="vid-state active">
+                 <i class="fas fa-video-slash" style="font-size: 64px; color: var(--border); margin-bottom: 24px;"></i>
+                 <h2 style="color: var(--text-dim); font-weight: 500;">Select a customer or wait for an incoming video call</h2>
+                 <div style="margin-top:32px; display:flex; align-items:center; gap:12px; background: rgba(255,255,255,0.05); padding: 12px 24px; border-radius: 50px;">
+                    <span style="color:var(--text-dim); font-size:14px;">Your Devices:</span>
+                    <button class="idle-dev-btn" onclick="this.classList.toggle('off')"><i class="fas fa-video"></i></button>
+                    <button class="idle-dev-btn" onclick="this.classList.toggle('off')"><i class="fas fa-microphone"></i></button>
+                 </div>
+               </div>
+
+               <!-- State 2: INCOMING -->
+               <div id="vid-state-incoming" class="vid-state">
+                 <div class="pulse-ring" style="border-color: var(--primary);"></div>
+                 <div class="u-avatar" id="vid-incoming-avatar" style="width: 120px; height: 120px; font-size: 48px; position:relative; z-index:2; box-shadow: 0 0 30px rgba(0,245,255,0.3);">?</div>
+                 <h2 id="vid-incoming-name" style="color: white; font-size: 32px; margin: 32px 0 8px; position:relative; z-index:2;">Customer</h2>
+                 <p style="color: var(--primary); font-weight: 700; font-size: 16px; margin-bottom: 40px; position:relative; z-index:2;"><i class="fas fa-video"></i> Incoming Video Call...</p>
+                 <div style="display:flex; gap: 32px; position:relative; z-index:2;">
+                    <button onclick="acceptVideoCall()" class="hover-scale" style="width:80px; height:80px; border-radius:50%; border:none; background:var(--success); color:var(--bg-darker); font-size:32px; cursor:pointer; box-shadow:0 10px 30px rgba(0,255,148,0.3);"><i class="fas fa-video"></i></button>
+                    <button onclick="declineVideoCall()" class="hover-scale" style="width:80px; height:80px; border-radius:50%; border:none; background:var(--danger); color:white; font-size:32px; cursor:pointer; box-shadow:0 10px 30px rgba(255,77,77,0.3);"><i class="fas fa-phone-slash"></i></button>
+                 </div>
+                 <div style="position:absolute; bottom:32px; right:32px; width:160px; height:120px; background:var(--surface); border-radius:12px; border:2px solid var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-dim); box-shadow:0 10px 30px rgba(0,0,0,0.8);">
+                    <i class="fas fa-video" style="font-size:24px; margin-bottom:8px;"></i>
+                    <span style="font-size:11px; font-weight:700; text-transform:uppercase;">Your Camera</span>
+                 </div>
+               </div>
+
+               <!-- State 3: WAITING ROOM -->
+               <div id="vid-state-waiting" class="vid-state">
+                 <div style="width:80px; height:80px; border-radius:50%; background:rgba(0,245,255,0.1); color:var(--primary); display:flex; align-items:center; justify-content:center; font-size:32px; margin-bottom:24px; animation:pulse 2s infinite;"><i class="fas fa-door-open"></i></div>
+                 <h2 style="color: white; margin:0 0 8px;"><span id="vid-waiting-name">Customer</span> is in the waiting room</h2>
+                 <p style="color: var(--text-dim); margin:0 0 32px;">Waiting time: <span id="vid-waiting-time" style="font-weight:700; color:white;">00:00</span></p>
+                 <button onclick="joinVideoCall()" style="background:var(--primary); color:var(--bg-darker); border:none; padding:16px 40px; border-radius:50px; font-weight:800; font-size:16px; cursor:pointer; box-shadow:0 10px 30px rgba(0,245,255,0.3);" class="hover-scale">Join Now</button>
+               </div>
+
+               <!-- State 4: CONNECTING -->
+               <div id="vid-state-connecting" class="vid-state">
+                 <div class="spinner" style="margin-bottom:24px;"></div>
+                 <h2 style="color: white;">Connecting to <span id="vid-connecting-name">Customer</span>...</h2>
+               </div>
+
+               <!-- State 5-9: ACTIVE VIDEO CALL (MAIN STAGE) -->
+               <div id="vid-state-active" class="vid-state" style="width:100%; height:100%; display:flex; flex-direction:column; padding:24px;">
+                 
+                 <!-- Network Warning -->
+                 <div id="vid-network-warning" style="display:none; position:absolute; top:32px; left:50%; transform:translateX(-50%); background:var(--danger); color:white; padding:12px 24px; border-radius:50px; font-weight:700; font-size:13px; z-index:50; box-shadow:0 10px 30px rgba(255,77,77,0.4);"><i class="fas fa-exclamation-triangle"></i> Your connection is unstable — the customer may experience issues</div>
+                 
+                 <!-- Main Video Area -->
+                 <div id="main-video-area" style="flex:1; background:#111; border-radius:24px; position:relative; overflow:hidden; border:1px solid var(--border); box-shadow:0 20px 60px rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center;">
+                    
+                    <!-- Customer Avatar Fallback (Camera Off) -->
+                    <div id="vid-cust-cam-off" style="display:none; flex-direction:column; align-items:center;">
+                       <div class="u-avatar" id="vid-active-avatar" style="width:140px; height:140px; font-size:64px; margin-bottom:16px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">?</div>
+                       <span style="color:var(--text-dim); background:rgba(0,0,0,0.5); padding:6px 16px; border-radius:20px; font-size:12px; font-weight:700; text-transform:uppercase; border:1px solid var(--border);"><i class="fas fa-video-slash"></i> Camera Off</span>
+                    </div>
+                    
+                    <!-- Overlays -->
+                    <div style="position:absolute; top:20px; left:20px; background:rgba(0,255,148,0.1); border:1px solid var(--success); color:var(--success); padding:6px 12px; border-radius:12px; font-size:12px; font-weight:700; backdrop-filter:blur(10px); z-index:10;"><i class="fas fa-signal"></i> <span id="vid-quality-lbl">Good</span></div>
+                    <div id="vid-active-timer" style="position:absolute; top:20px; right:20px; background:rgba(0,0,0,0.6); color:white; padding:8px 16px; border-radius:12px; font-family:monospace; font-size:20px; font-weight:800; backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.1); z-index:10;">00:00</div>
+                    <div id="vid-active-name" style="position:absolute; bottom:20px; left:20px; background:rgba(0,0,0,0.6); color:white; padding:8px 16px; border-radius:12px; font-size:16px; font-weight:700; backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.1); z-index:10;">Customer Name</div>
+                    
+                    <!-- Screen Share Indicator -->
+                    <div id="vid-screenshare-lbl" style="display:none; position:absolute; top:20px; left:50%; transform:translateX(-50%); background:var(--primary); color:var(--bg-darker); padding:6px 16px; border-radius:50px; font-weight:800; font-size:12px; text-transform:uppercase; z-index:10; box-shadow:0 4px 15px rgba(0,245,255,0.3);"><i class="fas fa-desktop"></i> Sharing Screen</div>
+                    
+                    <!-- On Hold Overlay -->
+                    <div id="vid-hold-overlay" style="display:none; position:absolute; inset:0; background:rgba(0,0,0,0.8); z-index:30; flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(10px);">
+                       <div style="font-size:64px; color:var(--primary); margin-bottom:24px;"><i class="fas fa-pause-circle"></i></div>
+                       <h2 style="color:white; margin:0 0 16px; font-size:32px;">Call On Hold</h2>
+                       <p style="color:var(--text-dim); margin:0 0 32px; font-size:16px;">Customer is seeing a hold screen.</p>
+                       <button onclick="toggleVidHold()" style="background:var(--primary); color:var(--bg-darker); border:none; padding:16px 40px; border-radius:50px; font-weight:800; font-size:16px; cursor:pointer; box-shadow:0 10px 30px rgba(0,245,255,0.3);" class="hover-scale">Resume Call</button>
+                    </div>
+                    
+                    <!-- Reconnecting Overlay -->
+                    <div id="vid-reconnect-overlay" style="display:none; position:absolute; inset:0; background:rgba(0,0,0,0.8); z-index:40; flex-direction:column; align-items:center; justify-content:center; backdrop-filter:blur(10px);">
+                       <div class="spinner" style="border-color:var(--danger); border-top-color:transparent; margin-bottom:24px; width:60px; height:60px; border-width:6px;"></div>
+                       <h2 style="color:var(--danger); margin:0 0 8px; font-size:28px;">Connection lost</h2>
+                       <p style="color:white; margin:0; font-size:16px;" id="vid-reconnect-text">Reconnecting... (attempt 1 of 3)</p>
+                    </div>
+
+                    <!-- Draggable PiP -->
+                    <div id="vid-pip" style="position:absolute; bottom:20px; right:20px; width:160px; height:120px; background:var(--surface); border:2px solid var(--border); border-radius:16px; z-index:20; cursor:move; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.8);">
+                       <div id="vid-pip-cam" style="display:flex; flex-direction:column; align-items:center; color:var(--text-dim);">
+                         <i class="fas fa-video" style="font-size:24px; margin-bottom:8px;"></i>
+                         <span style="font-size:10px; font-weight:800; text-transform:uppercase;">You</span>
+                       </div>
+                       <div id="vid-pip-off" style="display:none; flex-direction:column; align-items:center; background:var(--bg-darker); width:100%; height:100%; justify-content:center;">
+                         <div class="u-avatar" style="width:48px; height:48px; font-size:20px; background:var(--primary-dim); color:var(--primary);">P</div>
+                       </div>
+                    </div>
+                 </div>
+
+                 <!-- Bottom Controls & Side Panels -->
+                 <div style="display:flex; margin-top:24px; gap:24px; position:relative; overflow:hidden;">
+                    
+                    <!-- Control Bar -->
+                    <div style="flex:1; background:var(--surface); border-radius:24px; border:1px solid var(--border); padding:20px; display:flex; justify-content:center; gap:32px;">
+                       <div class="ctrl-btn-wrap">
+                         <button class="a-ctrl" id="btn-v-cam" onclick="toggleVidCam()"><i class="fas fa-video"></i></button>
+                         <span>Camera</span>
+                       </div>
+                       <div class="ctrl-btn-wrap">
+                         <button class="a-ctrl" id="btn-v-mic" onclick="toggleVidMic()"><i class="fas fa-microphone"></i></button>
+                         <span>Mic</span>
+                       </div>
+                       <div class="ctrl-btn-wrap">
+                         <button class="a-ctrl" id="btn-v-share" onclick="toggleVidShare()"><i class="fas fa-desktop"></i></button>
+                         <span>Share</span>
+                       </div>
+                       <div class="ctrl-btn-wrap">
+                         <button class="a-ctrl" id="btn-v-noise" onclick="toggleVidNoise()"><i class="fas fa-waveform-lines"></i></button>
+                         <span>Noise</span>
+                       </div>
+                       <div class="ctrl-btn-wrap">
+                         <button class="a-ctrl" id="btn-v-hold" onclick="toggleVidHold()"><i class="fas fa-pause"></i></button>
+                         <span>Hold</span>
+                       </div>
+                       <div style="width:1px; background:var(--border); margin:0 8px;"></div>
+                       <div class="ctrl-btn-wrap" style="position:relative;">
+                         <button class="a-ctrl" id="btn-v-chat" onclick="toggleVidPanel('chat')"><i class="fas fa-comment-dots"></i></button>
+                         <span>Chat</span>
+                         <div id="vid-chat-badge" style="display:none; position:absolute; top:0; right:0; background:var(--danger); color:white; font-size:10px; font-weight:bold; width:18px; height:18px; border-radius:50%; align-items:center; justify-content:center;">1</div>
+                       </div>
+                       <div class="ctrl-btn-wrap">
+                         <button class="a-ctrl" id="btn-v-notes" onclick="toggleVidPanel('notes')"><i class="fas fa-sticky-note"></i></button>
+                         <span>Notes</span>
+                       </div>
+                       <div style="width:1px; background:var(--border); margin:0 8px;"></div>
+                       <div class="ctrl-btn-wrap">
+                         <button class="a-ctrl hangup" onclick="endVideoCall()"><i class="fas fa-phone-slash"></i></button>
+                         <span>End</span>
+                       </div>
+                    </div>
+
+                    <!-- Slide-in Panels Container -->
+                    <div id="vid-side-panel-container" style="width:0; background:var(--surface); border:1px solid var(--border); border-radius:24px; transition:width 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow:hidden; position:relative; flex-shrink:0; display:flex; flex-direction:column;">
+                       
+                       <!-- Chat Panel -->
+                       <div id="vid-panel-chat" style="display:none; position:absolute; inset:0; padding:20px; flex-direction:column; height:100%;">
+                         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:12px;">
+                           <h3 style="margin:0; font-size:16px; color:white;"><i class="fas fa-comment-dots" style="color:var(--primary); margin-right:8px;"></i> Session Chat</h3>
+                           <i class="fas fa-times" style="cursor:pointer; color:var(--text-dim);" onclick="toggleVidPanel(null)"></i>
+                         </div>
+                         <div id="vid-chat-list" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; margin-bottom:12px; font-size:13px; padding-right:8px;">
+                           <!-- chat msgs -->
+                         </div>
+                         <div style="display:flex; gap:8px;">
+                           <input type="text" id="vid-chat-input" placeholder="Type a message..." style="flex:1; background:rgba(0,0,0,0.3); border:1px solid var(--border); padding:10px 14px; border-radius:12px; color:white;" onkeypress="if(event.key==='Enter') sendVidChat()">
+                           <button onclick="sendVidChat()" style="background:var(--primary); border:none; color:var(--bg-darker); width:40px; border-radius:12px; cursor:pointer;"><i class="fas fa-paper-plane-top"></i></button>
+                         </div>
+                       </div>
+                       
+                       <!-- Notes Panel -->
+                       <div id="vid-panel-notes" style="display:none; position:absolute; inset:0; padding:20px; flex-direction:column; height:100%;">
+                         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:12px;">
+                           <h3 style="margin:0; font-size:16px; color:white;"><i class="fas fa-lock" style="color:var(--danger); margin-right:8px;"></i> Private Notes</h3>
+                           <i class="fas fa-times" style="cursor:pointer; color:var(--text-dim);" onclick="toggleVidPanel(null)"></i>
+                         </div>
+                         <p style="font-size:12px; color:var(--text-dim); margin:0 0 12px; line-height:1.4;">Notes autosave locally and are not visible to the customer.</p>
+                         <textarea id="vid-notes-input" oninput="saveVidNotes()" style="flex:1; background:rgba(0,0,0,0.3); border:1px solid var(--border); padding:14px; border-radius:12px; color:white; font-size:14px; resize:none;" placeholder="Type private notes..."></textarea>
+                       </div>
+                       
+                    </div>
+
+                 </div>
+               </div>
+
+               <!-- State 10: ENDED -->
+               <div id="vid-state-ended" class="vid-state" style="background:var(--surface); padding:40px; border-radius:24px; border:1px solid var(--border); box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+                 <div style="width:64px; height:64px; border-radius:50%; background:rgba(255,77,77,0.1); color:var(--danger); display:flex; align-items:center; justify-content:center; font-size:32px; margin:0 auto 24px;"><i class="fas fa-check"></i></div>
+                 <h2 style="color:white; margin:0 0 24px; font-size:28px;">Video Session Ended</h2>
+                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; text-align:left; background:rgba(0,0,0,0.2); padding:24px; border-radius:16px; margin-bottom:32px;">
+                   <div>
+                     <div style="color:var(--text-dim); font-size:12px; text-transform:uppercase;">Customer</div>
+                     <div style="font-weight:700; color:white; font-size:16px;" id="v-ended-name">-</div>
+                   </div>
+                   <div>
+                     <div style="color:var(--text-dim); font-size:12px; text-transform:uppercase;">Duration</div>
+                     <div style="font-weight:700; color:white; font-size:16px;" id="v-ended-duration">00:00</div>
+                   </div>
+                   <div style="grid-column: span 2;">
+                     <div style="color:var(--text-dim); font-size:12px; text-transform:uppercase;">Session Earnings</div>
+                     <div style="font-weight:900; color:var(--success); font-size:24px;" id="v-ended-earnings">₹0.00</div>
+                   </div>
+                 </div>
+                 <div style="display:flex; gap:16px;">
+                   <button onclick="setVidState('idle')" style="flex:1; padding:16px; border-radius:12px; border:none; background:var(--primary); color:var(--bg-darker); font-weight:800; cursor:pointer;">Close</button>
+                   <button onclick="document.querySelector('[data-view=sessions]').click()" style="flex:1; padding:16px; border-radius:12px; border:1px solid var(--border); background:transparent; color:white; font-weight:800; cursor:pointer;">View History</button>
+                 </div>
+               </div>
+
+            </div>
+          </div>
+        </div>
+
         <!-- View: Earnings -->
         <div id="view-earnings" class="view-content">
            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; margin-bottom: 32px; display: flex; align-items: center; justify-content: space-between;">
@@ -782,6 +1006,7 @@
           if (btn.dataset.view === 'earnings') fetchStats();
           if (btn.dataset.view === 'sessions') fetchHistory();
           if (btn.dataset.view === 'audio') renderAudioQueue();
+          if (btn.dataset.view === 'video') renderVidQueue();
           if (btn.dataset.view === 'withdraw') { fetchStats(); fetchWithdrawals(); }
         };
       });
@@ -1142,6 +1367,254 @@
     };
 
     
+    
+    // --- VIDEO CALLING PROTOTYPE LOGIC ---
+    let vidCalls = [
+      { id: 'v1', name: 'Simran', status: 'waiting', time: 'Just now', duration: 0 },
+      { id: 'v2', name: 'Kabir', status: 'missed', time: '10m ago', duration: 0 },
+      { id: 'v3', name: 'Ananya', status: 'ended', time: '2h ago', duration: 840 }
+    ];
+    
+    let curVid = null;
+    let vidTimer = null;
+    let vidWaitTimer = null;
+    let vidSecs = 0;
+    let vidWaitSecs = 0;
+    let vidMissTimeout = null;
+    let isVidHold = false;
+    let isVidDND = false;
+    let isVidCamOff = false;
+    let isVidMicOff = false;
+    let isVidShare = false;
+    let activeVidPanel = null;
+    
+    function renderVidQueue() {
+      const target = document.getElementById('video-queue-target');
+      target.innerHTML = '';
+      let pending = 0;
+      
+      vidCalls.forEach(c => {
+        if(c.status === 'waiting') pending++;
+        let tagClass = 'tag-wait', tagText = 'Waiting';
+        if(c.status === 'active') { tagClass = 'tag-act'; tagText = 'Active'; }
+        else if(c.status === 'missed') { tagClass = 'tag-miss'; tagText = 'Missed'; }
+        else if(c.status === 'ended') { tagClass = ''; tagText = 'Ended'; }
+        
+        const dot = c.status === 'missed' ? '<span style="width:8px; height:8px; background:var(--danger); border-radius:50%; position:absolute; top:12px; left:12px;"></span>' : '';
+        
+        target.innerHTML += `
+          <div class="a-row ${curVid?.id === c.id ? 'active-row' : ''}" onclick="selectVidCall('${c.id}')" style="position:relative;">
+            ${dot}
+            <div class="u-avatar" style="width:36px; height:36px; font-size:16px;">${c.name.charAt(0)}</div>
+            <div style="display:flex; flex-direction:column;">
+              <span style="font-weight:700; color:white; font-size:14px;">${c.name}</span>
+              <span style="font-size:11px; color:var(--text-dim);">${c.time}</span>
+            </div>
+            <span class="a-tag ${tagClass}">${tagText}</span>
+          </div>`;
+      });
+      
+      // Update sidebar badge
+      // We need to inject the badge in the sidebar HTML logic first if missing.
+      const navVideo = document.querySelector('[data-view="video"]');
+      let badge = document.getElementById('video-badge');
+      if(!badge) {
+         navVideo.innerHTML = '<i class="fas fa-video"></i><span style="display:flex; align-items:center; width:100%;">Video Calls <span id="video-badge" style="display:none; background:var(--danger); color:white; border-radius:10px; padding:2px 6px; font-size:10px; margin-left:auto;">0</span></span>';
+         badge = document.getElementById('video-badge');
+      }
+      if (pending > 0) { badge.style.display = 'inline-block'; badge.innerText = pending; } 
+      else if(badge) badge.style.display = 'none';
+    }
+
+    function toggleVideoDND() { isVidDND = document.getElementById('video-dnd-toggle').checked; }
+
+    function selectVidCall(id) {
+      curVid = vidCalls.find(c => c.id === id);
+      renderVidQueue();
+      
+      if(curVid.status === 'waiting') {
+        document.getElementById('vid-incoming-name').innerText = curVid.name;
+        document.getElementById('vid-incoming-avatar').innerText = curVid.name.charAt(0);
+        setVidState('incoming');
+        
+        clearTimeout(vidMissTimeout);
+        vidMissTimeout = setTimeout(() => {
+          if (curVid && curVid.status === 'waiting') {
+            curVid.status = 'missed'; setVidState('idle'); renderVidQueue();
+          }
+        }, 15000);
+      } else if (curVid.status === 'active') {
+        setVidState('active');
+      } else {
+        setVidState('idle');
+      }
+    }
+
+    function setVidState(state) {
+      document.querySelectorAll('.vid-state').forEach(el => {
+        el.classList.remove('active');
+        setTimeout(() => el.style.display = 'none', 300);
+      });
+      setTimeout(() => {
+        const t = document.getElementById('vid-state-' + state);
+        t.style.display = 'flex'; void t.offsetWidth; t.classList.add('active');
+      }, 50);
+    }
+
+    function acceptVideoCall() {
+      clearTimeout(vidMissTimeout);
+      document.getElementById('vid-waiting-name').innerText = curVid.name;
+      vidWaitSecs = 0; clearInterval(vidWaitTimer);
+      vidWaitTimer = setInterval(() => {
+         vidWaitSecs++;
+         document.getElementById('vid-waiting-time').innerText = Math.floor(vidWaitSecs/60).toString().padStart(2,'0') + ':' + (vidWaitSecs%60).toString().padStart(2,'0');
+      }, 1000);
+      setVidState('waiting');
+    }
+
+    function declineVideoCall() { clearTimeout(vidMissTimeout); curVid.status = 'ended'; renderVidQueue(); setVidState('idle'); }
+
+    function joinVideoCall() {
+      clearInterval(vidWaitTimer);
+      setVidState('connecting');
+      document.getElementById('vid-connecting-name').innerText = curVid.name;
+      
+      setTimeout(() => {
+        curVid.status = 'active'; renderVidQueue();
+        document.getElementById('vid-active-name').innerText = curVid.name;
+        document.getElementById('vid-active-avatar').innerText = curVid.name.charAt(0);
+        
+        const saved = localStorage.getItem('vnotes_' + curVid.id);
+        document.getElementById('vid-notes-input').value = saved || '';
+        document.getElementById('vid-chat-list').innerHTML = ''; // clear chat
+        
+        vidSecs = 0; isVidHold = false; clearInterval(vidTimer);
+        vidTimer = setInterval(tickVid, 1000);
+        setVidState('active');
+        
+        // Demo Network Warning
+        setTimeout(() => {
+          const w = document.getElementById('vid-network-warning');
+          w.style.display = 'block';
+          document.getElementById('vid-quality-lbl').innerText = 'Unstable';
+          document.getElementById('vid-quality-lbl').parentElement.style.color = 'var(--danger)';
+          document.getElementById('vid-quality-lbl').parentElement.style.borderColor = 'var(--danger)';
+          setTimeout(() => { 
+             w.style.display = 'none'; 
+             document.getElementById('vid-quality-lbl').innerText = 'Good'; 
+             document.getElementById('vid-quality-lbl').parentElement.style.color = 'var(--success)';
+             document.getElementById('vid-quality-lbl').parentElement.style.borderColor = 'var(--success)';
+          }, 5000);
+        }, 3000);
+        
+      }, 2000);
+    }
+
+    function tickVid() {
+      if(isVidHold) return;
+      vidSecs++;
+      document.getElementById('vid-active-timer').innerText = Math.floor(vidSecs/60).toString().padStart(2,'0') + ':' + (vidSecs%60).toString().padStart(2,'0');
+    }
+
+    function endVideoCall() {
+      clearInterval(vidTimer); curVid.status = 'ended'; curVid.duration = vidSecs; renderVidQueue();
+      document.getElementById('v-ended-name').innerText = curVid.name;
+      document.getElementById('v-ended-duration').innerText = document.getElementById('vid-active-timer').innerText;
+      document.getElementById('v-ended-earnings').innerText = '₹' + ((vidSecs/60)*15).toFixed(2);
+      setVidState('ended');
+      toggleVidPanel(null); // close panels
+    }
+
+    // Controls
+    function toggleVidCam() {
+      isVidCamOff = !isVidCamOff;
+      const b = document.getElementById('btn-v-cam');
+      if(isVidCamOff) { b.classList.add('active-mode'); b.innerHTML = '<i class="fas fa-video-slash"></i>'; document.getElementById('vid-pip-cam').style.display = 'none'; document.getElementById('vid-pip-off').style.display = 'flex'; }
+      else { b.classList.remove('active-mode'); b.innerHTML = '<i class="fas fa-video"></i>'; document.getElementById('vid-pip-cam').style.display = 'flex'; document.getElementById('vid-pip-off').style.display = 'none'; }
+    }
+    function toggleVidMic() {
+      isVidMicOff = !isVidMicOff; const b = document.getElementById('btn-v-mic');
+      if(isVidMicOff) { b.classList.add('active-mode'); b.innerHTML = '<i class="fas fa-microphone-slash"></i>'; } else { b.classList.remove('active-mode'); b.innerHTML = '<i class="fas fa-microphone"></i>'; }
+    }
+    function toggleVidShare() {
+      isVidShare = !isVidShare; const b = document.getElementById('btn-v-share');
+      b.classList.toggle('active-mode'); document.getElementById('vid-screenshare-lbl').style.display = isVidShare ? 'block' : 'none';
+    }
+    function toggleVidNoise() { document.getElementById('btn-v-noise').classList.toggle('active-mode'); }
+    function toggleVidHold() {
+      isVidHold = !isVidHold; const b = document.getElementById('btn-v-hold');
+      if(isVidHold) { b.classList.add('active-mode'); b.innerHTML = '<i class="fas fa-play"></i>'; document.getElementById('vid-hold-overlay').style.display = 'flex'; }
+      else { b.classList.remove('active-mode'); b.innerHTML = '<i class="fas fa-pause"></i>'; document.getElementById('vid-hold-overlay').style.display = 'none'; }
+    }
+
+    // Panels
+    function toggleVidPanel(panel) {
+      const c = document.getElementById('vid-side-panel-container');
+      const cp = document.getElementById('vid-panel-chat');
+      const np = document.getElementById('vid-panel-notes');
+      document.getElementById('btn-v-chat').classList.remove('active-mode');
+      document.getElementById('btn-v-notes').classList.remove('active-mode');
+      
+      if(activeVidPanel === panel || panel === null) {
+         activeVidPanel = null; c.style.width = '0';
+         setTimeout(() => { cp.style.display='none'; np.style.display='none'; }, 300);
+      } else {
+         activeVidPanel = panel; c.style.width = '320px';
+         cp.style.display = panel === 'chat' ? 'flex' : 'none';
+         np.style.display = panel === 'notes' ? 'flex' : 'none';
+         document.getElementById('btn-v-' + panel).classList.add('active-mode');
+         if(panel === 'chat') { document.getElementById('vid-chat-badge').style.display = 'none'; document.getElementById('vid-chat-input').focus(); }
+         if(panel === 'notes') document.getElementById('vid-notes-input').focus();
+      }
+    }
+
+    function saveVidNotes() { if(curVid) localStorage.setItem('vnotes_' + curVid.id, document.getElementById('vid-notes-input').value); }
+    
+    function sendVidChat() {
+      const inp = document.getElementById('vid-chat-input');
+      const txt = inp.value.trim(); if(!txt) return;
+      inp.value = '';
+      const list = document.getElementById('vid-chat-list');
+      const time = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      list.innerHTML += `<div class="v-chat-msg me">${txt}<div class="v-chat-time">${time}</div></div>`;
+      list.scrollTop = list.scrollHeight;
+      
+      // Simulate reply
+      setTimeout(() => {
+        list.innerHTML += `<div class="v-chat-msg">${txt}? Yes! <div class="v-chat-time">${new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div></div>`;
+        list.scrollTop = list.scrollHeight;
+        if(activeVidPanel !== 'chat') { document.getElementById('vid-chat-badge').style.display = 'flex'; }
+      }, 2000);
+    }
+
+    // Draggable PiP
+    const pip = document.getElementById('vid-pip');
+    let isPipDrag = false, pX, pY;
+    pip.addEventListener('mousedown', e => { isPipDrag = true; pX = e.clientX - pip.offsetLeft; pY = e.clientY - pip.offsetTop; });
+    document.addEventListener('mousemove', e => {
+      if(!isPipDrag) return;
+      const wrap = document.getElementById('main-video-area');
+      const rect = wrap.getBoundingClientRect();
+      let nx = e.clientX - pX; let ny = e.clientY - pY;
+      nx = Math.max(0, Math.min(nx, rect.width - pip.offsetWidth));
+      ny = Math.max(0, Math.min(ny, rect.height - pip.offsetHeight));
+      pip.style.left = nx + 'px'; pip.style.top = ny + 'px'; pip.style.right = 'auto'; pip.style.bottom = 'auto';
+    });
+    document.addEventListener('mouseup', () => isPipDrag = false);
+
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => renderVidQueue(), 1000);
+      setInterval(() => {
+        if(!isVidDND && curVid?.status !== 'active' && curVid?.status !== 'waiting' && curVid?.status !== 'connecting' && Math.random() > 0.8) {
+           const id = 'v' + Date.now();
+           vidCalls.unshift({ id, name: 'Video User ' + Math.floor(Math.random()*100), status: 'waiting', time: 'Just now', duration: 0 });
+           renderVidQueue();
+        }
+      }, 15000);
+    });
+
+
+
     // --- AUDIO CALLING PROTOTYPE LOGIC ---
     let audioCalls = [
       { id: 'c1', name: 'Ridhi', status: 'waiting', time: 'Just now', duration: 0 },
