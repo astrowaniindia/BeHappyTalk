@@ -403,6 +403,17 @@
 
         <!-- View: Earnings -->
         <div id="view-earnings" class="view-content">
+           <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; margin-bottom: 32px; display: flex; align-items: center; justify-content: space-between;">
+             <div>
+               <h3 style="margin: 0 0 8px; color: var(--text-dim); font-size: 12px; text-transform: uppercase; font-weight: 700; letter-spacing: 1.5px;">Current Wallet Balance</h3>
+               <h2 id="wallet-balance-big" style="margin: 0; font-size: 40px; color: var(--success); font-weight: 800;">$0.00</h2>
+               <p style="margin: 8px 0 0; font-size: 13px; color: var(--text-dim);">You can request up to 50% of your earnings early.</p>
+             </div>
+             <div>
+               <button onclick="requestPayout()" style="background: var(--primary); color: var(--bg-darker); border: none; padding: 16px 28px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,245,255,0.3); font-size: 14px; text-transform: uppercase;">Request Early Payout</button>
+             </div>
+           </div>
+
            <div class="history-card">
               <table class="hist-table">
                 <thead>
@@ -855,11 +866,42 @@
     };
 
     // Global Functions
+    async function requestPayout() {
+      if (!provider) return;
+      try {
+        const resStats = await fetch('/api/provider/' + provider.id);
+        const provData = await resStats.json();
+        const balance = provData.walletBalance || 0;
+        
+        if (balance <= 0) return alert('No funds to withdraw.');
+        const amount = prompt(`Your balance is $${balance.toFixed(2)}.\nYou can request up to 50% ($${(balance/2).toFixed(2)}).\n\nEnter amount to request:`);
+        if (!amount) return;
+        
+        const reqAmount = Number(amount);
+        if (reqAmount <= 0) return alert('Invalid amount');
+        if (reqAmount > (balance / 2) + 0.1) return alert('You can only request up to 50% of your total balance.');
+        
+        const res = await fetch('/api/provider/request-payout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ providerId: provider.id, amount: reqAmount })
+        });
+        
+        if (res.ok) alert('Payout request sent to admin for approval!');
+        else {
+          const d = await res.json();
+          alert('Error: ' + d.error);
+        }
+      } catch (e) { alert('Failed to send request'); }
+    }
+
     async function fetchStats() {
       const res = await fetch(`/api/provider/${provider.id}`);
       const data = await res.json();
-      document.getElementById('stat-balance').innerText = `₹${data.walletBalance.toFixed(2)}`;
-      document.getElementById('stat-today').innerText = `₹${(data.walletBalance % 500).toFixed(2)}`;
+      document.getElementById('stat-balance').innerText = `$${data.walletBalance.toFixed(2)}`;
+      document.getElementById('stat-today').innerText = `$${(data.walletBalance % 500).toFixed(2)}`;
+      const bigBal = document.getElementById('wallet-balance-big');
+      if (bigBal) bigBal.innerText = `$${data.walletBalance.toFixed(2)}`;
     }
 
     async function fetchHistory() {
@@ -880,7 +922,7 @@
           <td>${s.userName}</td>
           <td><span class="type-badge ${typeClass}">${s.type}</span></td>
           <td style="font-family: monospace; font-weight: 700;">${s.duration} min</td>
-          <td style="color: var(--success); font-weight: 800;">+ ₹${s.cost.toFixed(2)}</td>
+          <td style="color: var(--success); font-weight: 800;">+ $${(s.cost / 2).toFixed(2)}</td>
         `;
         list.appendChild(row);
       });

@@ -40,7 +40,10 @@
             <i class="fa-solid fa-user-tie w-6"></i> Providers
           </li>
           <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-gray-600 border-l-4 border-transparent" id="tab-sessions" onclick="switchTab('sessions')">
-            <i class="fa-solid fa-phone w-6"></i> Call Sessions
+            <i class="fa-solid fa-phone w-6"></i> Call Ledger
+          </li>
+          <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-gray-600 border-l-4 border-transparent" id="tab-payouts" onclick="switchTab('payouts')">
+            <i class="fa-solid fa-money-bill-transfer w-6"></i> Provider Payouts
           </li>
         </ul>
       </aside>
@@ -140,7 +143,7 @@
 
         <!-- Sessions Tab -->
         <div id="content-sessions" class="hidden">
-          <h2 class="text-2xl font-bold mb-6">Recent Sessions</h2>
+          <h2 class="text-2xl font-bold mb-6">Recent Sessions (Ledger)</h2>
           <div class="bg-white rounded-lg shadow overflow-hidden">
             <table class="min-w-full">
               <thead class="bg-gray-50">
@@ -150,10 +153,30 @@
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cost</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gross Cost</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-green-600 uppercase">Admin Cut</th>
                 </tr>
               </thead>
               <tbody id="sessions-table" class="divide-y divide-gray-200"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Payouts Tab -->
+        <div id="content-payouts" class="hidden">
+          <h2 class="text-2xl font-bold mb-6">Pending Provider Payouts</h2>
+          <div class="bg-white rounded-lg shadow overflow-hidden flex flex-col min-h-[400px]">
+            <table class="min-w-full">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requested Amount</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wallet Balance</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="payouts-table" class="divide-y divide-gray-200"></tbody>
             </table>
           </div>
         </div>
@@ -209,7 +232,7 @@
     }
 
     function switchTab(tab) {
-      ['overview', 'users', 'providers', 'sessions'].forEach(t => {
+      ['overview', 'users', 'providers', 'sessions', 'payouts'].forEach(t => {
         document.getElementById('content-' + t).classList.add('hidden');
         const tabEl = document.getElementById('tab-' + t);
         tabEl.classList.remove('text-purple-700', 'font-bold', 'border-purple-600', 'bg-purple-50');
@@ -280,7 +303,8 @@
 
     async function loadData(type) {
       try {
-        const res = await fetch('/api/admin/' + type, {
+        const endpoint = type === 'payouts' ? 'payout-requests' : type;
+        const res = await fetch('/api/admin/' + endpoint, {
           headers: {'Authorization': 'Bearer ' + token}
         });
         if (res.status === 401 || res.status === 403) return logout();
@@ -339,11 +363,38 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.providerName || row.providerId}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 uppercase">${row.type}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.status}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold text-green-600">$${row.cost || 0}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">$${row.cost || 0}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-bold">$${((row.cost || 0)/2).toFixed(2)}</td>
+          `;
+        } else if (type === 'payouts') {
+          const d = new Date(row.date).toLocaleString();
+          tr.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${d}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.providerName}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">$${row.amount}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">$${row.walletBalance}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <button onclick="approvePayout('${row.id}', '${row.providerId}', ${row.amount})" class="text-white bg-green-500 hover:bg-green-600 px-3 py-1 rounded shadow"><i class="fa-solid fa-check"></i> Mark as Paid</button>
+            </td>
           `;
         }
         tbody.appendChild(tr);
       });
+    }
+
+    async function approvePayout(requestId, providerId, amount) {
+      if(!confirm(`Did you manually transfer $${amount} to this provider? Clicking OK will approve this and deduct it from their wallet.`)) return;
+      try {
+        const res = await fetch('/api/admin/approve-payout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ requestId, providerId, amount })
+        });
+        if (res.ok) {
+          alert('Payout Approved!');
+          loadData('payouts');
+        }
+      } catch (e) { alert('Error approving payout'); }
     }
 
     async function updateWallet(type, id) {
