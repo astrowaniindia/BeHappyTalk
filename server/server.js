@@ -474,17 +474,36 @@ app.get('/api/admin/stats', authenticateAdmin, (req, res) => {
   db.get('SELECT COUNT(*) as users FROM users', [], (err1, row1) => {
     db.get('SELECT COUNT(*) as providers FROM providers', [], (err2, row2) => {
       db.get('SELECT COUNT(*) as sessions, SUM(cost) as revenue, SUM(adminEarnings) as adminEarnings FROM sessions', [], (err3, row3) => {
-        const rev = row3 ? row3.revenue : 0;
-        const adm = row3 && row3.adminEarnings !== null ? row3.adminEarnings : (rev / 2);
-        res.json({
-          users: row1 ? row1.users : 0,
-          providers: row2 ? row2.providers : 0,
-          sessions: row3 ? row3.sessions : 0,
-          revenue: rev,
-          adminEarnings: adm
+        db.get('SELECT SUM(amount) as totalWithdrawn FROM admin_withdrawals', [], (err4, row4) => {
+          const rev = row3 ? row3.revenue : 0;
+          const admEarned = row3 && row3.adminEarnings ? row3.adminEarnings : 0;
+          const withdrawn = row4 && row4.totalWithdrawn ? row4.totalWithdrawn : 0;
+          res.json({
+            users: row1 ? row1.users : 0,
+            providers: row2 ? row2.providers : 0,
+            sessions: row3 ? row3.sessions : 0,
+            revenue: rev,
+            adminEarnings: admEarned - withdrawn,
+            totalWithdrawn: withdrawn
+          });
         });
       });
     });
+  });
+});
+
+app.post('/api/admin/withdraw', authenticateAdmin, (req, res) => {
+  const { amount } = req.body;
+  if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
+  db.run('INSERT INTO admin_withdrawals (amount) VALUES (?)', [amount], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
+  });
+});
+
+app.get('/api/admin/withdrawals', authenticateAdmin, (req, res) => {
+  db.all('SELECT * FROM admin_withdrawals ORDER BY date DESC', [], (err, rows) => {
+    res.json(rows || []);
   });
 });
 
@@ -679,6 +698,11 @@ io.on('connection', (socket) => {
 
 // ─── Start ─────────────────────────────────────────────────────────────────────
 db.run("ALTER TABLE sessions ADD COLUMN adminEarnings REAL DEFAULT 0.0", () => {});
+db.run(`CREATE TABLE IF NOT EXISTS admin_withdrawals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  amount REAL,
+  date DATETIME DEFAULT CURRENT_TIMESTAMP
+)`);
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`✅  BeHappyTalk server running on http://localhost:${PORT}`);

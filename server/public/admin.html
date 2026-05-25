@@ -73,6 +73,30 @@
               <p class="text-3xl font-bold mt-2 text-green-600">$<span id="stat-adminEarnings">0</span></p>
             </div>
           </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white rounded-lg shadow p-6">
+              <h3 class="text-xl font-bold mb-4">Withdraw Admin Earnings</h3>
+              <p class="text-gray-600 mb-4 text-sm">Transfer available platform earnings out of the system.</p>
+              <div class="flex">
+                <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 font-bold">$</span>
+                <input type="number" id="withdraw-amount" placeholder="Amount" class="flex-1 block w-full border-gray-300 px-3 py-2 border focus:outline-none focus:border-purple-500">
+                <button onclick="withdrawFunds()" class="bg-purple-600 text-white font-bold px-4 py-2 rounded-r-md hover:bg-purple-700">Withdraw</button>
+              </div>
+              <p class="text-xs text-gray-400 mt-2">Total Withdrawn Lifetime: $<span id="stat-totalWithdrawn">0</span></p>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow overflow-hidden flex flex-col max-h-64">
+              <h3 class="text-xl font-bold p-6 pb-2">Withdrawal History</h3>
+              <div class="flex-1 overflow-y-auto px-6 pb-6">
+                <table class="min-w-full">
+                  <tbody id="withdrawals-table" class="divide-y divide-gray-200">
+                    <!-- History goes here -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Users Tab -->
@@ -197,7 +221,10 @@
       activeTab.classList.remove('text-gray-600', 'border-transparent');
       activeTab.classList.add('text-purple-700', 'font-bold', 'border-purple-600', 'bg-purple-50');
       
-      if (tab === 'overview') loadStats();
+      if (tab === 'overview') {
+        loadStats();
+        loadWithdrawals();
+      }
       else loadData(tab);
     }
 
@@ -210,8 +237,45 @@
         document.getElementById('stat-providers').innerText = data.providers;
         document.getElementById('stat-sessions').innerText = data.sessions;
         document.getElementById('stat-revenue').innerText = data.revenue || 0;
-        document.getElementById('stat-adminEarnings').innerText = data.adminEarnings || 0;
+        document.getElementById('stat-adminEarnings').innerText = data.adminEarnings.toFixed(2);
+        document.getElementById('stat-totalWithdrawn').innerText = (data.totalWithdrawn || 0).toFixed(2);
       } catch(e) {}
+    }
+
+    async function loadWithdrawals() {
+      try {
+        const res = await fetch('/api/admin/withdrawals', { headers: {'Authorization': 'Bearer ' + token} });
+        const data = await res.json();
+        const tbody = document.getElementById('withdrawals-table');
+        tbody.innerHTML = '';
+        if (data.length === 0) tbody.innerHTML = '<tr><td class="py-4 text-gray-500 text-sm">No withdrawals yet.</td></tr>';
+        data.forEach(row => {
+          const d = new Date(row.date).toLocaleString();
+          tbody.innerHTML += `<tr><td class="py-3 text-sm text-gray-900 font-bold">$${row.amount}</td><td class="py-3 text-sm text-gray-500 text-right">${d}</td></tr>`;
+        });
+      } catch(e) {}
+    }
+
+    async function withdrawFunds() {
+      const amtInput = document.getElementById('withdraw-amount');
+      const amount = Number(amtInput.value);
+      if (!amount || amount <= 0) return alert('Enter a valid amount');
+      
+      try {
+        const res = await fetch('/api/admin/withdraw', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ amount })
+        });
+        if (res.ok) {
+          amtInput.value = '';
+          alert('Successfully withdrawn!');
+          loadStats();
+          loadWithdrawals();
+        } else {
+          alert('Withdrawal failed.');
+        }
+      } catch (e) { alert('Error processing withdrawal.'); }
     }
 
     async function loadData(type) {
