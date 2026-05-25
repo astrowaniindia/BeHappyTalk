@@ -66,11 +66,11 @@
             </div>
             <div class="bg-white rounded-lg shadow p-6 border-l-4 border-gray-500">
               <h3 class="text-gray-500 text-sm font-semibold uppercase">Gross Revenue</h3>
-              <p class="text-3xl font-bold mt-2 text-gray-600">$<span id="stat-revenue">0</span></p>
+              <p class="text-3xl font-bold mt-2 text-gray-600">₹<span id="stat-revenue">0</span></p>
             </div>
             <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500 bg-green-50">
               <h3 class="text-green-700 text-sm font-semibold uppercase">Admin Earnings</h3>
-              <p class="text-3xl font-bold mt-2 text-green-600">$<span id="stat-adminEarnings">0</span></p>
+              <p class="text-3xl font-bold mt-2 text-green-600">₹<span id="stat-adminEarnings">0</span></p>
             </div>
           </div>
 
@@ -79,11 +79,11 @@
               <h3 class="text-xl font-bold mb-4">Withdraw Admin Earnings</h3>
               <p class="text-gray-600 mb-4 text-sm">Transfer available platform earnings out of the system.</p>
               <div class="flex">
-                <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 font-bold">$</span>
+                <span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 font-bold">₹</span>
                 <input type="number" id="withdraw-amount" placeholder="Amount" class="flex-1 block w-full border-gray-300 px-3 py-2 border focus:outline-none focus:border-purple-500">
                 <button onclick="withdrawFunds()" class="bg-purple-600 text-white font-bold px-4 py-2 rounded-r-md hover:bg-purple-700">Withdraw</button>
               </div>
-              <p class="text-xs text-gray-400 mt-2">Total Withdrawn Lifetime: $<span id="stat-totalWithdrawn">0</span></p>
+              <p class="text-xs text-gray-400 mt-2">Total Withdrawn Lifetime: ₹<span id="stat-totalWithdrawn">0</span></p>
             </div>
             
             <div class="bg-white rounded-lg shadow overflow-hidden flex flex-col max-h-64">
@@ -109,7 +109,7 @@
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wallet ($)</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wallet (₹)</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
@@ -127,7 +127,7 @@
                 <tr>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wallet ($)</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Wallet (₹)</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Verification</th>
                   <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -252,7 +252,7 @@
         if (data.length === 0) tbody.innerHTML = '<tr><td class="py-4 text-gray-500 text-sm">No withdrawals yet.</td></tr>';
         data.forEach(row => {
           const d = new Date(row.date).toLocaleString();
-          tbody.innerHTML += `<tr><td class="py-3 text-sm text-gray-900 font-bold">$${row.amount}</td><td class="py-3 text-sm text-gray-500 text-right">${d}</td></tr>`;
+          tbody.innerHTML += `<tr><td class="py-3 text-sm text-gray-900 font-bold">₹${row.amount}</td><td class="py-3 text-sm text-gray-500 text-right">${d}</td></tr>`;
         });
       } catch(e) {}
     }
@@ -306,7 +306,7 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.name}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.phone}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold flex items-center">
-              $<input type="number" id="wallet-user-${row.id}" value="${row.walletBalance}" class="ml-1 w-20 border px-2 py-1 rounded">
+              ₹<input type="number" id="wallet-user-${row.id}" value="${row.walletBalance}" class="ml-1 w-20 border px-2 py-1 rounded">
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
               <button onclick="updateWallet('user', '${row.id}')" class="text-white bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded mr-2"><i class="fa-solid fa-save"></i> Save</button>
@@ -319,7 +319,7 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.id}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.name} <br> <span class="text-gray-400 text-xs">${row.phone}</span></td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold flex items-center">
-              $<input type="number" id="wallet-provider-${row.id}" value="${row.walletBalance}" class="ml-1 w-20 border px-2 py-1 rounded">
+              ₹<input type="number" id="wallet-provider-${row.id}" value="${row.walletBalance}" class="ml-1 w-20 border px-2 py-1 rounded">
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm">
               <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${row.status==='online' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">${row.status}</span>
@@ -341,16 +341,16 @@
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.providerName || row.providerId}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 uppercase">${row.type}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.status}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">$${row.cost || 0}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-bold">$${((row.cost || 0)/2).toFixed(2)}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-bold">₹${row.cost || 0}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-bold">₹${((row.cost || 0)/2).toFixed(2)}</td>
           `;
         } else if (type === 'payouts') {
           const d = new Date(row.date).toLocaleString();
           tr.innerHTML = `
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${d}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${row.providerName}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">$${row.amount}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">$${row.walletBalance}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">₹${row.amount}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₹${row.walletBalance}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
               <button onclick="approvePayout('${row.id}', '${row.providerId}', ${row.amount})" class="text-white bg-green-500 hover:bg-green-600 px-3 py-1 rounded shadow"><i class="fa-solid fa-check"></i> Mark as Paid</button>
             </td>
@@ -361,7 +361,7 @@
     }
 
     async function approvePayout(requestId, providerId, amount) {
-      if(!confirm(`Did you manually transfer $${amount} to this provider? Clicking OK will approve this and deduct it from their wallet.`)) return;
+      if(!confirm(`Did you manually transfer ₹${amount} to this provider? Clicking OK will approve this and deduct it from their wallet.`)) return;
       try {
         const res = await fetch('/api/admin/approve-payout', {
           method: 'POST',
