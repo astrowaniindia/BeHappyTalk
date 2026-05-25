@@ -65,6 +65,8 @@ if (!firebaseInitialized) {
 
 // ─── Provider State Tracking ──────────────────────────────────────────────────
 const providerStates = {};
+const pendingRequests = {}; // userId -> providerId
+
 
 // ─── App setup ────────────────────────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_local_dev_only';
@@ -602,6 +604,7 @@ io.on('connection', (socket) => {
   console.log('Socket connected:', socket.id);
 
   socket.on('user_online', ({ userId }) => {
+    socket.userId = userId;
     socket.join(`user_room_${userId}`);
     console.log(`[Socket] User ${userId} joined their room.`);
   });
@@ -641,16 +644,31 @@ io.on('connection', (socket) => {
   });
 
   socket.on('request_interaction', ({ userId, providerId, type, rate, userName, duration }) => {
+    socket.userId = userId; // ensure socket has userId
+
+    // If user was in a waitlist for a different provider, cancel that one
+    if (pendingRequests[userId] && pendingRequests[userId] !== providerId) {
+      console.log(`[Socket] User ${userId} changed mind. Auto-cancelling waitlist for ${pendingRequests[userId]}`);
+      io.to(`provider_room_${pendingRequests[userId]}`).emit('request_cancelled');
+    }
+    pendingRequests[userId] = providerId;
+
     console.log(`[Socket] Interaction Request from ${userId} to ${providerId} (Type: ${type})`);
     io.to(`provider_room_${providerId}`).emit('incoming_request', { userId, userName, providerId, type, rate, duration });
   });
 
   socket.on('cancel_interaction', ({ providerId }) => {
+    if (socket.userId && pendingRequests[socket.userId] === providerId) {
+      delete pendingRequests[socket.userId];
+    }
     console.log(`[Socket] Interaction cancelled for provider ${providerId}`);
     io.to(`provider_room_${providerId}`).emit('request_cancelled');
   });
 
   socket.on('accept_interaction', ({ userId, providerId, type, rate, duration }) => {
+    if (pendingRequests[userId] === providerId) {
+      delete pendingRequests[userId];
+    }
     console.log(`[Socket] Interaction Accepted by ${providerId} for ${userId}`);
     const sessionId = `sess_${Date.now()}`;
 
@@ -714,6 +732,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('send_message', ({ userId, providerId, senderId, text }) => {
+    // If the user started a direct chat while waiting for someone, cancel the waitlist
+    if (pendingRequests[userId] && senderId === userId) {
+      console.log(`[Socket] User ${userId} started a chat. Auto-cancelling waitlist for ${pendingRequests[userId]}`);
+      io.to(`provider_room_${pendingRequests[userId]}`).emit('request_cancelled');
+      delete pendingRequests[userId];
+    }
+
     db.get(
       'SELECT id FROM sessions WHERE userId = ? AND providerId = ? AND status = ?',
       [userId, providerId, 'active'],
@@ -761,6 +786,13 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     // We don't know the providerId directly from the socket disconnect unless we map it.
     // Let's iterate and find if this socket belonged to a provider (optional cleanup).
+
+    if (socket.userId && pendingRequests[socket.userId]) {
+       const pId = pendingRequests[socket.userId];
+       console.log(`[Socket] User ${socket.userId} disconnected. Auto-cancelling waitlist for ${pId}`);
+       io.to(`provider_room_${pId}`).emit('request_cancelled');
+       delete pendingRequests[socket.userId];
+    }
 
     console.log('Socket disconnected:', socket.id);
   });
