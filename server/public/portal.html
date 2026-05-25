@@ -251,6 +251,45 @@
     .unread-badge { background: var(--danger); color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; position: absolute; right: 10px; top: 50%; transform: translateY(-50%); }
     .status-dot { width: 8px; height: 8px; background: var(--success); border-radius: 50%; display: inline-block; margin-right: 6px; }
     .msg-status { font-size: 10px; opacity: 0.7; margin-top: 4px; display: flex; justify-content: flex-end; align-items: center; gap: 4px; }
+  
+    /* Audio Calling Styles */
+    .audio-state { display: none; text-align: center; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; position: absolute; inset: 0; opacity: 0; transition: opacity 0.3s; }
+    .audio-state.active { display: flex; opacity: 1; z-index: 10; }
+    
+    .pulse-ring { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 120px; height: 120px; background: rgba(0,245,255,0.2); border-radius: 50%; z-index: 1; animation: pulseOut 2s infinite; }
+    @keyframes pulseOut { 0% { width: 120px; height: 120px; opacity: 1; } 100% { width: 300px; height: 300px; opacity: 0; border: 2px solid var(--primary); } }
+    
+    .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+    .ctrl-btn-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .ctrl-btn-wrap span { font-size: 11px; color: var(--text-dim); font-weight: 700; text-transform: uppercase; }
+    .a-ctrl { width: 56px; height: 56px; border-radius: 50%; background: rgba(255,255,255,0.05); color: white; border: 1px solid rgba(255,255,255,0.1); font-size: 20px; cursor: pointer; transition: 0.2s; }
+    .a-ctrl:hover { background: rgba(255,255,255,0.15); transform: scale(1.05); }
+    .a-ctrl.active-mode { background: white; color: var(--bg-darker); }
+    .a-ctrl.hangup { background: var(--danger); border: none; box-shadow: 0 5px 15px rgba(255,77,77,0.3); }
+    .a-ctrl.hangup:hover { background: #ff3333; }
+    
+    .hover-scale:hover { transform: scale(1.1); }
+
+    /* Toggle Switch */
+    .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; inset: 0; background-color: var(--border); transition: .4s; }
+    .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; }
+    input:checked + .slider { background-color: var(--danger); }
+    input:checked + .slider:before { transform: translateX(20px); }
+    .slider.round { border-radius: 24px; }
+    .slider.round:before { border-radius: 50%; }
+    
+    .a-row { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.2s; }
+    .a-row:hover { background: var(--surface); }
+    .a-row.active-row { background: rgba(0,245,255,0.05); border-left: 4px solid var(--primary); }
+    .a-tag { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; margin-left: auto; }
+    .tag-wait { background: rgba(250,204,21,0.2); color: #FACC15; }
+    .tag-act { background: rgba(0,255,148,0.2); color: var(--success); }
+    .tag-miss { background: rgba(255,77,77,0.2); color: var(--danger); }
+
   </style>
 </head>
 <body>
@@ -312,6 +351,15 @@
         <div class="nav-item active" data-view="dashboard">
           <i class="fas fa-grid-2"></i>
           <span>Dashboard</span>
+        </div>
+        
+        <div class="nav-item" data-view="audio">
+          <i class="fas fa-phone-volume"></i>
+          <span style="display:flex; align-items:center; width:100%;">Audio Calls <span id="audio-badge" style="display:none; background:var(--danger); color:white; border-radius:10px; padding:2px 6px; font-size:10px; margin-left:auto;">0</span></span>
+        </div>
+        <div class="nav-item" data-view="video">
+          <i class="fas fa-video"></i>
+          <span>Video Calls</span>
         </div>
         <div class="nav-item" data-view="inbox">
           <i class="fas fa-messages"></i>
@@ -434,6 +482,130 @@
                </div>
             </div>
           </div>
+
+        <!-- View: Audio Calls -->
+        <div id="view-audio" class="view-content">
+          <div class="inbox-layout">
+            <div class="user-list" style="display:flex; flex-direction:column;">
+              <div style="padding: 20px; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:700; color:var(--text);">Do Not Disturb</span>
+                <label class="switch">
+                  <input type="checkbox" id="audio-dnd-toggle" onchange="toggleAudioDND()">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+              <div id="audio-queue-target" style="flex:1; overflow-y:auto;"></div>
+            </div>
+            
+            <div class="chat-container" id="audio-states-container" style="position:relative; display:flex; align-items:center; justify-content:center; flex-direction:column; background: #0b0f19;">
+               
+               <!-- State 1: IDLE -->
+               <div id="audio-state-idle" class="audio-state active">
+                 <i class="fas fa-phone-slash" style="font-size: 64px; color: var(--border); margin-bottom: 24px;"></i>
+                 <h2 style="color: var(--text-dim); font-weight: 500;">Select a customer to begin or wait for an incoming call</h2>
+                 <div style="margin-top:32px; display:flex; align-items:center; gap:12px; background: rgba(0,0,0,0.3); padding: 12px 24px; border-radius: 50px;">
+                    <span style="color:var(--text-dim); font-size:14px;">Your Microphone:</span>
+                    <button id="idle-mic-btn" onclick="toggleIdleMic()" style="width:40px; height:40px; border-radius:50%; border:none; background:var(--primary); color:var(--bg-darker); cursor:pointer;"><i class="fas fa-microphone"></i></button>
+                 </div>
+               </div>
+
+               <!-- State 2: INCOMING -->
+               <div id="audio-state-incoming" class="audio-state">
+                 <div class="pulse-ring"></div>
+                 <div class="u-avatar" id="incoming-avatar" style="width: 120px; height: 120px; font-size: 48px; position:relative; z-index:2; box-shadow: 0 0 30px rgba(0,245,255,0.3);">?</div>
+                 <h2 id="incoming-name" style="color: white; font-size: 32px; margin: 32px 0 8px; position:relative; z-index:2;">Customer Name</h2>
+                 <p style="color: var(--primary); font-weight: 700; font-size: 16px; margin-bottom: 40px; position:relative; z-index:2;"><i class="fas fa-volume-up"></i> Incoming Audio Call...</p>
+                 <div style="display:flex; gap: 32px; position:relative; z-index:2;">
+                    <button onclick="acceptAudioCall()" style="width:80px; height:80px; border-radius:50%; border:none; background:var(--success); color:var(--bg-darker); font-size:32px; cursor:pointer; box-shadow:0 10px 30px rgba(0,255,148,0.3); transition:0.3s;" class="hover-scale"><i class="fas fa-phone"></i></button>
+                    <button onclick="declineAudioCall()" style="width:80px; height:80px; border-radius:50%; border:none; background:var(--danger); color:white; font-size:32px; cursor:pointer; box-shadow:0 10px 30px rgba(255,77,77,0.3); transition:0.3s;" class="hover-scale"><i class="fas fa-phone-slash"></i></button>
+                 </div>
+               </div>
+
+               <!-- State 3: CONNECTING -->
+               <div id="audio-state-connecting" class="audio-state">
+                 <div class="spinner" style="margin-bottom:24px;"></div>
+                 <h2 style="color: white;">Connecting to <span id="connecting-name">Customer</span>...</h2>
+               </div>
+
+               <!-- State 4: ACTIVE & ON HOLD -->
+               <div id="audio-state-active" class="audio-state" style="width:100%; height:100%; display:flex; flex-direction:column; padding:40px;">
+                 <div id="hold-banner" style="display:none; background:var(--danger); color:white; text-align:center; padding:12px; border-radius:12px; font-weight:800; margin-bottom:24px; text-transform:uppercase; letter-spacing:2px;">Call On Hold</div>
+                 
+                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                   <div style="display:flex; flex-direction:column; align-items:center; flex:1;">
+                     <div class="u-avatar" id="active-avatar" style="width:100px; height:100px; font-size:40px; margin-bottom:16px;">?</div>
+                     <h2 id="active-name" style="color:white; font-size:28px; margin:0 0 8px;">Customer</h2>
+                     <div style="font-size:48px; font-weight:900; color:var(--primary); font-family:monospace; margin-bottom:16px;" id="active-timer">00:00</div>
+                     <div style="color:var(--success); font-weight:700; font-size:14px; background:rgba(0,255,148,0.1); padding:6px 16px; border-radius:20px; border:1px solid var(--success);"><i class="fas fa-signal"></i> Network: Good</div>
+                     <div style="margin-top:16px; color:var(--text-dim); font-size:14px; font-weight:600;">Est. Earnings: <span id="active-earnings" style="color:var(--success);">₹0.00</span></div>
+                     <div id="customer-hold-msg" style="display:none; margin-top:16px; color:var(--text-dim); font-style:italic;">Customer is hearing hold music...</div>
+                   </div>
+
+                   <!-- Private Notes Toggle -->
+                   <button onclick="toggleNotes()" style="background:var(--surface); border:1px solid var(--border); color:var(--primary); padding:12px; border-radius:12px; cursor:pointer;"><i class="fas fa-sticky-note"></i> Notes</button>
+                 </div>
+
+                 <!-- Private Notes Panel -->
+                 <div id="private-notes-panel" style="display:none; margin-top:24px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px;">
+                    <h4 style="margin:0 0 8px; color:var(--text);"><i class="fas fa-lock" style="font-size:10px; color:var(--text-dim);"></i> Private Session Notes</h4>
+                    <textarea id="private-notes-input" oninput="saveNotes()" style="width:100%; height:100px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:8px; color:white; padding:12px; font-size:13px; resize:none;" placeholder="Type confidential notes here..."></textarea>
+                 </div>
+
+                 <!-- Controls -->
+                 <div style="margin-top:auto; display:flex; justify-content:center; gap:24px; padding:24px; background:var(--surface); border-radius:100px; border:1px solid var(--border);">
+                   <div class="ctrl-btn-wrap">
+                     <button class="a-ctrl" id="btn-mutemic" onclick="toggleActiveMic()"><i class="fas fa-microphone"></i></button>
+                     <span>Mute</span>
+                   </div>
+                   <div class="ctrl-btn-wrap">
+                     <button class="a-ctrl" id="btn-hold" onclick="toggleHold()"><i class="fas fa-pause"></i></button>
+                     <span>Hold</span>
+                   </div>
+                   <div class="ctrl-btn-wrap">
+                     <button class="a-ctrl" id="btn-speaker" onclick="toggleSpeaker()"><i class="fas fa-volume-up"></i></button>
+                     <span>Speaker</span>
+                   </div>
+                   <div class="ctrl-btn-wrap">
+                     <button class="a-ctrl hangup" onclick="endAudioCall()"><i class="fas fa-phone-slash"></i></button>
+                     <span>End</span>
+                   </div>
+                 </div>
+               </div>
+
+               <!-- State 6: RECONNECTING -->
+               <div id="audio-state-reconnecting" class="audio-state">
+                 <div class="spinner" style="border-color: var(--danger); border-top-color: transparent; margin-bottom:24px;"></div>
+                 <h2 style="color: var(--danger);">Connection lost</h2>
+                 <p style="color: var(--text-dim); margin-top:8px;">Reconnecting... (attempt 1 of 3)</p>
+               </div>
+
+               <!-- State 7: ENDED -->
+               <div id="audio-state-ended" class="audio-state" style="background:var(--surface); padding:40px; border-radius:24px; border:1px solid var(--border); box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+                 <div style="width:64px; height:64px; border-radius:50%; background:rgba(255,77,77,0.1); color:var(--danger); display:flex; align-items:center; justify-content:center; font-size:32px; margin:0 auto 24px;"><i class="fas fa-check"></i></div>
+                 <h2 style="color:white; margin:0 0 24px; font-size:28px;">Call Ended</h2>
+                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; text-align:left; background:rgba(0,0,0,0.2); padding:24px; border-radius:16px; margin-bottom:32px;">
+                   <div>
+                     <div style="color:var(--text-dim); font-size:12px; text-transform:uppercase;">Customer</div>
+                     <div style="font-weight:700; color:white; font-size:16px;" id="ended-name">-</div>
+                   </div>
+                   <div>
+                     <div style="color:var(--text-dim); font-size:12px; text-transform:uppercase;">Duration</div>
+                     <div style="font-weight:700; color:white; font-size:16px;" id="ended-duration">00:00</div>
+                   </div>
+                   <div style="grid-column: span 2;">
+                     <div style="color:var(--text-dim); font-size:12px; text-transform:uppercase;">Session Earnings</div>
+                     <div style="font-weight:900; color:var(--success); font-size:24px;" id="ended-earnings">₹0.00</div>
+                   </div>
+                 </div>
+                 <div style="display:flex; gap:16px;">
+                   <button onclick="setAudioState('idle')" style="flex:1; padding:16px; border-radius:12px; border:none; background:var(--primary); color:var(--bg-darker); font-weight:800; cursor:pointer;">Close</button>
+                   <button onclick="document.querySelector('[data-view=sessions]').click()" style="flex:1; padding:16px; border-radius:12px; border:1px solid var(--border); background:transparent; color:white; font-weight:800; cursor:pointer;">View History</button>
+                 </div>
+               </div>
+
+            </div>
+          </div>
+        </div>
         </div>
 
         <!-- View: Earnings -->
@@ -608,6 +780,7 @@
           if (btn.dataset.view === 'inbox') fetchInbox();
           if (btn.dataset.view === 'earnings') fetchStats();
           if (btn.dataset.view === 'sessions') fetchHistory();
+          if (btn.dataset.view === 'audio') renderAudioQueue();
           if (btn.dataset.view === 'withdraw') { fetchStats(); fetchWithdrawals(); }
         };
       });
@@ -966,6 +1139,230 @@
         document.getElementById('error-msg').innerText = data.error;
       }
     };
+
+    
+    // --- AUDIO CALLING PROTOTYPE LOGIC ---
+    let audioCalls = [
+      { id: 'c1', name: 'Ridhi', status: 'waiting', time: 'Just now', duration: 0 },
+      { id: 'c2', name: 'Aarav', status: 'missed', time: '5m ago', duration: 0 },
+      { id: 'c3', name: 'Vandana', status: 'ended', time: '1h ago', duration: 320 }
+    ];
+    
+    let currentAudioCall = null;
+    let audioTimerInt = null;
+    let audioSecs = 0;
+    let isMicMuted = false;
+    let isHold = false;
+    let isDND = false;
+    let missedTimeout = null;
+
+    function renderAudioQueue() {
+      const target = document.getElementById('audio-queue-target');
+      target.innerHTML = '';
+      let missedCount = 0;
+      let pendingCount = 0;
+      
+      audioCalls.forEach(c => {
+        if(c.status === 'missed') missedCount++;
+        if(c.status === 'waiting') pendingCount++;
+        
+        let tagClass = 'tag-wait';
+        let tagText = 'Waiting';
+        if(c.status === 'active') { tagClass = 'tag-act'; tagText = 'Active'; }
+        else if(c.status === 'missed') { tagClass = 'tag-miss'; tagText = 'Missed'; }
+        else if(c.status === 'ended') { tagClass = ''; tagText = 'Ended'; }
+        
+        const dot = c.status === 'missed' ? '<span style="width:8px; height:8px; background:var(--danger); border-radius:50%; position:absolute; top:12px; left:12px;"></span>' : '';
+        
+        target.innerHTML += `
+          <div class="a-row ${currentAudioCall?.id === c.id ? 'active-row' : ''}" onclick="selectAudioCall('${c.id}')" style="position:relative;">
+            ${dot}
+            <div class="u-avatar" style="width:36px; height:36px; font-size:16px;">${c.name.charAt(0)}</div>
+            <div style="display:flex; flex-direction:column;">
+              <span style="font-weight:700; color:white; font-size:14px;">${c.name}</span>
+              <span style="font-size:11px; color:var(--text-dim);">${c.time}</span>
+            </div>
+            <span class="a-tag ${tagClass}">${tagText}</span>
+          </div>
+        `;
+      });
+      
+      const badge = document.getElementById('audio-badge');
+      if (pendingCount > 0) {
+        badge.style.display = 'inline-block';
+        badge.innerText = pendingCount;
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+    
+    function toggleAudioDND() {
+      isDND = document.getElementById('audio-dnd-toggle').checked;
+    }
+
+    function selectAudioCall(id) {
+      currentAudioCall = audioCalls.find(c => c.id === id);
+      renderAudioQueue();
+      
+      if(currentAudioCall.status === 'waiting') {
+        document.getElementById('incoming-name').innerText = currentAudioCall.name;
+        document.getElementById('incoming-avatar').innerText = currentAudioCall.name.charAt(0);
+        setAudioState('incoming');
+        
+        // Auto miss logic
+        clearTimeout(missedTimeout);
+        missedTimeout = setTimeout(() => {
+          if (currentAudioCall && currentAudioCall.status === 'waiting') {
+            currentAudioCall.status = 'missed';
+            setAudioState('idle');
+            renderAudioQueue();
+          }
+        }, 15000);
+      } else if (currentAudioCall.status === 'active') {
+        setAudioState('active');
+      } else {
+        setAudioState('idle');
+      }
+    }
+
+    function setAudioState(state) {
+      document.querySelectorAll('.audio-state').forEach(el => {
+        el.classList.remove('active');
+        setTimeout(() => el.style.display = 'none', 300); // Wait for fade out
+      });
+      
+      setTimeout(() => {
+        const target = document.getElementById('audio-state-' + state);
+        target.style.display = 'flex';
+        // Trigger reflow
+        void target.offsetWidth;
+        target.classList.add('active');
+      }, 50);
+    }
+
+    function acceptAudioCall() {
+      clearTimeout(missedTimeout);
+      setAudioState('connecting');
+      document.getElementById('connecting-name').innerText = currentAudioCall.name;
+      
+      setTimeout(() => {
+        currentAudioCall.status = 'active';
+        renderAudioQueue();
+        
+        document.getElementById('active-name').innerText = currentAudioCall.name;
+        document.getElementById('active-avatar').innerText = currentAudioCall.name.charAt(0);
+        
+        // Load notes
+        const savedNotes = localStorage.getItem('notes_' + currentAudioCall.id);
+        document.getElementById('private-notes-input').value = savedNotes || '';
+        
+        audioSecs = 0;
+        isHold = false;
+        clearInterval(audioTimerInt);
+        audioTimerInt = setInterval(tickAudio, 1000);
+        
+        setAudioState('active');
+      }, 2000);
+    }
+    
+    function declineAudioCall() {
+      clearTimeout(missedTimeout);
+      currentAudioCall.status = 'ended';
+      renderAudioQueue();
+      setAudioState('idle');
+    }
+
+    function tickAudio() {
+      if(isHold) return;
+      audioSecs++;
+      const m = Math.floor(audioSecs / 60).toString().padStart(2, '0');
+      const s = (audioSecs % 60).toString().padStart(2, '0');
+      document.getElementById('active-timer').innerText = `${m}:${s}`;
+      document.getElementById('active-earnings').innerText = '₹' + ((audioSecs/60)*10).toFixed(2);
+    }
+
+    function endAudioCall() {
+      clearInterval(audioTimerInt);
+      currentAudioCall.status = 'ended';
+      currentAudioCall.duration = audioSecs;
+      renderAudioQueue();
+      
+      document.getElementById('ended-name').innerText = currentAudioCall.name;
+      document.getElementById('ended-duration').innerText = document.getElementById('active-timer').innerText;
+      document.getElementById('ended-earnings').innerText = document.getElementById('active-earnings').innerText;
+      
+      setAudioState('ended');
+    }
+
+    function toggleActiveMic() {
+      isMicMuted = !isMicMuted;
+      const btn = document.getElementById('btn-mutemic');
+      if(isMicMuted) {
+        btn.classList.add('active-mode');
+        btn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+      } else {
+        btn.classList.remove('active-mode');
+        btn.innerHTML = '<i class="fas fa-microphone"></i>';
+      }
+    }
+    
+    function toggleIdleMic() {
+      const btn = document.getElementById('idle-mic-btn');
+      if(btn.style.background === 'var(--danger)') {
+        btn.style.background = 'var(--primary)';
+        btn.innerHTML = '<i class="fas fa-microphone"></i>';
+      } else {
+        btn.style.background = 'var(--danger)';
+        btn.innerHTML = '<i class="fas fa-microphone-slash"></i>';
+      }
+    }
+
+    function toggleHold() {
+      isHold = !isHold;
+      const btn = document.getElementById('btn-hold');
+      if(isHold) {
+        btn.classList.add('active-mode');
+        btn.innerHTML = '<i class="fas fa-play"></i>';
+        document.getElementById('hold-banner').style.display = 'block';
+        document.getElementById('customer-hold-msg').style.display = 'block';
+      } else {
+        btn.classList.remove('active-mode');
+        btn.innerHTML = '<i class="fas fa-pause"></i>';
+        document.getElementById('hold-banner').style.display = 'none';
+        document.getElementById('customer-hold-msg').style.display = 'none';
+      }
+    }
+    
+    function toggleSpeaker() {
+      const btn = document.getElementById('btn-speaker');
+      btn.classList.toggle('active-mode');
+    }
+
+    function toggleNotes() {
+      const p = document.getElementById('private-notes-panel');
+      p.style.display = p.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function saveNotes() {
+      if(currentAudioCall) {
+        localStorage.setItem('notes_' + currentAudioCall.id, document.getElementById('private-notes-input').value);
+      }
+    }
+
+    // Initialize audio queue on load
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => renderAudioQueue(), 1000);
+      
+      // Simulate random incoming call if not DND
+      setInterval(() => {
+        if(!isDND && currentAudioCall?.status !== 'active' && currentAudioCall?.status !== 'waiting' && Math.random() > 0.8) {
+           const id = 'c' + Date.now();
+           audioCalls.unshift({ id, name: 'New User ' + Math.floor(Math.random()*100), status: 'waiting', time: 'Just now', duration: 0 });
+           renderAudioQueue();
+        }
+      }, 10000);
+    });
+
 
     // Global Functions
     async function processWithdrawal() {
