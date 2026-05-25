@@ -1,17 +1,6 @@
 /**
- * server.js — FIXED VERSION
- *
- * Key fixes applied:
- * 1. FIXED: webrtc_signal was broadcasting to ALL sockets in a room, including sender
- *    — caused echo/loop. Now correctly sends to the OTHER socket only.
- * 2. FIXED: Provider never joins the call room on accept — WebRTC signals were lost.
- *    Socket now joins the chat room on accept_interaction.
- * 3. FIXED: generateAgoraToken used undefined `uid` variable (server crash bug).
- * 4. FIXED: Billing starts BEFORE user joins the call — now emits clear signals
- *    so both sides know when to initiate WebRTC.
- * 5. IMPROVED: Added proper error handling in socket events.
+ * server.js — SUPABASE EDITION
  */
-
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -62,11 +51,9 @@ if (!firebaseInitialized) {
   console.log('⚠️ Firebase OTP verification is currently disabled.');
 }
 
-
 // ─── Provider State Tracking ──────────────────────────────────────────────────
 const providerStates = {};
 const pendingRequests = {}; // userId -> providerId
-
 
 // ─── App setup ────────────────────────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_local_dev_only';
@@ -84,15 +71,14 @@ app.use(express.static('public'));
 app.use(express.json());
 
 // ─── Helper: upsert inbox entry ───────────────────────────────────────────────
-function upsertInbox(userId, providerId, message, providerStatus) {
+async function upsertInbox(userId, providerId, message, providerStatus) {
   const id = `inbox_${userId}_${providerId}`;
   const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  db.run(
-    `INSERT INTO inbox (id, userId, providerId, date, type, status, message, icon, iconColor, isSystem)
-     VALUES (?, ?, ?, ?, 'chat', ?, ?, 'message-text', '#34D399', 0)
-     ON CONFLICT(id) DO UPDATE SET message = excluded.message, date = excluded.date, status = excluded.status`,
-    [id, userId, providerId, today, providerStatus || 'online', message]
-  );
+  const { error } = await db.from('inbox').upsert({
+    id, userId, providerId, date: today, type: 'chat', status: providerStatus || 'online', 
+    message, icon: 'message-text', iconColor: '#34D399', isSystem: false, updated_at: new Date().toISOString()
+  });
+  if (error) console.error('[DB] upsertInbox error:', error.message);
 }
 
 // ─── Auth Middleware ──────────────────────────────────────────────────────────
@@ -114,67 +100,59 @@ app.post('/api/register', async (req, res) => {
   const { phone, password, name } = req.body;
   if (!phone || !password) return res.status(400).json({ error: 'Phone and password required.' });
 
-  db.get('SELECT * FROM users WHERE phone = ?', [phone], async (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (row) return res.status(400).json({ error: 'Phone already registered.' });
+  const { data: existing } = await db.from('users').select('id').eq('phone', phone).maybeSingle();
+  if (existing) return res.status(400).json({ error: 'Phone already registered.' });
 
-    try {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const newId = 'u' + Date.now();
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newId = 'u' + Date.now();
 
-      db.run(
-        'INSERT INTO users (id, name, phone, password) VALUES (?, ?, ?, ?)',
-        [newId, name || 'Anonymous', phone, hashedPassword],
-        function (err) {
-          if (err) return res.status(500).json({ error: err.message });
+    const { error } = await db.from('users').insert({
+      id: newId, name: name || 'Anonymous', phone, password: hashedPassword, walletBalance: 20
+    });
+    if (error) throw error;
 
-          const sysId = `sys_${newId}`;
-          const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-          db.run(
-            `INSERT OR IGNORE INTO inbox (id, userId, providerId, date, type, status, message, icon, iconColor, isSystem)
-             VALUES (?, ?, ?, ?, 'chat', 'online', 'Hello! Welcome to BeHappyTalk. How can I help you today?', 'circle', '#34D399', 1)`,
-            [sysId, newId, 'p1', today]
-          );
+    const sysId = `sys_${newId}`;
+    const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    await db.from('inbox').upsert({
+      id: sysId, userId: newId, providerId: 'p1', date: today, type: 'chat', status: 'online', 
+      message: 'Hello! Welcome to BeHappyTalk. How can I help you today?', icon: 'circle', iconColor: '#34D399', isSystem: true
+    });
 
-          res.json({ id: newId, phone, name: name || 'Anonymous', walletBalance: 20 });
-        }
-      );
-    } catch (e) {
-      res.status(500).json({ error: e.message });
-    }
-  });
+    res.json({ id: newId, phone, name: name || 'Anonymous', walletBalance: 20 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { phone, password } = req.body;
   if (!phone || !password) return res.status(400).json({ error: 'Phone and password required.' });
 
-  db.get('SELECT * FROM users WHERE phone = ?', [phone], async (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'No account found with this number.' });
+  const { data: row, error } = await db.from('users').select('*').eq('phone', phone).maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!row) return res.status(404).json({ error: 'No account found with this number.' });
 
-    const validPassword = await bcrypt.compare(password, row.password);
-    if (!validPassword) return res.status(401).json({ error: 'Incorrect password.' });
+  const validPassword = await bcrypt.compare(password, row.password);
+  if (!validPassword) return res.status(401).json({ error: 'Incorrect password.' });
 
-    const token = jwt.sign({ id: row.id, phone: row.phone }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ id: row.id, name: row.name, phone: row.phone, token });
-  });
+  const token = jwt.sign({ id: row.id, phone: row.phone }, JWT_SECRET, { expiresIn: '30d' });
+  res.json({ id: row.id, name: row.name, phone: row.phone, token, walletBalance: row.walletBalance });
 });
 
-app.post('/api/provider/login', (req, res) => {
+app.post('/api/provider/login', async (req, res) => {
   const { phone, password } = req.body;
   if (!phone || !password) return res.status(400).json({ error: 'Phone and password required.' });
 
-  db.get('SELECT * FROM providers WHERE phone = ?', [phone], async (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'No provider found with this number.' });
+  const { data: row, error } = await db.from('providers').select('*').eq('phone', phone).maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!row) return res.status(404).json({ error: 'No provider found with this number.' });
 
-    const validPassword = await bcrypt.compare(password, row.password);
-    if (!validPassword) return res.status(401).json({ error: 'Incorrect password.' });
+  const validPassword = await bcrypt.compare(password, row.password);
+  if (!validPassword) return res.status(401).json({ error: 'Incorrect password.' });
 
-    const token = jwt.sign({ id: row.id, phone: row.phone, role: 'provider' }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ id: row.id, name: row.name, phone: row.phone, token });
-  });
+  const token = jwt.sign({ id: row.id, phone: row.phone, role: 'provider' }, JWT_SECRET, { expiresIn: '30d' });
+  res.json({ id: row.id, name: row.name, phone: row.phone, token });
 });
 
 app.post('/api/provider/firebase-login', async (req, res) => {
@@ -189,13 +167,12 @@ app.post('/api/provider/firebase-login', async (req, res) => {
 
     const cleanPhone = phone.replace('+91', '').replace('+', '');
 
-    db.get('SELECT * FROM providers WHERE phone = ? OR phone = ?', [cleanPhone, phone], (err, row) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (!row) return res.status(404).json({ error: 'No provider account found for this phone number.' });
+    const { data: row, error } = await db.from('providers').select('*').or(`phone.eq.${cleanPhone},phone.eq.${phone}`).maybeSingle();
+    if (error) return res.status(500).json({ error: error.message });
+    if (!row) return res.status(404).json({ error: 'No provider account found for this phone number.' });
 
-      const token = jwt.sign({ id: row.id, phone: row.phone, role: 'provider' }, JWT_SECRET, { expiresIn: '30d' });
-      res.json({ id: row.id, name: row.name, phone: row.phone, token });
-    });
+    const token = jwt.sign({ id: row.id, phone: row.phone, role: 'provider' }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ id: row.id, name: row.name, phone: row.phone, token });
   } catch (error) {
     console.error('Firebase Auth Error:', error.message);
     res.status(401).json({ error: 'Authentication failed. Invalid token.' });
@@ -204,9 +181,7 @@ app.post('/api/provider/firebase-login', async (req, res) => {
 
 app.post('/api/provider/register', async (req, res) => {
   const { idToken, name, password } = req.body;
-  if (!idToken || !name || !password) {
-    return res.status(400).json({ error: 'Missing required fields (Token, Name, or Password).' });
-  }
+  if (!idToken || !name || !password) return res.status(400).json({ error: 'Missing required fields.' });
   if (!firebaseInitialized) return res.status(503).json({ error: 'Firebase not configured on server.' });
 
   try {
@@ -216,172 +191,145 @@ app.post('/api/provider/register', async (req, res) => {
 
     const cleanPhone = phone.replace('+91', '').replace('+', '');
 
-    db.get('SELECT * FROM providers WHERE phone = ?', [cleanPhone], async (err, row) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (row) return res.status(400).json({ error: 'Account already exists. Please log in.' });
+    const { data: existing } = await db.from('providers').select('id').eq('phone', cleanPhone).maybeSingle();
+    if (existing) return res.status(400).json({ error: 'Account already exists. Please log in.' });
 
-      try {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const newId = 'p' + Date.now();
+    try {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const newId = 'p' + Date.now();
 
-        db.run(
-          'INSERT INTO providers (id, name, phone, password, walletBalance, status) VALUES (?, ?, ?, ?, 0.0, "online")',
-          [newId, name, cleanPhone, hashedPassword],
-          function (err) {
-            if (err) return res.status(500).json({ error: err.message });
-            const token = jwt.sign({ id: newId, phone: cleanPhone, role: 'provider' }, JWT_SECRET, { expiresIn: '30d' });
-            res.json({ id: newId, name, phone: cleanPhone, token });
-          }
-        );
-      } catch (hashErr) {
-        res.status(500).json({ error: 'Error processing password.' });
-      }
-    });
+      const { error } = await db.from('providers').insert({
+        id: newId, name, phone: cleanPhone, password: hashedPassword, walletBalance: 0.0, status: 'online'
+      });
+      if (error) throw error;
+      
+      const token = jwt.sign({ id: newId, phone: cleanPhone, role: 'provider' }, JWT_SECRET, { expiresIn: '30d' });
+      res.json({ id: newId, name, phone: cleanPhone, token });
+    } catch (hashErr) {
+      res.status(500).json({ error: 'Error processing password.' });
+    }
   } catch (error) {
     res.status(401).json({ error: 'Authentication failed.' });
   }
 });
 
-app.get('/api/provider/:providerId', (req, res) => {
-  db.get('SELECT * FROM providers WHERE id = ?', [req.params.providerId], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'Provider not found.' });
-    const { password, ...safeData } = row;
-    res.json(safeData);
-  });
+app.get('/api/provider/:providerId', async (req, res) => {
+  const { data: row, error } = await db.from('providers').select('*').eq('id', req.params.providerId).maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!row) return res.status(404).json({ error: 'Provider not found.' });
+  const { password, ...safeData } = row;
+  res.json(safeData);
 });
 
-app.get('/api/user/:userId', (req, res) => {
-  db.get('SELECT * FROM users WHERE id = ?', [req.params.userId], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: 'User not found.' });
-    res.json(row);
-  });
+app.post('/api/provider/update-profile', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'provider') return res.status(403).json({ error: 'Forbidden' });
+  
+  const { tagline, bio, langs, exp, demographic, priceChat, priceCall, priceVideo } = req.body;
+  const providerId = req.user.id;
+  
+  const { error } = await db.from('providers').update({
+    tagline, bio, langs, exp, demographic, priceChat, priceCall, priceVideo
+  }).eq('id', providerId);
+  
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true, message: 'Profile updated successfully!' });
 });
 
-app.get('/api/user/:userId/active-session', (req, res) => {
-  db.get(
-    'SELECT * FROM sessions WHERE userId = ? AND status = "active" AND startTime > datetime("now", "-1 hour") ORDER BY id DESC LIMIT 1',
-    [req.params.userId],
-    (err, row) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(row || {});
-    }
-  );
+app.get('/api/user/:userId', async (req, res) => {
+  const { data: row, error } = await db.from('users').select('*').eq('id', req.params.userId).maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  if (!row) return res.status(404).json({ error: 'User not found.' });
+  res.json(row);
 });
 
-// Agora Token
+app.get('/api/user/:userId/active-session', async (req, res) => {
+  const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
+  const { data: row, error } = await db.from('sessions')
+    .select('*')
+    .eq('userId', req.params.userId)
+    .eq('status', 'active')
+    .gt('startTime', oneHourAgo)
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(row || {});
+});
+
 app.post('/api/agora/token', authenticateToken, (req, res) => {
-  if (!RtcTokenBuilder || !AGORA_APP_ID || !AGORA_APP_CERTIFICATE) {
-    return res.status(500).json({ error: 'Agora not configured on server.' });
-  }
-
+  if (!RtcTokenBuilder || !AGORA_APP_ID || !AGORA_APP_CERTIFICATE) return res.status(500).json({ error: 'Agora not configured on server.' });
   const { channelName, role } = req.body;
   if (!channelName) return res.status(400).json({ error: 'channelName is required' });
-
-  const uid = req.body.uid || 0; // FIX: was using undefined `uid`
-  const expirationTimeInSeconds = 3600;
-  const privilegeExpiredTs = Math.floor(Date.now() / 1000) + expirationTimeInSeconds;
+  const uid = req.body.uid || 0;
+  const privilegeExpiredTs = Math.floor(Date.now() / 1000) + 3600;
   const agoraRole = role === 'publisher' ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
-
   try {
-    const token = RtcTokenBuilder.buildTokenWithUid(
-      AGORA_APP_ID, AGORA_APP_CERTIFICATE, channelName, uid, agoraRole, privilegeExpiredTs
-    );
+    const token = RtcTokenBuilder.buildTokenWithUid(AGORA_APP_ID, AGORA_APP_CERTIFICATE, channelName, uid, agoraRole, privilegeExpiredTs);
     return res.json({ token, uid, appId: AGORA_APP_ID });
   } catch (err) {
-    console.error('Agora Token Error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/api/providers', (req, res) => {
-  db.all('SELECT * FROM providers', [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+app.get('/api/providers', async (req, res) => {
+  const { data: rows, error } = await db.from('providers').select('*');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(rows);
 });
 
-app.get('/api/inbox/:userId', (req, res) => {
-  const query = `
-    SELECT inbox.*, providers.name as providerName, providers.status as providerStatus
-    FROM inbox
-    LEFT JOIN providers ON inbox.providerId = providers.id
-    WHERE inbox.userId = ?
-    ORDER BY inbox.date DESC
-  `;
-  db.all(query, [req.params.userId], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    const mapped = rows.map(r => ({
-      id: r.id,
-      name: r.isSystem ? 'BeHappyTalk' : r.providerName,
-      date: r.date,
-      type: r.type,
-      status: r.providerStatus || r.status,
-      message: r.message,
-      icon: r.icon,
-      iconColor: r.iconColor,
-      isSystem: Boolean(r.isSystem),
-      providerId: r.providerId,
-    }));
-    res.json(mapped);
-  });
+app.get('/api/inbox/:userId', async (req, res) => {
+  const { data, error } = await db.from('inbox').select('*, providers(name, status)').eq('userId', req.params.userId).order('date', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  const mapped = data.map(r => ({
+    id: r.id, name: r.isSystem ? 'BeHappyTalk' : r.providers?.name, date: r.date, type: r.type, status: r.providers?.status || r.status,
+    message: r.message, icon: r.icon, iconColor: r.iconColor, isSystem: Boolean(r.isSystem), providerId: r.providerId,
+  }));
+  res.json(mapped);
 });
 
-app.get('/api/provider/history/:providerId', (req, res) => {
-  const query = `
-    SELECT sessions.*, users.name as userName
-    FROM sessions
-    JOIN users ON sessions.userId = users.id
-    WHERE sessions.providerId = ? AND sessions.status = 'completed'
-    ORDER BY sessions.startTime DESC
-  `;
-  db.all(query, [req.params.providerId], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+app.get('/api/provider/history/:providerId', async (req, res) => {
+  const { data, error } = await db.from('sessions').select('*, users(name)').eq('providerId', req.params.providerId).eq('status', 'completed').order('startTime', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  const mapped = data.map(r => ({ ...r, userName: r.users?.name }));
+  res.json(mapped);
 });
 
-app.get('/api/recents/:userId', (req, res) => {
-  const query = `
-    SELECT DISTINCT providers.id, providers.name, providers.status
-    FROM messages
-    JOIN providers ON messages.providerId = providers.id
-    WHERE messages.userId = ?
-    ORDER BY messages.timestamp DESC
-    LIMIT 10
-  `;
-  db.all(query, [req.params.userId], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
-});
-
-app.get('/api/provider/inbox/:providerId', (req, res) => {
-  const query = `
-    SELECT DISTINCT users.id, users.name
-    FROM messages
-    JOIN users ON messages.userId = users.id
-    WHERE messages.providerId = ?
-    ORDER BY messages.timestamp DESC
-    LIMIT 20
-  `;
-  db.all(query, [req.params.providerId], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
-});
-
-app.get('/api/chat/:userId/:providerId', (req, res) => {
-  const { userId, providerId } = req.params;
-  db.all(
-    'SELECT * FROM messages WHERE userId = ? AND providerId = ? ORDER BY timestamp ASC',
-    [userId, providerId],
-    (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(rows);
+app.get('/api/recents/:userId', async (req, res) => {
+  const { data, error } = await db.from('messages').select('providers(id, name, status)').eq('userId', req.params.userId).order('timestamp', { ascending: false }).limit(50);
+  if (error) return res.status(500).json({ error: error.message });
+  
+  // Extract unique providers
+  const uniqueProviders = [];
+  const ids = new Set();
+  data.forEach(r => {
+    if (r.providers && !ids.has(r.providers.id)) {
+      ids.add(r.providers.id);
+      uniqueProviders.push(r.providers);
     }
-  );
+  });
+  res.json(uniqueProviders.slice(0, 10));
+});
+
+app.get('/api/provider/inbox/:providerId', async (req, res) => {
+  const { data, error } = await db.from('messages').select('users(id, name)').eq('providerId', req.params.providerId).order('timestamp', { ascending: false }).limit(50);
+  if (error) return res.status(500).json({ error: error.message });
+
+  const uniqueUsers = [];
+  const ids = new Set();
+  data.forEach(r => {
+    if (r.users && !ids.has(r.users.id)) {
+      ids.add(r.users.id);
+      uniqueUsers.push(r.users);
+    }
+  });
+  res.json(uniqueUsers.slice(0, 20));
+});
+
+app.get('/api/chat/:userId/:providerId', async (req, res) => {
+  const { userId, providerId } = req.params;
+  const { data, error } = await db.from('messages').select('*').eq('userId', userId).eq('providerId', providerId).order('timestamp', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
 // ─── Admin Endpoints ──────────────────────────────────────────────────────────
@@ -407,159 +355,121 @@ const authenticateAdmin = (req, res, next) => {
   });
 };
 
-app.get('/api/admin/users', authenticateAdmin, (req, res) => {
-  db.all('SELECT id, name, phone, walletBalance FROM users', [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
+  const { data, error } = await db.from('users').select('id, name, phone, walletBalance');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-app.get('/api/admin/providers', authenticateAdmin, (req, res) => {
-  db.all('SELECT id, name, phone, walletBalance, status FROM providers', [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+app.get('/api/admin/providers', authenticateAdmin, async (req, res) => {
+  const { data, error } = await db.from('providers').select('id, name, phone, walletBalance, status');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-app.get('/api/admin/sessions', authenticateAdmin, (req, res) => {
-  const query = `
-    SELECT sessions.*, users.name as userName, providers.name as providerName 
-    FROM sessions 
-    LEFT JOIN users ON sessions.userId = users.id 
-    LEFT JOIN providers ON sessions.providerId = providers.id 
-    ORDER BY startTime DESC LIMIT 100
-  `;
-  db.all(query, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+app.get('/api/admin/sessions', authenticateAdmin, async (req, res) => {
+  const { data, error } = await db.from('sessions').select('*, users(name), providers(name)').order('startTime', { ascending: false }).limit(100);
+  if (error) return res.status(500).json({ error: error.message });
+  const mapped = data.map(r => ({ ...r, userName: r.users?.name, providerName: r.providers?.name }));
+  res.json(mapped);
 });
 
-app.post('/api/admin/update-wallet', authenticateAdmin, (req, res) => {
+app.post('/api/admin/update-wallet', authenticateAdmin, async (req, res) => {
   const { type, id, amount } = req.body;
   const table = type === 'user' ? 'users' : 'providers';
-  db.run(`UPDATE ${table} SET walletBalance = ? WHERE id = ?`, [amount, id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ success: true });
-  });
+  const { error } = await db.from(table).update({ walletBalance: amount }).eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
-app.post('/api/admin/delete-user', authenticateAdmin, (req, res) => {
-  const { id } = req.body;
-  db.run('DELETE FROM messages WHERE userId = ?', [id], () => {
-    db.run('DELETE FROM sessions WHERE userId = ?', [id], () => {
-      db.run('DELETE FROM users WHERE id = ?', [id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-      });
-    });
-  });
+app.post('/api/admin/delete-user', authenticateAdmin, async (req, res) => {
+  // Cascading deletes are handled by Supabase foreign keys!
+  const { error } = await db.from('users').delete().eq('id', req.body.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
-app.post('/api/admin/delete-provider', authenticateAdmin, (req, res) => {
-  const { id } = req.body;
-  db.run('DELETE FROM messages WHERE providerId = ?', [id], () => {
-    db.run('DELETE FROM sessions WHERE providerId = ?', [id], () => {
-      db.run('DELETE FROM providers WHERE id = ?', [id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-      });
-    });
-  });
+app.post('/api/admin/delete-provider', authenticateAdmin, async (req, res) => {
+  const { error } = await db.from('providers').delete().eq('id', req.body.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
-app.post('/api/admin/verify-provider', authenticateAdmin, (req, res) => {
+app.post('/api/admin/verify-provider', authenticateAdmin, async (req, res) => {
   const { id, verified } = req.body;
-  db.run('UPDATE providers SET verified = ? WHERE id = ?', [verified, id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ success: true });
-  });
+  const { error } = await db.from('providers').update({ verified }).eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
-app.get('/api/admin/stats', authenticateAdmin, (req, res) => {
-  db.get('SELECT COUNT(*) as users FROM users', [], (err1, row1) => {
-    db.get('SELECT COUNT(*) as providers FROM providers', [], (err2, row2) => {
-      db.get('SELECT COUNT(*) as sessions, SUM(cost) as revenue, SUM(adminEarnings) as adminEarnings FROM sessions', [], (err3, row3) => {
-        db.get('SELECT SUM(amount) as totalWithdrawn FROM admin_withdrawals', [], (err4, row4) => {
-          const rev = row3 ? row3.revenue : 0;
-          const admEarned = row3 && row3.adminEarnings ? row3.adminEarnings : 0;
-          const withdrawn = row4 && row4.totalWithdrawn ? row4.totalWithdrawn : 0;
-          res.json({
-            users: row1 ? row1.users : 0,
-            providers: row2 ? row2.providers : 0,
-            sessions: row3 ? row3.sessions : 0,
-            revenue: rev,
-            adminEarnings: admEarned - withdrawn,
-            totalWithdrawn: withdrawn
-          });
-        });
-      });
-    });
-  });
+app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
+  try {
+    const { count: users } = await db.from('users').select('*', { count: 'exact', head: true });
+    const { count: providers } = await db.from('providers').select('*', { count: 'exact', head: true });
+    const { data: sessData } = await db.from('sessions').select('cost, adminEarnings');
+    const { data: wData } = await db.from('admin_withdrawals').select('amount');
+    
+    let revenue = 0, adminEarnings = 0, totalWithdrawn = 0;
+    if (sessData) sessData.forEach(s => { revenue += (s.cost || 0); adminEarnings += (s.adminEarnings || 0); });
+    if (wData) wData.forEach(w => { totalWithdrawn += (w.amount || 0); });
+    
+    res.json({ users, providers, sessions: sessData ? sessData.length : 0, revenue, adminEarnings: adminEarnings - totalWithdrawn, totalWithdrawn });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
-app.post('/api/admin/withdraw', authenticateAdmin, (req, res) => {
+app.post('/api/admin/withdraw', authenticateAdmin, async (req, res) => {
   const { amount } = req.body;
   if (!amount || amount <= 0) return res.status(400).json({ error: 'Invalid amount' });
-  db.run('INSERT INTO admin_withdrawals (amount) VALUES (?)', [amount], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ success: true });
-  });
+  const { error } = await db.from('admin_withdrawals').insert({ amount });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
-app.get('/api/admin/withdrawals', authenticateAdmin, (req, res) => {
-  db.all('SELECT * FROM admin_withdrawals ORDER BY date DESC', [], (err, rows) => {
-    res.json(rows || []);
-  });
+app.get('/api/admin/withdrawals', authenticateAdmin, async (req, res) => {
+  const { data, error } = await db.from('admin_withdrawals').select('*').order('date', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
 });
 
-// Provider requests payout
-app.post('/api/provider/withdraw', (req, res) => {
+app.post('/api/provider/withdraw', async (req, res) => {
   const { providerId, amount } = req.body;
   if (!providerId || !amount || amount <= 0) return res.status(400).json({ error: 'Invalid payout' });
   
-  db.get('SELECT walletBalance FROM providers WHERE id = ?', [providerId], (err, row) => {
-    if (!row || row.walletBalance < amount) return res.status(400).json({ error: 'Insufficient funds' });
-    
-    // Allow up to 50%
-    if (amount > (row.walletBalance / 2) + 0.1) {
-      return res.status(400).json({ error: "According to company's policy you can cash out only 50% of your total earning" });
-    }
-    
-    // Auto-approve and deduct
-    db.run('UPDATE providers SET walletBalance = walletBalance - ? WHERE id = ?', [amount, providerId], (err) => {
-      db.run('INSERT INTO provider_withdrawals (providerId, amount) VALUES (?, ?)', [providerId, amount], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true });
-      });
-    });
-  });
+  const { data: row } = await db.from('providers').select('walletBalance').eq('id', providerId).maybeSingle();
+  if (!row || row.walletBalance < amount) return res.status(400).json({ error: 'Insufficient funds' });
+  if (amount > (row.walletBalance / 2) + 0.1) return res.status(400).json({ error: "According to company's policy you can cash out only 50% of your total earning" });
+  
+  const { error: updErr } = await db.from('providers').update({ walletBalance: row.walletBalance - amount }).eq('id', providerId);
+  if (updErr) return res.status(500).json({ error: updErr.message });
+  
+  await db.from('provider_withdrawals').insert({ providerId, amount });
+  res.json({ success: true });
 });
 
-app.get('/api/provider/withdrawals/:providerId', (req, res) => {
-  db.all('SELECT * FROM provider_withdrawals WHERE providerId = ? ORDER BY date DESC', [req.params.providerId], (err, rows) => {
-    res.json(rows || []);
-  });
+app.get('/api/provider/withdrawals/:providerId', async (req, res) => {
+  const { data } = await db.from('provider_withdrawals').select('*').eq('providerId', req.params.providerId).order('date', { ascending: false });
+  res.json(data || []);
 });
 
 // ─── Billing Internals ────────────────────────────────────────────────────────
 const activeBillingTimers = {};
 
-function stopBillingInterval(sessionId) {
+async function stopBillingInterval(sessionId) {
   if (activeBillingTimers[sessionId]) {
     clearInterval(activeBillingTimers[sessionId]);
     delete activeBillingTimers[sessionId];
-    db.run('UPDATE sessions SET status = ? WHERE id = ?', ['completed', sessionId]);
+    await db.from('sessions').update({ status: 'completed' }).eq('id', sessionId);
   }
 }
 
 function startBillingInterval(sessionId, userId, providerId, rate, room, passedDuration) {
   if (activeBillingTimers[sessionId]) return;
-
   const duration = Number(passedDuration) || 5;
   let minutesPassed = 0;
 
-  const deduct = () => {
+  const deduct = async () => {
     if (minutesPassed >= duration) {
       stopBillingInterval(sessionId);
       io.to(room).emit('session_ended', { sessionId, reason: 'duration_ended' });
@@ -567,32 +477,27 @@ function startBillingInterval(sessionId, userId, providerId, rate, room, passedD
       return;
     }
 
-    db.get('SELECT walletBalance FROM users WHERE id = ?', [userId], (err, row) => {
-      if (!row) return stopBillingInterval(sessionId);
-
-      const userBalance = row.walletBalance;
-
-      if (userBalance < rate) {
-        stopBillingInterval(sessionId);
-        io.to(room).emit('session_ended', { sessionId, reason: 'insufficient_funds' });
-        io.to(`user_room_${userId}`).emit('session_ended', { sessionId, reason: 'insufficient_funds' });
-        return;
-      }
-
-      const newUserBalance = userBalance - rate;
-      const providerShare = rate / 2;
-      const adminShare = rate - providerShare;
-
-      db.run('UPDATE users SET walletBalance = ? WHERE id = ?', [newUserBalance, userId]);
-      db.run('UPDATE providers SET walletBalance = walletBalance + ? WHERE id = ?', [providerShare, providerId]);
-      db.run('UPDATE sessions SET duration = duration + 1, cost = cost + ?, adminEarnings = adminEarnings + ? WHERE id = ?', [rate, adminShare, sessionId]);
-
-      minutesPassed++;
-
-      io.to(`user_room_${userId}`).emit('wallet_update', { walletBalance: newUserBalance });
-      io.to(`provider_room_${providerId}`).emit('wallet_update', { walletBalance: 'FETCH_NEEDED' });
-      io.to(room).emit('wallet_update', { walletBalance: newUserBalance });
+    // Call Supabase RPC for atomic billing!
+    const { data: success, error } = await db.rpc('process_billing_minute', {
+      p_session_id: sessionId, p_user_id: userId, p_provider_id: providerId, p_rate: rate
     });
+
+    if (error || !success) {
+      stopBillingInterval(sessionId);
+      io.to(room).emit('session_ended', { sessionId, reason: 'insufficient_funds' });
+      io.to(`user_room_${userId}`).emit('session_ended', { sessionId, reason: 'insufficient_funds' });
+      return;
+    }
+
+    minutesPassed++;
+    
+    // Fetch new balance to broadcast
+    const { data: uData } = await db.from('users').select('walletBalance').eq('id', userId).maybeSingle();
+    if (uData) {
+      io.to(`user_room_${userId}`).emit('wallet_update', { walletBalance: uData.walletBalance });
+      io.to(room).emit('wallet_update', { walletBalance: uData.walletBalance });
+    }
+    io.to(`provider_room_${providerId}`).emit('wallet_update', { walletBalance: 'FETCH_NEEDED' });
   };
 
   deduct();
@@ -609,172 +514,102 @@ io.on('connection', (socket) => {
     console.log(`[Socket] User ${userId} joined their room.`);
   });
 
-  
   socket.on('update_provider_status', ({ providerId, isOnline, isTalking, settings }) => {
-    if (!providerStates[providerId]) {
-      providerStates[providerId] = { isOnline: true, isTalking: false, settings: { chat: true, audio: true, video: true } };
-    }
-    
+    if (!providerStates[providerId]) providerStates[providerId] = { isOnline: true, isTalking: false, settings: { chat: true, audio: true, video: true } };
     if (isOnline !== undefined) providerStates[providerId].isOnline = isOnline;
     if (isTalking !== undefined) providerStates[providerId].isTalking = isTalking;
     if (settings !== undefined) providerStates[providerId].settings = { ...providerStates[providerId].settings, ...settings };
-
-    // Broadcast to ALL connected clients so mobile users see the change immediately
     io.emit('provider_status_changed', { providerId, state: providerStates[providerId] });
-    console.log(`[Socket] Provider ${providerId} status updated: `, providerStates[providerId]);
   });
 
   socket.on('get_all_provider_statuses', (data, callback) => {
-    if (typeof callback === 'function') {
-      callback(providerStates);
-    }
+    if (typeof callback === 'function') callback(providerStates);
   });
 
   socket.on('provider_online', ({ providerId }) => {
-    if (!providerStates[providerId]) {
-      providerStates[providerId] = { isOnline: true, isTalking: false, settings: { chat: true, audio: true, video: true } };
-    } else {
-      // Just ensure they are marked online
-      providerStates[providerId].isOnline = true;
-    }
+    if (!providerStates[providerId]) providerStates[providerId] = { isOnline: true, isTalking: false, settings: { chat: true, audio: true, video: true } };
+    else providerStates[providerId].isOnline = true;
     io.emit('provider_status_changed', { providerId, state: providerStates[providerId] });
-
     socket.join(`provider_room_${providerId}`);
-    console.log(`[Socket] Provider ${providerId} joined their room.`);
   });
 
   socket.on('request_interaction', ({ userId, providerId, type, rate, userName, duration }) => {
-    socket.userId = userId; // ensure socket has userId
-
-    // If user was in a waitlist for a different provider, cancel that one
+    socket.userId = userId;
     if (pendingRequests[userId] && pendingRequests[userId] !== providerId) {
-      console.log(`[Socket] User ${userId} changed mind. Auto-cancelling waitlist for ${pendingRequests[userId]}`);
       io.to(`provider_room_${pendingRequests[userId]}`).emit('request_cancelled');
     }
     pendingRequests[userId] = providerId;
-
-    console.log(`[Socket] Interaction Request from ${userId} to ${providerId} (Type: ${type})`);
     io.to(`provider_room_${providerId}`).emit('incoming_request', { userId, userName, providerId, type, rate, duration });
   });
 
   socket.on('cancel_interaction', ({ providerId }) => {
-    if (socket.userId && pendingRequests[socket.userId] === providerId) {
-      delete pendingRequests[socket.userId];
-    }
-    console.log(`[Socket] Interaction cancelled for provider ${providerId}`);
+    if (socket.userId && pendingRequests[socket.userId] === providerId) delete pendingRequests[socket.userId];
     io.to(`provider_room_${providerId}`).emit('request_cancelled');
   });
 
-  socket.on('accept_interaction', ({ userId, providerId, type, rate, duration }) => {
-    if (pendingRequests[userId] === providerId) {
-      delete pendingRequests[userId];
-    }
-    console.log(`[Socket] Interaction Accepted by ${providerId} for ${userId}`);
+  socket.on('accept_interaction', async ({ userId, providerId, type, rate, duration }) => {
+    if (pendingRequests[userId] === providerId) delete pendingRequests[userId];
     const sessionId = `sess_${Date.now()}`;
 
-    db.run(
-      'INSERT INTO sessions (id, userId, providerId, type, rate, status) VALUES (?, ?, ?, ?, ?, ?)',
-      [sessionId, userId, providerId, type, rate, 'active'],
-      function (err) {
-        if (err) return console.error('[Socket] Session insert error:', err);
+    const { error } = await db.from('sessions').insert({
+      id: sessionId, userId, providerId, type, rate, status: 'active', cost: 0, adminEarnings: 0
+    });
 
-        const room = `chat_${userId}_${providerId}`;
+    if (error) return console.error('[Socket] Session insert error:', error.message);
 
-        // FIX: Provider socket MUST join the chat room to receive/send WebRTC signals
-        socket.join(room);
-        console.log(`[Socket] Provider socket ${socket.id} joined room: ${room}`);
+    const room = `chat_${userId}_${providerId}`;
+    socket.join(room);
 
-        // Tell the USER to navigate to call screen
-        io.to(`user_room_${userId}`).emit('session_accepted', {
-          providerId,
-          sessionId,
-          type,
-          rate,
-          duration,
-          room,
-        });
+    io.to(`user_room_${userId}`).emit('session_accepted', { providerId, sessionId, type, rate, duration, room });
+    io.to(`provider_room_${providerId}`).emit('session_started', { sessionId, type, rate, duration, room, userId });
 
-        // Tell the PROVIDER panel the session started
-        io.to(`provider_room_${providerId}`).emit('session_started', {
-          sessionId,
-          type,
-          rate,
-          duration,
-          room,
-          userId,
-        });
-
-        startBillingInterval(sessionId, userId, providerId, rate, room, duration);
-      }
-    );
+    startBillingInterval(sessionId, userId, providerId, rate, room, duration);
   });
 
   socket.on('reject_interaction', ({ userId, providerId }) => {
     io.to(`user_room_${userId}`).emit('session_rejected', { providerId });
   });
 
-  socket.on('end_interaction', ({ sessionId }) => {
+  socket.on('end_interaction', async ({ sessionId }) => {
     stopBillingInterval(sessionId);
-    db.get('SELECT userId, providerId FROM sessions WHERE id = ?', [sessionId], (err, row) => {
-      if (!err && row) {
-        const room = `chat_${row.userId}_${row.providerId}`;
-        io.to(room).emit('session_ended', { sessionId, reason: 'user_ended' });
-        io.to(`user_room_${row.userId}`).emit('session_ended', { sessionId, reason: 'user_ended' });
-        io.to(`provider_room_${row.providerId}`).emit('session_ended', { sessionId, reason: 'user_ended' });
-      }
-    });
+    const { data: row } = await db.from('sessions').select('userId, providerId').eq('id', sessionId).maybeSingle();
+    if (row) {
+      const room = `chat_${row.userId}_${row.providerId}`;
+      io.to(room).emit('session_ended', { sessionId, reason: 'user_ended' });
+      io.to(`user_room_${row.userId}`).emit('session_ended', { sessionId, reason: 'user_ended' });
+      io.to(`provider_room_${row.providerId}`).emit('session_ended', { sessionId, reason: 'user_ended' });
+    }
   });
 
   socket.on('join_chat', ({ userId, providerId }) => {
     const room = `chat_${userId}_${providerId}`;
     socket.join(room);
-    console.log(`[Socket] Socket ${socket.id} joined room: ${room}`);
   });
 
-  socket.on('send_message', ({ userId, providerId, senderId, text }) => {
-    // If the user started a direct chat while waiting for someone, cancel the waitlist
+  socket.on('send_message', async ({ userId, providerId, senderId, text }) => {
     if (pendingRequests[userId] && senderId === userId) {
-      console.log(`[Socket] User ${userId} started a chat. Auto-cancelling waitlist for ${pendingRequests[userId]}`);
       io.to(`provider_room_${pendingRequests[userId]}`).emit('request_cancelled');
       delete pendingRequests[userId];
     }
 
-    db.get(
-      'SELECT id FROM sessions WHERE userId = ? AND providerId = ? AND status = ?',
-      [userId, providerId, 'active'],
-      (err, session) => {
-        if (err || !session) {
-          socket.emit('session_ended', { reason: 'access_denied' });
-          return;
-        }
+    const { data: session } = await db.from('sessions').select('id').eq('userId', userId).eq('providerId', providerId).eq('status', 'active').maybeSingle();
+    if (!session) {
+      socket.emit('session_ended', { reason: 'access_denied' });
+      return;
+    }
 
-        const room = `chat_${userId}_${providerId}`;
+    const room = `chat_${userId}_${providerId}`;
+    const { data: inserted, error } = await db.from('messages').insert({
+      userId, providerId, senderId, text
+    }).select().single();
 
-        db.run(
-          'INSERT INTO messages (userId, providerId, senderId, text) VALUES (?, ?, ?, ?)',
-          [userId, providerId, senderId, text],
-          function (err) {
-            if (err) return console.error('Error saving message:', err);
+    if (error) return console.error('Error saving message:', error.message);
 
-            const msg = {
-              id: this.lastID,
-              userId, providerId, senderId, text,
-              timestamp: new Date().toISOString(),
-            };
-            io.to(room).emit('receive_message', msg);
-            upsertInbox(userId, providerId, text, 'online');
-          }
-        );
-      }
-    );
+    io.to(room).emit('receive_message', inserted);
+    upsertInbox(userId, providerId, text, 'online');
   });
 
-  // ─── WebRTC Signaling ──────────────────────────────────────────────────────
-  // FIX: Use socket.to(room) instead of io.to(room) to exclude the sender.
-  // Previously, the signal was sent back to the sender too — causing call failures.
   socket.on('webrtc_signal', ({ to, signal }) => {
-    console.log(`[WebRTC] Relaying signal type="${signal.type || 'candidate'}" to room: ${to}`);
-    // socket.to(to) sends to everyone in the room EXCEPT the current socket
     socket.to(to).emit('webrtc_signal', { signal });
   });
 
@@ -784,37 +619,18 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    // We don't know the providerId directly from the socket disconnect unless we map it.
-    // Let's iterate and find if this socket belonged to a provider (optional cleanup).
-
     if (socket.userId && pendingRequests[socket.userId]) {
        const pId = pendingRequests[socket.userId];
-       console.log(`[Socket] User ${socket.userId} disconnected. Auto-cancelling waitlist for ${pId}`);
        io.to(`provider_room_${pId}`).emit('request_cancelled');
        delete pendingRequests[socket.userId];
     }
-
-    console.log('Socket disconnected:', socket.id);
   });
 });
 
 // ─── Start ─────────────────────────────────────────────────────────────────────
-db.run("ALTER TABLE sessions ADD COLUMN adminEarnings REAL DEFAULT 0.0", () => {});
-db.run(`CREATE TABLE IF NOT EXISTS admin_withdrawals (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  amount REAL,
-  date DATETIME DEFAULT CURRENT_TIMESTAMP
-)`);
-db.run(`CREATE TABLE IF NOT EXISTS provider_withdrawals (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  providerId TEXT,
-  amount REAL,
-  date DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(providerId) REFERENCES providers(id)
-)`);
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`✅  BeHappyTalk server running on http://localhost:${PORT}`);
+  console.log(`✅  BeHappyTalk server (Supabase Edition) running on http://localhost:${PORT}`);
 });
 
 // ─── Keep-Alive Ping (Render Free Tier) ──────────────────────────────────────

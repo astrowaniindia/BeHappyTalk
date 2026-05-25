@@ -390,6 +390,10 @@
           <i class="fas fa-money-bill-transfer"></i>
           <span>Withdraw Funds</span>
         </div>
+        <div class="nav-item" data-view="profile">
+          <i class="fas fa-user-edit"></i>
+          <span>My Profile</span>
+        </div>
       </div>
       <div class="sidebar-footer">
         <div class="profile-card" id="logout-trigger">
@@ -961,6 +965,46 @@
            </div>
         </div>
 
+        <div id="view-profile" class="view-content">
+           <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; max-width: 600px;">
+             <h3 style="margin: 0 0 24px; color: var(--text); font-size: 20px; font-weight: 700;">Edit Profile</h3>
+             
+             <div class="input-grp">
+               <label>Tagline (Short Catchphrase)</label>
+               <input type="text" id="prof-tagline" placeholder="e.g. Expert in Relationship Counseling">
+             </div>
+             <div class="input-grp">
+               <label>Bio (Detailed About Me)</label>
+               <textarea id="prof-bio" placeholder="Tell your customers about your experience and expertise..." style="width: 100%; background: rgba(0,0,0,0.3); color: var(--text); padding: 16px 20px; border-radius: 16px; border: 1px solid var(--border); transition: 0.3s; font-size: 15px; font-family: inherit; resize: vertical; min-height: 100px;"></textarea>
+             </div>
+             
+             <div style="display:flex; gap: 16px;">
+               <div class="input-grp" style="flex:1;">
+                 <label>Languages (e.g. English, Hindi)</label>
+                 <input type="text" id="prof-langs">
+               </div>
+               <div class="input-grp" style="flex:1;">
+                 <label>Experience (e.g. 5+ Years)</label>
+                 <input type="text" id="prof-exp">
+               </div>
+             </div>
+             
+             <div class="input-grp">
+               <label>Demographic (e.g. F · 30 yrs)</label>
+               <input type="text" id="prof-demographic">
+             </div>
+
+             <h4 style="color:var(--primary); margin-top:24px; margin-bottom:16px;">Pricing (₹ / min)</h4>
+             <div style="display:flex; gap: 16px;">
+               <div class="input-grp" style="flex:1;"><label>Chat</label><input type="number" id="prof-priceChat"></div>
+               <div class="input-grp" style="flex:1;"><label>Audio Call</label><input type="number" id="prof-priceCall"></div>
+               <div class="input-grp" style="flex:1;"><label>Video Call</label><input type="number" id="prof-priceVideo"></div>
+             </div>
+
+             <button onclick="saveProfile()" id="btn-save-prof" style="width: 100%; background: var(--primary); color: var(--bg-darker); border: none; padding: 16px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; font-size: 14px; text-transform: uppercase; margin-top: 16px;">Save Profile</button>
+           </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -1084,6 +1128,18 @@
       document.getElementById('sidebar-toggle').onclick = () => {
         document.querySelector('.sidebar').classList.toggle('collapsed');
       };
+
+      // Populate Profile Tab
+      if (document.getElementById('prof-tagline')) {
+          document.getElementById('prof-tagline').value = provider.tagline || '';
+          document.getElementById('prof-bio').value = provider.bio || '';
+          document.getElementById('prof-langs').value = provider.langs || '';
+          document.getElementById('prof-exp').value = provider.exp || '';
+          document.getElementById('prof-demographic').value = provider.demographic || '';
+          document.getElementById('prof-priceChat').value = provider.priceChat || 10;
+          document.getElementById('prof-priceCall').value = provider.priceCall || 20;
+          document.getElementById('prof-priceVideo').value = provider.priceVideo || 30;
+      }
 
       socket = io({
         transports: ['websocket'],
