@@ -2045,15 +2045,6 @@
     // Initialize audio queue on load
     document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => renderAudioQueue(), 1000);
-      
-      // Simulate random incoming call if not DND
-      setInterval(() => {
-        if(!isDND && currentAudioCall?.status !== 'active' && currentAudioCall?.status !== 'waiting' && Math.random() > 0.8) {
-           const id = 'c' + Date.now();
-           audioCalls.unshift({ id, name: 'New User ' + Math.floor(Math.random()*100), status: 'waiting', time: 'Just now', duration: 0 });
-           renderAudioQueue();
-        }
-      }, 10000);
     });
 
 
