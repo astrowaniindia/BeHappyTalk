@@ -2462,6 +2462,64 @@ function renderMsg(msg) {
        document.getElementById('local-video').innerHTML = '';
        document.getElementById('media-overlay').style.display = 'none';
     }
+
+    async function uploadImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64Image = e.target.result;
+        document.getElementById('prof-img-preview').src = base64Image; // Optimistic update
+        
+        try {
+          const res = await fetch('/api/provider/upload-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ base64Image })
+          });
+          const data = await res.json();
+          if(!data.success) {
+            alert('Failed to upload image: ' + data.error);
+          }
+        } catch(err) {
+          console.error(err);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function saveProfile() {
+      const btn = document.getElementById('btn-save-prof');
+      btn.innerText = 'Saving...';
+      try {
+        const res = await fetch('/api/provider/update-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            tagline: document.getElementById('prof-tagline').value,
+            bio: document.getElementById('prof-bio').value,
+            langs: document.getElementById('prof-langs').value,
+            exp: document.getElementById('prof-exp').value,
+            demographic: document.getElementById('prof-demographic').value,
+            priceChat: parseInt(document.getElementById('prof-priceChat').value),
+            priceCall: parseInt(document.getElementById('prof-priceCall').value),
+            priceVideo: parseInt(document.getElementById('prof-priceVideo').value)
+          })
+        });
+        const data = await res.json();
+        if(data.success) {
+           btn.innerText = 'Saved Successfully!';
+           setTimeout(() => btn.innerText = 'Save Profile', 2000);
+        } else {
+           alert(data.error);
+           btn.innerText = 'Save Profile';
+        }
+      } catch(e) {
+        console.error(e);
+        btn.innerText = 'Save Profile';
+      }
+    }
   </script>
 </body>
 </html>
