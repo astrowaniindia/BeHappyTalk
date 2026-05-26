@@ -268,6 +268,16 @@ app.post('/api/provider/upload-image', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/api/provider/remove-image', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'provider') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    await db.from('providers').update({ imagePath: null }).eq('id', req.user.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/user/:userId', async (req, res) => {
   const { data: row, error } = await db.from('users').select('*').eq('id', req.params.userId).maybeSingle();
   if (error) return res.status(500).json({ error: error.message });

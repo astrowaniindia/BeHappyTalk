@@ -971,7 +971,11 @@
              
              <div style="text-align: center; margin-bottom: 32px;">
                <img id="prof-img-preview" src="https://via.placeholder.com/120" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary); margin-bottom: 12px; cursor: pointer; box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);" onclick="document.getElementById('prof-img-upload').click()">
-               <p style="font-size: 13px; color: var(--primary); margin: 0; font-weight: 600; cursor: pointer;" onclick="document.getElementById('prof-img-upload').click()">Change Profile Picture</p>
+               <div style="display: flex; gap: 16px; justify-content: center; align-items: center;">
+                 <p style="font-size: 13px; color: var(--primary); margin: 0; font-weight: 600; cursor: pointer;" onclick="document.getElementById('prof-img-upload').click()">Change Picture</p>
+                 <div style="width: 1px; height: 12px; background: var(--border);"></div>
+                 <p style="font-size: 13px; color: var(--danger); margin: 0; font-weight: 600; cursor: pointer;" onclick="removeImage()">Remove</p>
+               </div>
                <input type="file" id="prof-img-upload" accept="image/*" style="display: none;" onchange="uploadImage(event)">
              </div>
              
@@ -2487,6 +2491,19 @@ function renderMsg(msg) {
         }
       };
       reader.readAsDataURL(file);
+    }
+
+    async function removeImage() {
+      if(!confirm("Are you sure you want to remove your profile picture?")) return;
+      document.getElementById('prof-img-preview').src = 'https://via.placeholder.com/120';
+      try {
+        await fetch('/api/provider/remove-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+        });
+      } catch (err) {
+        console.error(err);
+      }
     }
 
     async function saveProfile() {
