@@ -22,6 +22,7 @@ import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import io from 'socket.io-client';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../hooks/useAuth';
 import { Audio } from 'expo-av';
 import { API_URL, SOCKET_URL, secureFetch } from '../../constants/ServerConfig';
@@ -285,7 +286,50 @@ export default function ChatScreen() {
     setMessage('');
   };
 
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0].base64) {
+      const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      setIsSending(true);
+      try {
+        const res = await secureFetch(`${API_URL}/chat/upload-image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64Image, senderId: userId })
+        });
+        const data = await res.json();
+        if (data.success && socketRef.current) {
+          socketRef.current.emit('send_message', {
+            userId,
+            providerId,
+            senderId: userId,
+            text: `[IMAGE]${data.url}`,
+          });
+        } else {
+          Alert.alert('Upload Failed', data.error || 'Failed to upload image');
+        }
+      } catch (e) {
+        console.error('Image upload failed', e);
+      }
+      setIsSending(false);
+    }
+  };
+
   const isSessionActive = Boolean(sessionId) && (timeLeft === null || timeLeft > 0);
+
+  const renderMessageContent = (text: string) => {
+    if (text.startsWith('[IMAGE]')) {
+      const url = text.replace('[IMAGE]', '');
+      return <Image source={{ uri: url }} style={{ width: 220, height: 220, borderRadius: 12, backgroundColor: '#1A1C23' }} resizeMode="cover" />;
+    }
+    return <Text style={styles.msgText}>{text}</Text>;
+  };
 
   const renderMessage = ({ item }: { item: Message }) => {
     if (item.type === 'system') {
@@ -302,7 +346,7 @@ export default function ChatScreen() {
       return (
         <View style={styles.incomingRow}>
           <View style={styles.incomingBubble}>
-            <Text style={styles.msgText}>{item.text}</Text>
+            {renderMessageContent(item.text)}
           </View>
           <Text style={styles.timeLeft}>{item.time}</Text>
         </View>
@@ -312,7 +356,7 @@ export default function ChatScreen() {
     return (
       <View style={styles.outgoingRow}>
         <View style={styles.outgoingBubble}>
-          <Text style={styles.msgText}>{item.text}</Text>
+          {renderMessageContent(item.text)}
         </View>
         <View style={styles.timeRowRight}>
           <Text style={styles.timeRight}>{item.time}</Text>
@@ -435,6 +479,9 @@ export default function ChatScreen() {
 
             {/* Input */}
             <View style={[styles.inputContainer, !isSessionActive && { opacity: 0.5 }]}>
+              <TouchableOpacity style={styles.attachBtn} onPress={pickImage} disabled={!isSessionActive || isSending}>
+                <MaterialCommunityIcons name="paperclip" size={24} color="rgba(255,255,255,0.7)" />
+              </TouchableOpacity>
               <View style={[styles.inputWrapper, !isSessionActive && { backgroundColor: '#12141B' }]}>
                 <TextInput
                   style={styles.textInput}
@@ -513,6 +560,7 @@ const styles = StyleSheet.create({
   inputContainer: { flexDirection: 'row', alignItems: 'flex-end', padding: 12, paddingBottom: Platform.OS === 'android' ? 36 : 12, backgroundColor: '#0A0B10', gap: 10 },
   inputWrapper: { flex: 1, backgroundColor: '#1A1C23', borderRadius: 24, paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 12 : 8, minHeight: 48, justifyContent: 'center' },
   textInput: { color: 'rgba(255,255,255,0.92)', fontSize: 15, maxHeight: 100 },
+  attachBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1A1C23', justifyContent: 'center', alignItems: 'center' },
   sendButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#4C1D95', justifyContent: 'center', alignItems: 'center' },
   sendButtonDisabled: { opacity: 0.4 },
 });

@@ -2223,18 +2223,39 @@
       socket.emit('typing', { to: activeUserId, from: provider.id });
     }
     
-    function sendFile(e) {
+    async function sendFile(e) {
       if(!currentSessionId || !activeUserId) return;
       const file = e.target.files[0];
       if(!file) return;
       const reader = new FileReader();
-      reader.onload = function(evt) {
-         const dataUrl = evt.target.result;
-         const msgObj = { sessionId: currentSessionId, senderId: provider.id, receiverId: activeUserId, text: '<img src="' + dataUrl + '" style="max-width:200px; border-radius:8px;">', timestamp: new Date().toISOString() };
-         socket.emit('send_message', msgObj);
-         renderMsg(msgObj);
+      reader.onload = async function(evt) {
+         const base64Image = evt.target.result;
+         
+         // Optimistically render sending state or just upload
+         try {
+           const res = await fetch('/api/chat/upload-image', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ base64Image, senderId: provider.id })
+           });
+           const data = await res.json();
+           if (data.success) {
+             const msgObj = { 
+               userId: activeUserId, 
+               providerId: provider.id, 
+               senderId: provider.id, 
+               text: '[IMAGE]' + data.url
+             };
+             socket.emit('send_message', msgObj);
+           } else {
+             alert('Failed to upload image: ' + data.error);
+           }
+         } catch (err) {
+           console.error(err);
+         }
       };
       reader.readAsDataURL(file);
+      e.target.value = ''; // clear input
     }
     
     function scrollToBottom() {
@@ -2257,7 +2278,14 @@ function renderMsg(msg) {
       const wrap = document.createElement('div');
       wrap.className = `msg-wrap ${msg.senderId === provider.id ? 'me' : 'them'}`;
       const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      wrap.innerHTML = `<div class="msg">${msg.text}</div>
+      
+      let contentHtml = msg.text;
+      if (msg.text && msg.text.startsWith('[IMAGE]')) {
+        const url = msg.text.replace('[IMAGE]', '');
+        contentHtml = `<img src="${url}" style="max-width:220px; border-radius:12px; cursor:pointer;" onclick="window.open('${url}')" />`;
+      }
+      
+      wrap.innerHTML = `<div class="msg">${contentHtml}</div>
         <div class="msg-status">
           <span style="font-weight: 700;">${time}</span>
           ${msg.senderId === provider.id ? '<span style="color: var(--primary);"><i class="fas fa-check-double"></i></span>' : ''}

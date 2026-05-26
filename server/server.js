@@ -278,6 +278,36 @@ app.post('/api/provider/remove-image', authenticateToken, async (req, res) => {
   }
 });
 
+// For chat images (can be used by both users and providers)
+app.post('/api/chat/upload-image', async (req, res) => {
+  const { base64Image, senderId } = req.body;
+  if (!base64Image || !senderId) return res.status(400).json({ error: 'Missing image or senderId' });
+
+  try {
+    const matches = base64Image.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) return res.status(400).json({ error: 'Invalid base64 format' });
+
+    const type = matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+    const fileName = `chat_${senderId}_${Date.now()}.${type}`;
+
+    const { error } = await db.storage.from('chat-media').upload(fileName, buffer, {
+      contentType: `image/${type}`,
+      upsert: true
+    });
+
+    if (error) throw error;
+
+    const { data: publicUrlData } = db.storage.from('chat-media').getPublicUrl(fileName);
+    const publicUrl = publicUrlData.publicUrl;
+
+    res.json({ success: true, url: publicUrl });
+  } catch (err) {
+    console.error('Chat image upload error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/user/:userId', async (req, res) => {
   const { data: row, error } = await db.from('users').select('*').eq('id', req.params.userId).maybeSingle();
   if (error) return res.status(500).json({ error: error.message });
