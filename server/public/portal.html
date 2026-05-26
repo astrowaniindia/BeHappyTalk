@@ -969,6 +969,12 @@
            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; max-width: 600px;">
              <h3 style="margin: 0 0 24px; color: var(--text); font-size: 20px; font-weight: 700;">Edit Profile</h3>
              
+             <div style="text-align: center; margin-bottom: 32px;">
+               <img id="prof-img-preview" src="https://via.placeholder.com/120" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary); margin-bottom: 12px; cursor: pointer; box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);" onclick="document.getElementById('prof-img-upload').click()">
+               <p style="font-size: 13px; color: var(--primary); margin: 0; font-weight: 600; cursor: pointer;" onclick="document.getElementById('prof-img-upload').click()">Change Profile Picture</p>
+               <input type="file" id="prof-img-upload" accept="image/*" style="display: none;" onchange="uploadImage(event)">
+             </div>
+             
              <div class="input-grp">
                <label>Tagline (Short Catchphrase)</label>
                <input type="text" id="prof-tagline" placeholder="e.g. Expert in Relationship Counseling">
@@ -1131,6 +1137,7 @@
 
       // Populate Profile Tab
       if (document.getElementById('prof-tagline')) {
+          if (provider.imagePath) document.getElementById('prof-img-preview').src = provider.imagePath;
           document.getElementById('prof-tagline').value = provider.tagline || '';
           document.getElementById('prof-bio').value = provider.bio || '';
           document.getElementById('prof-langs').value = provider.langs || '';

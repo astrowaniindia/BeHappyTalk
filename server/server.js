@@ -235,6 +235,38 @@ app.post('/api/provider/update-profile', authenticateToken, async (req, res) => 
   res.json({ success: true, message: 'Profile updated successfully!' });
 });
 
+app.post('/api/provider/upload-image', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'provider') return res.status(403).json({ error: 'Forbidden' });
+  const { base64Image } = req.body;
+  if (!base64Image) return res.status(400).json({ error: 'No image provided' });
+
+  try {
+    const matches = base64Image.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) return res.status(400).json({ error: 'Invalid base64 format' });
+
+    const type = matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+    const fileName = `provider_${req.user.id}_${Date.now()}.${type}`;
+
+    const { error } = await db.storage.from('profiles').upload(fileName, buffer, {
+      contentType: `image/${type}`,
+      upsert: true
+    });
+
+    if (error) throw error;
+
+    const { data: publicUrlData } = db.storage.from('profiles').getPublicUrl(fileName);
+    const publicUrl = publicUrlData.publicUrl;
+
+    await db.from('providers').update({ imagePath: publicUrl }).eq('id', req.user.id);
+
+    res.json({ success: true, url: publicUrl });
+  } catch (err) {
+    console.error('Image upload error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/user/:userId', async (req, res) => {
   const { data: row, error } = await db.from('users').select('*').eq('id', req.params.userId).maybeSingle();
   if (error) return res.status(500).json({ error: error.message });
