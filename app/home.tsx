@@ -197,7 +197,7 @@ export default function Home() {
   );
 
   const renderProvider = ({ item }: { item: any }) => (
-    <View style={styles.providerCard}>
+    <TouchableOpacity style={styles.providerCard} onPress={() => router.push(`/provider/${item.id}`)} activeOpacity={0.8}>
       <View style={styles.providerHeader}>
         <View style={styles.providerAvatarCt}>
           <Image source={item.image} style={styles.providerAvatar} />
@@ -238,7 +238,7 @@ export default function Home() {
           </TouchableOpacity>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderInboxItem = ({ item }: { item: any }) => (
