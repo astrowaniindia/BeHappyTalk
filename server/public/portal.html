@@ -378,17 +378,14 @@
           <i class="fas fa-inbox"></i>
           <span>Live Inbox</span>
         </div>
-        <div class="nav-item" data-view="earnings">
-          <i class="fas fa-wallet"></i>
-          <span>Wallet</span>
-        </div>
+
         <div class="nav-item" data-view="sessions">
           <i class="fas fa-phone"></i>
           <span>Sessions</span>
         </div>
         <div class="nav-item" data-view="withdraw">
           <i class="fas fa-money-bill-transfer"></i>
-          <span>Withdraw Funds</span>
+          <span>Wallet & Withdraw</span>
         </div>
         <div class="nav-item" data-view="profile">
           <i class="fas fa-user-edit"></i>
@@ -888,15 +885,7 @@
           </div>
         </div>
 
-        <!-- View: Earnings -->
-        <div id="view-earnings" class="view-content">
-           <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; margin-bottom: 32px; display: flex; align-items: center; justify-content: space-between;">
-             <div>
-               <h3 style="margin: 0 0 8px; color: var(--text-dim); font-size: 12px; text-transform: uppercase; font-weight: 700; letter-spacing: 1.5px;">Current Wallet Balance</h3>
-               <h2 id="wallet-balance-big" style="margin: 0; font-size: 40px; color: var(--success); font-weight: 800;">₹0.00</h2>
-             </div>
-           </div>
-        </div>
+
 
         <!-- View: Sessions -->
         <div id="view-sessions" class="view-content">
@@ -926,6 +915,13 @@
 
         <!-- View: Withdraw -->
         <div id="view-withdraw" class="view-content">
+           <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; margin-bottom: 32px; display: flex; align-items: center; justify-content: space-between;">
+             <div>
+               <h3 style="margin: 0 0 8px; color: var(--text-dim); font-size: 12px; text-transform: uppercase; font-weight: 700; letter-spacing: 1.5px;">Current Wallet Balance</h3>
+               <h2 id="wallet-balance-big" style="margin: 0; font-size: 40px; color: var(--success); font-weight: 800;">₹0.00</h2>
+             </div>
+           </div>
+
            <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; margin-bottom: 32px; max-width: 500px;">
              <h3 style="margin: 0 0 16px; color: var(--text); font-size: 20px; font-weight: 700;">Withdraw Earnings</h3>
              <p style="color: var(--text-dim); font-size: 14px; margin-bottom: 24px;">According to company policy, you can cash out up to 50% of your total earnings before the 30-day timeline.</p>

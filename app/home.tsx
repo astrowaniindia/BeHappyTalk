@@ -39,6 +39,8 @@ export default function Home() {
   const [providers, setProviders] = useState<any[]>([]);
   const [inboxItems, setInboxItems] = useState<any[]>([]);
   const [recentContacts, setRecentContacts] = useState<any[]>([]);
+  const [insufficientModal, setInsufficientModal] = useState(false);
+  const [busyModal, setBusyModal] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(-width * 0.75)).current;
 
@@ -84,7 +86,8 @@ export default function Home() {
                    ...p, 
                    isOnline: state.isOnline, 
                    status: state.isOnline ? (state.isTalking ? 'busy' : 'online') : 'offline',
-                   settings: state.settings 
+                   settings: state.settings,
+                   busyUntil: state.busyUntil
                  };
               }
               return p;
@@ -102,7 +105,8 @@ export default function Home() {
                  ...p, 
                  isOnline: state.isOnline, 
                  status: state.isOnline ? (state.isTalking ? 'busy' : 'online') : 'offline',
-                 settings: state.settings 
+                 settings: state.settings,
+                 busyUntil: state.busyUntil
                };
             }
             return p;
@@ -160,6 +164,10 @@ export default function Home() {
       alert(`${selectedProvider.name} is offline right now. Please try again later.`);
       return;
     }
+    if (selectedProvider && selectedProvider.status === 'busy') {
+      setBusyModal(true);
+      return;
+    }
     setSelectedInteraction({ type, rate });
     setDurationModal(true);
   };
@@ -169,7 +177,8 @@ export default function Home() {
     const { type, rate } = selectedInteraction;
 
     if (walletBalance < rate * duration) {
-      alert(`Insufficient balance. Requires ₹${rate * duration} for ${duration} mins.`);
+      setDurationModal(false);
+      setInsufficientModal(true);
       return;
     }
     setDurationModal(false);
@@ -212,9 +221,9 @@ export default function Home() {
         <View style={styles.providerMeta}>
           <View style={styles.nameRow}>
             <Text style={styles.providerName}>{item.name}</Text>
-            {item.verified ? <MaterialCommunityIcons name="check-decagram" size={16} color="#FDE047" /> : null}
-            {item.status === 'busy' && <Text style={{color: '#FACC15', fontSize: 11, fontWeight: 'bold', marginLeft: 4, fontStyle: 'italic'}}>Talking...</Text>}
-            {item.status === 'offline' && <Text style={{color: '#EF4444', fontSize: 11, fontWeight: 'bold', marginLeft: 4, fontStyle: 'italic'}}>Offline</Text>}
+            {item.status === 'online' && <Text style={{color: '#34D399', fontSize: 11, fontWeight: 'bold', marginLeft: 4}}>Online</Text>}
+            {item.status === 'busy' && <Text style={{color: '#FACC15', fontSize: 11, fontWeight: 'bold', marginLeft: 4, fontStyle: 'italic'}}>{item.busyUntil && (item.busyUntil - Date.now()) > 0 ? `Busy (~${Math.ceil((item.busyUntil - Date.now()) / 60000)}m)` : 'Talking...'}</Text>}
+            {item.status === 'offline' && <Text style={{color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: 'bold', marginLeft: 4}}>Offline</Text>}
           </View>
           <Text style={styles.providerDemo}>{item.demographic}</Text>
           <Text style={styles.providerRating}>
@@ -597,6 +606,62 @@ export default function Home() {
                  <Text style={{ color: '#EF4444', fontSize: 14, fontWeight: 'bold' }}>Cancel Request</Text>
               </TouchableOpacity>
            </View>
+        </View>
+      </Modal>
+
+      {/* Insufficient Funds Modal */}
+      <Modal visible={insufficientModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.anonModalContent, { alignItems: 'center' }]}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+               <MaterialCommunityIcons name="wallet-remove" size={32} color="#EF4444" />
+            </View>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFF', marginBottom: 8, textAlign: 'center' }}>Insufficient Balance</Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginBottom: 24, lineHeight: 22 }}>
+              If you want to talk to {selectedProvider?.name}, you have to add some money to your wallet.
+            </Text>
+            
+            <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+              <TouchableOpacity style={[styles.anonModalBtn, { backgroundColor: '#1A1C23', flex: 1, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }]} onPress={() => setInsufficientModal(false)}>
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.anonModalBtn, { backgroundColor: '#FACC15', flex: 1, borderWidth: 0 }]} onPress={() => {
+                setInsufficientModal(false);
+                router.push('/wallet');
+              }}>
+                <Text style={{ color: '#0A0B10', fontWeight: 'bold' }}>Add Money</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Busy Provider Modal */}
+      <Modal visible={busyModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.anonModalContent, { alignItems: 'center' }]}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(250, 204, 21, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+               <MaterialCommunityIcons name="phone-in-talk" size={32} color="#FACC15" />
+            </View>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFF', marginBottom: 8, textAlign: 'center' }}>Provider is Busy</Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginBottom: 24, lineHeight: 22 }}>
+              {selectedProvider?.name} is currently on a call. Please try again after {selectedProvider?.busyUntil && (selectedProvider.busyUntil - Date.now()) > 0 ? Math.ceil((selectedProvider.busyUntil - Date.now()) / 60000) : 'a few'} minutes.
+            </Text>
+            
+            <View style={{ flexDirection: 'column', gap: 12, width: '100%' }}>
+              <TouchableOpacity style={[styles.anonModalBtn, { backgroundColor: '#FACC15', width: '100%', borderWidth: 0 }]} onPress={() => {
+                setBusyModal(false);
+              }}>
+                <Text style={{ color: '#0A0B10', fontWeight: 'bold' }}>Wait in Waiting Room</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.anonModalBtn, { backgroundColor: '#1A1C23', width: '100%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }]} onPress={() => {
+                setBusyModal(false);
+                setSelectedProvider(null);
+              }}>
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Find Someone Else</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
 

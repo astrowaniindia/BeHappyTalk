@@ -18,9 +18,10 @@ export default function ProviderProfile() {
   const [loading, setLoading] = useState(true);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   
-  // Interaction states
   const [durationModal, setDurationModal] = useState(false);
   const [connectingModal, setConnectingModal] = useState(false);
+  const [insufficientModal, setInsufficientModal] = useState(false);
+  const [busyModal, setBusyModal] = useState(false);
   const [selectedInteraction, setSelectedInteraction] = useState<{type: string, rate: number} | null>(null);
   
   const socketRef = useRef<any>(null);
@@ -75,8 +76,12 @@ export default function ProviderProfile() {
 
   const promptDuration = (type: string, rate: number) => {
     if (!provider) return;
-    if (provider.status !== 'online') {
-      alert(`${provider.name} is currently ${provider.status} right now. Please try again later.`);
+    if (provider.status === 'offline') {
+      alert(`${provider.name} is currently offline right now. Please try again later.`);
+      return;
+    }
+    if (provider.status === 'busy') {
+      setBusyModal(true);
       return;
     }
     setSelectedInteraction({ type, rate });
@@ -88,7 +93,8 @@ export default function ProviderProfile() {
     const { type, rate } = selectedInteraction;
 
     if (walletBalance < rate * duration) {
-      alert(`Insufficient balance. Requires ₹${rate * duration} for ${duration} mins.`);
+      setDurationModal(false);
+      setInsufficientModal(true);
       return;
     }
     
@@ -148,8 +154,19 @@ export default function ProviderProfile() {
         <View style={styles.infoSection}>
           <View style={{flexDirection:'row', alignItems:'center', gap: 6}}>
              <Text style={styles.nameText}>{provider.name}</Text>
-             {provider.verified && <MaterialCommunityIcons name="check-decagram" size={20} color="#FACC15" />}
+             {provider.verified && <MaterialCommunityIcons name="check-decagram" size={20} color="#00E5FF" />}
           </View>
+          
+          <View style={{flexDirection:'row', alignItems:'center', gap: 6, marginBottom: 8}}>
+            {provider.status === 'online' && <View style={[styles.statusDot, { backgroundColor: '#34D399', width: 8, height: 8, borderRadius: 4 }]} />}
+            {provider.status === 'busy' && <View style={[styles.statusDot, { backgroundColor: '#FACC15', width: 8, height: 8, borderRadius: 4 }]} />}
+            {provider.status === 'offline' && <View style={[styles.statusDot, { backgroundColor: '#EF4444', width: 8, height: 8, borderRadius: 4 }]} />}
+            
+            {provider.status === 'online' && <Text style={{color: '#34D399', fontSize: 13, fontWeight: 'bold'}}>Online</Text>}
+            {provider.status === 'busy' && <Text style={{color: '#FACC15', fontSize: 13, fontWeight: 'bold', fontStyle: 'italic'}}>{provider.busyUntil && (provider.busyUntil - Date.now()) > 0 ? `Busy (~${Math.ceil((provider.busyUntil - Date.now()) / 60000)}m left)` : 'Talking...'}</Text>}
+            {provider.status === 'offline' && <Text style={{color: '#EF4444', fontSize: 13, fontWeight: 'bold'}}>Offline</Text>}
+          </View>
+
           <Text style={styles.taglineText}>{provider.tagline || 'Astrologer & Counselor'}</Text>
           
           <View style={styles.statsRow}>
@@ -253,14 +270,73 @@ export default function ProviderProfile() {
       <Modal visible={connectingModal} transparent animationType="fade">
         <View style={styles.connectingOverlay}>
           <View style={styles.pulseRing}>
-            <Image source={provider.imagePath ? { uri: provider.imagePath } : require('../../assets/images/girl_smiling_1775250936696.png')} style={styles.connectingAvatar} />
+            <Image source={provider?.imagePath ? { uri: provider.imagePath } : require('../../assets/images/girl_smiling_1775250936696.png')} style={styles.connectingAvatar} />
           </View>
-          <Text style={styles.connectingTitle}>Calling {provider.name}...</Text>
+          <Text style={styles.connectingTitle}>Calling {provider?.name}...</Text>
           <Text style={styles.connectingSub}>Waiting for provider to accept</Text>
           
-          <TouchableOpacity style={styles.cancelBtn} onPress={() => setConnectingModal(false)}>
+          <TouchableOpacity style={styles.cancelBtn} onPress={() => {
+            setConnectingModal(false);
+            socketRef.current?.emit('cancel_interaction', { providerId: provider?.id });
+          }}>
             <MaterialCommunityIcons name="phone-hangup" size={24} color="#FFF" />
           </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* Insufficient Funds Modal */}
+      <Modal visible={insufficientModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { alignItems: 'center' }]}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+               <MaterialCommunityIcons name="wallet-remove" size={32} color="#EF4444" />
+            </View>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFF', marginBottom: 8, textAlign: 'center' }}>Insufficient Balance</Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginBottom: 24, lineHeight: 22 }}>
+              If you want to talk to {provider?.name}, you have to add some money to your wallet.
+            </Text>
+            
+            <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+              <TouchableOpacity style={{ flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#1A1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center' }} onPress={() => setInsufficientModal(false)}>
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#FACC15', alignItems: 'center' }} onPress={() => {
+                setInsufficientModal(false);
+                router.push('/wallet');
+              }}>
+                <Text style={{ color: '#0A0B10', fontWeight: 'bold' }}>Add Money</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Busy Provider Modal */}
+      <Modal visible={busyModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { alignItems: 'center' }]}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(250, 204, 21, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+               <MaterialCommunityIcons name="phone-in-talk" size={32} color="#FACC15" />
+            </View>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFF', marginBottom: 8, textAlign: 'center' }}>Provider is Busy</Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginBottom: 24, lineHeight: 22 }}>
+              {provider?.name} is currently on a call. Please try again after {provider?.busyUntil && (provider.busyUntil - Date.now()) > 0 ? Math.ceil((provider.busyUntil - Date.now()) / 60000) : 'a few'} minutes.
+            </Text>
+            
+            <View style={{ flexDirection: 'column', gap: 12, width: '100%' }}>
+              <TouchableOpacity style={{ backgroundColor: '#FACC15', width: '100%', padding: 16, borderRadius: 12, alignItems: 'center' }} onPress={() => {
+                setBusyModal(false);
+              }}>
+                <Text style={{ color: '#0A0B10', fontWeight: 'bold' }}>Wait in Waiting Room</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ backgroundColor: '#1A1C23', width: '100%', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center' }} onPress={() => {
+                setBusyModal(false);
+                router.replace('/home');
+              }}>
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Find Someone Else</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
 

@@ -219,6 +219,12 @@ app.get('/api/provider/:providerId', async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   if (!row) return res.status(404).json({ error: 'Provider not found.' });
   const { password, ...safeData } = row;
+  const memState = providerStates[req.params.providerId];
+  if (memState) {
+    safeData.isOnline = memState.isOnline;
+    safeData.status = memState.isOnline ? (memState.isTalking ? 'busy' : 'online') : 'offline';
+    safeData.busyUntil = memState.busyUntil;
+  }
   res.json(safeData);
 });
 
@@ -347,7 +353,16 @@ app.post('/api/agora/token', authenticateToken, (req, res) => {
 app.get('/api/providers', async (req, res) => {
   const { data: rows, error } = await db.from('providers').select('*');
   if (error) return res.status(500).json({ error: error.message });
-  res.json(rows);
+  const mappedRows = rows.map(r => {
+    const memState = providerStates[r.id];
+    if (memState) {
+      r.isOnline = memState.isOnline;
+      r.status = memState.isOnline ? (memState.isTalking ? 'busy' : 'online') : 'offline';
+      r.busyUntil = memState.busyUntil;
+    }
+    return r;
+  });
+  res.json(mappedRows);
 });
 
 app.get('/api/inbox/:userId', async (req, res) => {
@@ -559,6 +574,11 @@ function startBillingInterval(sessionId, userId, providerId, rate, room, passedD
   const deduct = async () => {
     if (minutesPassed >= duration) {
       stopBillingInterval(sessionId);
+      if (providerStates[providerId]) {
+        providerStates[providerId].isTalking = false;
+        providerStates[providerId].busyUntil = null;
+        io.emit('provider_status_changed', { providerId, state: providerStates[providerId] });
+      }
       io.to(room).emit('session_ended', { sessionId, reason: 'duration_ended' });
       io.to(`user_room_${userId}`).emit('session_ended', { sessionId, reason: 'duration_ended' });
       return;
@@ -571,6 +591,11 @@ function startBillingInterval(sessionId, userId, providerId, rate, room, passedD
 
     if (error || !success) {
       stopBillingInterval(sessionId);
+      if (providerStates[providerId]) {
+        providerStates[providerId].isTalking = false;
+        providerStates[providerId].busyUntil = null;
+        io.emit('provider_status_changed', { providerId, state: providerStates[providerId] });
+      }
       io.to(room).emit('session_ended', { sessionId, reason: 'insufficient_funds' });
       io.to(`user_room_${userId}`).emit('session_ended', { sessionId, reason: 'insufficient_funds' });
       return;
@@ -650,6 +675,11 @@ io.on('connection', (socket) => {
     io.to(`user_room_${userId}`).emit('session_accepted', { providerId, sessionId, type, rate, duration, room });
     io.to(`provider_room_${providerId}`).emit('session_started', { sessionId, type, rate, duration, room, userId });
 
+    if (!providerStates[providerId]) providerStates[providerId] = { isOnline: true, isTalking: false, settings: {} };
+    providerStates[providerId].isTalking = true;
+    providerStates[providerId].busyUntil = Date.now() + (duration * 60 * 1000);
+    io.emit('provider_status_changed', { providerId, state: providerStates[providerId] });
+
     startBillingInterval(sessionId, userId, providerId, rate, room, duration);
   });
 
@@ -661,6 +691,11 @@ io.on('connection', (socket) => {
     stopBillingInterval(sessionId);
     const { data: row } = await db.from('sessions').select('userId, providerId').eq('id', sessionId).maybeSingle();
     if (row) {
+      if (providerStates[row.providerId]) {
+        providerStates[row.providerId].isTalking = false;
+        providerStates[row.providerId].busyUntil = null;
+        io.emit('provider_status_changed', { providerId: row.providerId, state: providerStates[row.providerId] });
+      }
       const room = `chat_${row.userId}_${row.providerId}`;
       io.to(room).emit('session_ended', { sessionId, reason: 'user_ended' });
       io.to(`user_room_${row.userId}`).emit('session_ended', { sessionId, reason: 'user_ended' });
