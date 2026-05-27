@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -11,24 +11,38 @@ export default function History() {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  const fetchHistory = (isRefresh = false) => {
     if (user?.id) {
+      if (!isRefresh) setLoading(true);
       secureFetch(`${API_URL}/user/sessions/${user.id}`)
         .then(r => r.json())
         .then(data => {
           if (Array.isArray(data)) {
              setSessions(data);
           }
-          setLoading(false);
         })
         .catch(err => {
           console.error(err);
+        })
+        .finally(() => {
           setLoading(false);
+          setRefreshing(false);
         });
     } else {
        setLoading(false);
+       setRefreshing(false);
     }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, [user]);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchHistory(true);
   }, [user]);
 
   const renderSession = ({ item }: { item: any }) => {
@@ -101,6 +115,9 @@ export default function History() {
             renderItem={renderSession}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#1A1C23" />
+            }
           />
         )}
       </View>

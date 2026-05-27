@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Dimensions, Modal } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Dimensions, Modal, RefreshControl } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons, MaterialIcons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,27 +28,36 @@ export default function ProviderProfile() {
   
   const socketRef = useRef<any>(null);
 
-  useEffect(() => {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchProviderData = (isRefresh = false) => {
     if (!id) return;
-    // Fetch provider
-    secureFetch(`${API_URL}/provider/${id}`)
-      .then(r => r.json())
-      .then(data => {
-        if (!data.error) setProvider(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('Error fetching provider:', err);
-        setLoading(false);
-      });
-      
-    // Fetch user wallet
-    if (user?.id) {
-      secureFetch(`${API_URL}/user/${user.id}`)
-        .then(r => r.json())
-        .then(data => { setWalletBalance(data.walletBalance || Math.floor(data.walletbalance) || 500); })
-        .catch(console.error);
-    }
+    if (!isRefresh) setLoading(true);
+
+    Promise.all([
+      secureFetch(`${API_URL}/provider/${id}`).then(r => r.json()),
+      user?.id ? secureFetch(`${API_URL}/user/${user.id}`).then(r => r.json()) : Promise.resolve(null)
+    ])
+    .then(([providerData, userData]) => {
+      if (!providerData.error) setProvider(providerData);
+      if (userData && !userData.error) {
+        setWalletBalance(userData.walletBalance || Math.floor(userData.walletbalance) || 500);
+      }
+    })
+    .catch(err => console.error('Fetch error:', err))
+    .finally(() => {
+      setLoading(false);
+      setRefreshing(false);
+    });
+  };
+
+  useEffect(() => {
+    fetchProviderData();
+  }, [id, user]);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchProviderData(true);
   }, [id, user]);
 
   useEffect(() => {
@@ -136,7 +145,14 @@ export default function ProviderProfile() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} bounces={false} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        bounces={true} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#1A1C23" />
+        }
+      >
         {/* Cover & Avatar Section */}
         <View style={styles.headerArea}>
           <LinearGradient colors={['#1A1C23', '#0A0B10']} style={styles.coverImage} />

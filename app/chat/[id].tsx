@@ -16,7 +16,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar,
   TextInput, FlatList, Image, TouchableOpacity, KeyboardAvoidingView,
-  ActivityIndicator, Alert, BackHandler
+  ActivityIndicator, Alert, BackHandler, RefreshControl
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
@@ -56,6 +56,7 @@ export default function ChatScreen() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [wallet, setWallet] = useState<number | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const socketRef = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
@@ -126,6 +127,34 @@ export default function ChatScreen() {
     if (isConnected) stopRingback();
   }, [isConnected]);
 
+  const fetchMessages = (isRefresh = false) => {
+    if (!userId || !providerId) return;
+    if (isRefresh) setRefreshing(true);
+    
+    secureFetch(`${API_URL}/chat/${userId}/${providerId}`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        const mapped = data.map(m => ({
+          id: m.id.toString(),
+          type: m.senderId === userId ? 'outgoing' : 'incoming',
+          text: m.text,
+          time: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        } as Message));
+        setMessages(mapped);
+        if (!isRefresh) {
+           setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
+        }
+      })
+      .catch(console.error)
+      .finally(() => {
+        if (isRefresh) setRefreshing(false);
+      });
+  };
+
+  const onRefresh = React.useCallback(() => {
+    fetchMessages(true);
+  }, [userId, providerId]);
+
   // ─── Main setup ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!userId || !providerId) return;
@@ -140,19 +169,7 @@ export default function ChatScreen() {
       .catch(console.error);
 
     // 2. Fetch existing messages
-    secureFetch(`${API_URL}/chat/${userId}/${providerId}`)
-      .then(r => r.json())
-      .then((data: any[]) => {
-        const mapped = data.map(m => ({
-          id: m.id.toString(),
-          type: m.senderId === userId ? 'outgoing' : 'incoming',
-          text: m.text,
-          time: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        } as Message));
-        setMessages(mapped);
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 100);
-      })
-      .catch(console.error);
+    fetchMessages();
 
     // 3. Fetch wallet balance
     secureFetch(`${API_URL}/user/${userId}`)
@@ -453,6 +470,9 @@ export default function ChatScreen() {
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
                 onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+                refreshControl={
+                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#1A1C23" />
+                }
                 ListEmptyComponent={
                   <View style={styles.emptyCt}>
                     <MaterialCommunityIcons name="chat-outline" size={48} color="rgba(255,255,255,0.10)" />

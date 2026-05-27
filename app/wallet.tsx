@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar, TouchableOpacity, ScrollView, Animated, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar, TouchableOpacity, ScrollView, Animated, ActivityIndicator, Dimensions, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -26,16 +26,28 @@ export default function Wallet() {
   const [selectedPlan, setSelectedPlan] = useState(RECHARGE_OPTIONS[3]); // Default to 999
   const [isLoading, setIsLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
-
+  const [refreshing, setRefreshing] = useState(false);
   const { user } = useAuth();
 
-  React.useEffect(() => {
+  const fetchWallet = (isRefresh = false) => {
     if (user) {
+      if (isRefresh) setRefreshing(true);
       secureFetch(`${API_URL}/user/${user.id}`)
         .then(r => r.json())
         .then(data => setWalletBalance(data.walletBalance || Math.floor(data.walletbalance) || 5000))
-        .catch(console.error);
+        .catch(console.error)
+        .finally(() => {
+          if (isRefresh) setRefreshing(false);
+        });
     }
+  };
+
+  React.useEffect(() => {
+    fetchWallet();
+  }, [user]);
+
+  const onRefresh = React.useCallback(() => {
+    fetchWallet(true);
   }, [user]);
 
   const handleNext = () => {
@@ -79,7 +91,13 @@ export default function Wallet() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.scrollContent} contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView 
+          style={styles.scrollContent} 
+          contentContainerStyle={{ paddingBottom: 40 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#1A1C23" />
+          }
+        >
           
           {activeTab === 'History' ? (
               <View style={[styles.historyCard, { alignItems: 'center', paddingVertical: 40 }]}>

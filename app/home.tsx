@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar,
   TextInput, FlatList, Image, TouchableOpacity, Modal, Animated,
-  Dimensions, TouchableWithoutFeedback, ActivityIndicator
+  Dimensions, TouchableWithoutFeedback, ActivityIndicator, RefreshControl
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons, MaterialIcons, Feather, AntDesign } from '@expo/vector-icons';
@@ -28,6 +28,7 @@ export default function Home() {
   const [showAnonModal, setShowAnonModal] = useState(false);
   const [showRecommendedModal, setShowRecommendedModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
@@ -46,9 +47,9 @@ export default function Home() {
 
   const slideAnim = useRef(new Animated.Value(-width * 0.75)).current;
 
-  const fetchData = () => {
+  const fetchData = (isRefresh = false) => {
     if (!user) return;
-    setLoading(true);
+    if (!isRefresh) setLoading(true);
 
     Promise.all([
       secureFetch(`${API_URL}/providers`).then(r => r.json()),
@@ -65,8 +66,16 @@ export default function Home() {
         setWalletBalance(userData.walletBalance || Math.floor(userData.walletbalance) || 5000);
       })
       .catch(err => console.log('Fetch error:', err))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
   };
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchData(true);
+  }, [user]);
 
   useEffect(() => {
     fetchData();
@@ -367,6 +376,9 @@ export default function Home() {
             renderItem={renderProvider}
             contentContainerStyle={styles.listContent}
             keyboardShouldPersistTaps="handled"
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#1A1C23" />
+            }
             ListHeaderComponent={
               recentContacts.length > 0 ? (
                 <View style={styles.recentsSection}>
@@ -389,6 +401,9 @@ export default function Home() {
             keyExtractor={item => item.id}
             renderItem={renderInboxItem}
             contentContainerStyle={[styles.listContent, { paddingTop: 8 }]}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#1A1C23" />
+            }
             ListEmptyComponent={
               <Text style={{ color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 40 }}>
                 {t('noMessages')}
