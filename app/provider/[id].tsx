@@ -22,6 +22,8 @@ export default function ProviderProfile() {
   const [connectingModal, setConnectingModal] = useState(false);
   const [insufficientModal, setInsufficientModal] = useState(false);
   const [busyModal, setBusyModal] = useState(false);
+  const [offlineModal, setOfflineModal] = useState(false);
+  const [offlineMessage, setOfflineMessage] = useState('');
   const [selectedInteraction, setSelectedInteraction] = useState<{type: string, rate: number, duration?: number} | null>(null);
   
   const socketRef = useRef<any>(null);
@@ -56,17 +58,15 @@ export default function ProviderProfile() {
       socketRef.current.emit('user_connect', { userId: user.id });
     });
     
-    socketRef.current.on('interaction_accepted', (payload: any) => {
+    socketRef.current.on('session_accepted', ({ providerId, sessionId, type, duration, room }: any) => {
       setConnectingModal(false);
-      router.replace({
-        pathname: '/chat/[id]',
-        params: { id: payload.providerId, sessionId: payload.sessionId, type: payload.type, duration: payload.duration.toString() }
-      });
+      router.replace(`/chat/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(room || '')}`);
     });
 
-    socketRef.current.on('interaction_rejected', (payload: any) => {
+    socketRef.current.on('session_rejected', (payload: any) => {
       setConnectingModal(false);
-      alert(payload.reason || 'Provider is currently busy or declined the request.');
+      setOfflineMessage(payload.reason || 'Provider is currently unavailable. Please try again later.');
+      setOfflineModal(true);
     });
 
     return () => {
@@ -77,7 +77,8 @@ export default function ProviderProfile() {
   const promptDuration = (type: string, rate: number) => {
     if (!provider) return;
     if (provider.status === 'offline') {
-      alert(`${provider.name} is currently offline right now. Please try again later.`);
+      setOfflineMessage(`${provider.name} is currently offline right now. Please try again later.`);
+      setOfflineModal(true);
       return;
     }
     setSelectedInteraction({ type, rate });
@@ -310,6 +311,24 @@ export default function ProviderProfile() {
                 <Text style={{ color: '#0A0B10', fontWeight: 'bold' }}>Add Money</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Offline Modal */}
+      <Modal visible={offlineModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { alignItems: 'center' }]}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+               <MaterialCommunityIcons name="account-cancel" size={32} color="#EF4444" />
+            </View>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFF', marginBottom: 8, textAlign: 'center' }}>Provider Unavailable</Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginBottom: 24, lineHeight: 22 }}>
+              {offlineMessage}
+            </Text>
+            <TouchableOpacity style={{ backgroundColor: '#FACC15', width: '100%', padding: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }} onPress={() => setOfflineModal(false)}>
+              <Text style={{ color: '#0A0B10', fontWeight: 'bold', textAlign: 'center' }}>OK</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

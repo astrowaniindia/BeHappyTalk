@@ -33,6 +33,8 @@ export default function Home() {
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
   const [connectingModal, setConnectingModal] = useState(false);
   const [durationModal, setDurationModal] = useState(false);
+  const [offlineModal, setOfflineModal] = useState(false);
+  const [offlineMessage, setOfflineMessage] = useState('');
   const [selectedInteraction, setSelectedInteraction] = useState<{ type: string, rate: number, duration?: number } | null>(null);
   const socketRef = useRef<any>(null);
 
@@ -123,7 +125,8 @@ export default function Home() {
 
       socketRef.current.on('session_rejected', () => {
         setConnectingModal(false);
-        alert('Provider is currently unavailable. Please try again later.');
+        setOfflineMessage('Provider is currently unavailable. Please try again later.');
+        setOfflineModal(true);
       });
 
       socketRef.current.on('wallet_update', ({ walletBalance }: { walletBalance: number }) => {
@@ -161,7 +164,8 @@ export default function Home() {
 
   const promptDuration = (type: string, rate: number) => {
     if (selectedProvider && selectedProvider.status === 'offline') {
-      alert(`${selectedProvider.name} is offline right now. Please try again later.`);
+      setOfflineMessage(`${selectedProvider.name} is currently offline right now. Please try again later.`);
+      setOfflineModal(true);
       return;
     }
     setSelectedInteraction({ type, rate });
@@ -636,6 +640,24 @@ export default function Home() {
                 <Text style={{ color: '#0A0B10', fontWeight: 'bold', textAlign: 'center' }}>Add Money</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Offline Modal */}
+      <Modal visible={offlineModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.anonModalContent, { alignItems: 'center' }]}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+               <MaterialCommunityIcons name="account-cancel" size={32} color="#EF4444" />
+            </View>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFF', marginBottom: 8, textAlign: 'center' }}>Provider Unavailable</Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginBottom: 24, lineHeight: 22 }}>
+              {offlineMessage}
+            </Text>
+            <TouchableOpacity style={{ backgroundColor: '#FACC15', width: '100%', padding: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }} onPress={() => setOfflineModal(false)}>
+              <Text style={{ color: '#0A0B10', fontWeight: 'bold', textAlign: 'center' }}>OK</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
