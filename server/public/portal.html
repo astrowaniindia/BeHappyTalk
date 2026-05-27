@@ -1043,7 +1043,7 @@
   <!-- Incoming Modal -->
   <div id="incoming-modal">
     <div class="modal-box">
-      <div style="font-size: 40px; color: var(--primary); margin-bottom: 16px;"><i class="fas fa-bell-on"></i></div>
+      <div id="incoming-type-label" style="font-size: 32px; color: var(--primary); margin-bottom: 16px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;">CALL</div>
       <h3>New Connect Request</h3>
       <p id="incoming-msg-text">Preparing session details...</p>
       <div class="m-btns">
@@ -1199,6 +1199,10 @@
       socket.on('incoming_request', (req) => {
         const modal = document.getElementById('incoming-modal');
         document.getElementById('incoming-msg-text').innerText = `${req.userName} is requesting a ${req.type} session for ${req.duration} minutes. Accept to begin.`;
+        let displayType = req.type.toUpperCase();
+        if (displayType === 'AUDIO') displayType = 'CALL';
+        if (displayType === 'VIDEO') displayType = 'V CALL';
+        document.getElementById('incoming-type-label').innerText = displayType;
         modal.style.display = 'flex';
         
         document.getElementById('m-btn-acc').onclick = async () => {
