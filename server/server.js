@@ -71,6 +71,11 @@ app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// ─── Frontend Routes ──────────────────────────────────────────────────────────
+const path = require('path');
+app.get('/manu', (req, res) => res.sendFile(path.join(__dirname, 'public', 'manu.html')));
+app.get('/admin', (req, res) => res.redirect('/manu'));
+
 // ─── Helper: upsert inbox entry ───────────────────────────────────────────────
 async function upsertInbox(userId, providerId, message, providerStatus) {
   const id = `inbox_${userId}_${providerId}`;
