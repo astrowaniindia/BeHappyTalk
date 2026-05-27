@@ -33,7 +33,7 @@ export default function Home() {
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
   const [connectingModal, setConnectingModal] = useState(false);
   const [durationModal, setDurationModal] = useState(false);
-  const [selectedInteraction, setSelectedInteraction] = useState<{ type: string, rate: number } | null>(null);
+  const [selectedInteraction, setSelectedInteraction] = useState<{ type: string, rate: number, duration?: number } | null>(null);
   const socketRef = useRef<any>(null);
 
   const [providers, setProviders] = useState<any[]>([]);
@@ -164,10 +164,6 @@ export default function Home() {
       alert(`${selectedProvider.name} is offline right now. Please try again later.`);
       return;
     }
-    if (selectedProvider && selectedProvider.status === 'busy') {
-      setBusyModal(true);
-      return;
-    }
     setSelectedInteraction({ type, rate });
     setDurationModal(true);
   };
@@ -181,6 +177,14 @@ export default function Home() {
       setInsufficientModal(true);
       return;
     }
+    
+    if (selectedProvider.status === 'busy') {
+      setDurationModal(false);
+      setSelectedInteraction({ type, rate, duration });
+      setBusyModal(true);
+      return;
+    }
+
     setDurationModal(false);
     setConnectingModal(true);
     socketRef.current?.emit('request_interaction', {
@@ -651,6 +655,15 @@ export default function Home() {
             <View style={{ flexDirection: 'column', gap: 12, width: '100%' }}>
               <TouchableOpacity style={[styles.anonModalBtn, { backgroundColor: '#FACC15', width: '100%', borderWidth: 0 }]} onPress={() => {
                 setBusyModal(false);
+                socketRef.current?.emit('join_waitlist', {
+                  providerId: selectedProvider?.id,
+                  userId: user?.id,
+                  userName: user?.name,
+                  type: selectedInteraction?.type,
+                  rate: selectedInteraction?.rate,
+                  duration: selectedInteraction?.duration
+                });
+                alert(`You have successfully joined ${selectedProvider?.name}'s waiting room! Please stay on this screen. You will be automatically connected when the provider is ready.`);
               }}>
                 <Text style={{ color: '#0A0B10', fontWeight: 'bold' }}>Wait in Waiting Room</Text>
               </TouchableOpacity>

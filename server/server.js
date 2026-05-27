@@ -617,6 +617,8 @@ function startBillingInterval(sessionId, userId, providerId, rate, room, passedD
 }
 
 // ─── Socket.IO ────────────────────────────────────────────────────────────────
+const waitlists = {};
+
 io.on('connection', (socket) => {
   console.log('Socket connected:', socket.id);
 
@@ -657,6 +659,50 @@ io.on('connection', (socket) => {
   socket.on('cancel_interaction', ({ providerId }) => {
     if (socket.userId && pendingRequests[socket.userId] === providerId) delete pendingRequests[socket.userId];
     io.to(`provider_room_${providerId}`).emit('request_cancelled');
+  });
+
+  socket.on('join_waitlist', ({ providerId, userId, userName, type, rate, duration }) => {
+    if (!waitlists[providerId]) waitlists[providerId] = [];
+    waitlists[providerId] = waitlists[providerId].filter(u => u.userId !== userId);
+    waitlists[providerId].push({ userId, userName, type, rate, duration, joinedAt: Date.now() });
+    io.to(`provider_room_${providerId}`).emit('waitlist_updated', waitlists[providerId]);
+  });
+
+  socket.on('leave_waitlist', ({ providerId, userId }) => {
+    if (waitlists[providerId]) {
+      waitlists[providerId] = waitlists[providerId].filter(u => u.userId !== userId);
+      io.to(`provider_room_${providerId}`).emit('waitlist_updated', waitlists[providerId]);
+    }
+  });
+
+  socket.on('accept_waitlist_user', async ({ providerId, userId }) => {
+    const userReq = waitlists[providerId]?.find(u => u.userId === userId);
+    if (!userReq) return;
+    
+    // Remove from waitlist
+    waitlists[providerId] = waitlists[providerId].filter(u => u.userId !== userId);
+    io.to(`provider_room_${providerId}`).emit('waitlist_updated', waitlists[providerId]);
+    
+    const { type, rate, duration } = userReq;
+    
+    const sessionId = `sess_${Date.now()}`;
+    const { error } = await db.from('sessions').insert({
+      id: sessionId, userId, providerId, type, rate, status: 'active', cost: 0, adminEarnings: 0
+    });
+    if (error) return console.error('[Socket] Waitlist session insert error:', error.message);
+    const room = `chat_${userId}_${providerId}`;
+    socket.join(room);
+    
+    // Simulate interaction accepted so app transitions automatically
+    io.to(`user_room_${userId}`).emit('session_accepted', { providerId, sessionId, type, rate, duration, room });
+    io.to(`provider_room_${providerId}`).emit('session_started', { sessionId, type, rate, duration, room, userId });
+    
+    if (!providerStates[providerId]) providerStates[providerId] = { isOnline: true, isTalking: false, settings: {} };
+    providerStates[providerId].isTalking = true;
+    providerStates[providerId].busyUntil = Date.now() + (duration * 60 * 1000);
+    io.emit('provider_status_changed', { providerId, state: providerStates[providerId] });
+    
+    startBillingInterval(sessionId, userId, providerId, rate, room, duration);
   });
 
   socket.on('accept_interaction', async ({ userId, providerId, type, rate, duration }) => {

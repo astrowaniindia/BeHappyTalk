@@ -22,7 +22,7 @@ export default function ProviderProfile() {
   const [connectingModal, setConnectingModal] = useState(false);
   const [insufficientModal, setInsufficientModal] = useState(false);
   const [busyModal, setBusyModal] = useState(false);
-  const [selectedInteraction, setSelectedInteraction] = useState<{type: string, rate: number} | null>(null);
+  const [selectedInteraction, setSelectedInteraction] = useState<{type: string, rate: number, duration?: number} | null>(null);
   
   const socketRef = useRef<any>(null);
 
@@ -80,10 +80,6 @@ export default function ProviderProfile() {
       alert(`${provider.name} is currently offline right now. Please try again later.`);
       return;
     }
-    if (provider.status === 'busy') {
-      setBusyModal(true);
-      return;
-    }
     setSelectedInteraction({ type, rate });
     setDurationModal(true);
   };
@@ -95,6 +91,13 @@ export default function ProviderProfile() {
     if (walletBalance < rate * duration) {
       setDurationModal(false);
       setInsufficientModal(true);
+      return;
+    }
+    
+    if (provider.status === 'busy') {
+      setDurationModal(false);
+      setSelectedInteraction({ type, rate, duration });
+      setBusyModal(true);
       return;
     }
     
@@ -326,6 +329,15 @@ export default function ProviderProfile() {
             <View style={{ flexDirection: 'column', gap: 12, width: '100%' }}>
               <TouchableOpacity style={{ backgroundColor: '#FACC15', width: '100%', padding: 16, borderRadius: 12, alignItems: 'center' }} onPress={() => {
                 setBusyModal(false);
+                socketRef.current?.emit('join_waitlist', {
+                  providerId: provider?.id,
+                  userId: user?.id,
+                  userName: user?.name,
+                  type: selectedInteraction?.type,
+                  rate: selectedInteraction?.rate,
+                  duration: selectedInteraction?.duration
+                });
+                alert(`You have successfully joined ${provider?.name}'s waiting room! Please stay on this screen. You will be automatically connected when the provider is ready.`);
               }}>
                 <Text style={{ color: '#0A0B10', fontWeight: 'bold' }}>Wait in Waiting Room</Text>
               </TouchableOpacity>

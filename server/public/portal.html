@@ -460,6 +460,13 @@
             </div>
           </div>
           
+          <div class="recent-activity" style="margin-bottom: 24px;">
+            <h3 class="section-title"><i class="fas fa-users" style="color: #FACC15;"></i> Waiting Room</h3>
+            <div id="waitlist-container" style="display: flex; flex-direction: column; gap: 12px;">
+              <div style="color: var(--text-dim); font-size: 15px; font-weight: 500;">No users in waiting room right now.</div>
+            </div>
+          </div>
+          
           <div class="recent-activity">
             <h3 class="section-title"><i class="fas fa-bolt-auto" style="color: #FACC15;"></i> Studio Activity Log</h3>
             <div id="activity-list" style="color: var(--text-dim); font-size: 15px; font-weight: 500;">
@@ -1253,7 +1260,30 @@
       });
 
       socket.on('request_cancelled', () => {
-        document.getElementById('incoming-modal').style.display = 'none';
+        const overlay = document.getElementById('incoming-call-overlay');
+        overlay.classList.remove('active');
+        document.getElementById('ringtone').pause();
+        logActivity('Incoming request was cancelled by user.', 'warn');
+      });
+
+      socket.on('waitlist_updated', (waitlist) => {
+        const container = document.getElementById('waitlist-container');
+        if (!container) return;
+        
+        if (!waitlist || waitlist.length === 0) {
+          container.innerHTML = `<div style="color: var(--text-dim); font-size: 15px; font-weight: 500;">No users in waiting room right now.</div>`;
+          return;
+        }
+        
+        container.innerHTML = waitlist.map(u => `
+          <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); padding: 16px; border-radius: 16px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <h4 style="margin: 0 0 4px; color: var(--text); font-size: 16px;">${u.userName || 'User'} <span style="font-size: 12px; padding: 2px 8px; border-radius: 12px; background: rgba(250, 204, 21, 0.1); color: #FACC15; margin-left: 8px; font-weight: bold;">${u.type} (${u.duration}m)</span></h4>
+              <span style="color: var(--text-dim); font-size: 13px;">Waiting since: ${new Date(u.joinedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+            </div>
+            <button onclick="acceptWaitlist('${u.userId}')" style="background: var(--primary); color: var(--bg-darker); border: none; padding: 10px 20px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,245,255,0.3); font-size: 13px;">Accept Next</button>
+          </div>
+        `).join('');
       });
 
       socket.on('session_started', async ({ sessionId, type, duration, agoraChannel, agoraRole }) => {
@@ -1678,6 +1708,11 @@
         const t = document.getElementById('vid-state-' + state);
         t.style.display = 'flex'; void t.offsetWidth; t.classList.add('active');
       }, 50);
+    }
+
+    function acceptWaitlist(userId) {
+      if (!socket || !provider) return;
+      socket.emit('accept_waitlist_user', { providerId: provider.id, userId });
     }
 
     function acceptVideoCall() {
