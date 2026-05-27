@@ -2092,8 +2092,14 @@
     async function fetchStats() {
       const res = await fetch(`/api/provider/${provider.id}`);
       const data = await res.json();
-      document.getElementById('stat-balance').innerText = `₹${data.walletBalance.toFixed(2)}`;
-      document.getElementById('stat-today').innerText = `₹${(data.walletBalance % 500).toFixed(2)}`;
+      
+      const statBalance = document.getElementById('stat-balance');
+      const statToday = document.getElementById('stat-today');
+      const walletBalanceBig = document.getElementById('wallet-balance-big');
+      
+      if (statBalance) statBalance.innerText = `₹${data.walletBalance.toFixed(2)}`;
+      if (statToday) statToday.innerText = `₹${(data.walletBalance % 500).toFixed(2)}`;
+      if (walletBalanceBig) walletBalanceBig.innerText = `₹${data.walletBalance.toFixed(2)}`;
       
       const wTotal = document.getElementById('withdraw-total');
       const wAvail = document.getElementById('withdraw-avail');

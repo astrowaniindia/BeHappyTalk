@@ -33,7 +33,7 @@ export default function Wallet() {
     if (user) {
       secureFetch(`${API_URL}/user/${user.id}`)
         .then(r => r.json())
-        .then(data => setWalletBalance(data.walletBalance || Math.floor(data.walletbalance) || 500))
+        .then(data => setWalletBalance(data.walletBalance || Math.floor(data.walletbalance) || 5000))
         .catch(console.error);
     }
   }, [user]);

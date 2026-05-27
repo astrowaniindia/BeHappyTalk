@@ -225,12 +225,7 @@ export default function ChatScreen() {
 
     socketRef.current.on('session_ended', ({ reason }: { reason: string }) => {
       endCall();
-      const msg = reason === 'insufficient_funds'
-        ? 'Session ended: Your wallet balance ran out.'
-        : reason === 'duration_ended'
-        ? 'Session ended: Time limit reached.'
-        : 'Session has ended.';
-      Alert.alert('Session Ended', msg, [{ text: 'OK', onPress: () => router.replace('/home') }]);
+      router.replace(`/post-call?providerId=${providerId}&type=${type}&reason=${reason}`);
     });
 
     socketRef.current.on('wallet_update', ({ walletBalance }: { walletBalance: number }) => {
@@ -269,8 +264,8 @@ export default function ChatScreen() {
     if (sessionId && socketRef.current) {
       socketRef.current.emit('end_interaction', { sessionId });
     }
-    router.replace('/home');
-  }, [endCall, sessionId]);
+    router.replace(`/post-call?providerId=${providerId}&type=${type}&reason=user_ended`);
+  }, [endCall, sessionId, providerId, type]);
 
   const sendMessage = () => {
     const trimmed = message.trim();

@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons, MaterialIcons, Feather, AntDesign } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth, clearUser } from '../hooks/useAuth';
+import { useLanguage } from '../hooks/useLanguage';
 import { API_URL, SOCKET_URL, secureFetch } from '../constants/ServerConfig';
 import io from 'socket.io-client';
 
@@ -20,6 +21,7 @@ const PROVIDER_IMAGE = require('../assets/images/girl_smiling_1775250936696.png'
 export default function Home() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t, toggleLanguage, language } = useLanguage();
 
   const [activeTab, setActiveTab] = useState<'Verified' | 'Inbox'>('Verified');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -56,7 +58,7 @@ export default function Home() {
           inbox.map((i: any) => ({ ...i, image: i.isSystem ? null : PROVIDER_IMAGE }))
         );
         setRecentContacts(recents.map((r: any) => ({ ...r, image: PROVIDER_IMAGE })));
-        setWalletBalance(userData.walletBalance || Math.floor(userData.walletbalance) || 500);
+        setWalletBalance(userData.walletBalance || Math.floor(userData.walletbalance) || 5000);
       })
       .catch(err => console.log('Fetch error:', err))
       .finally(() => setLoading(false));
@@ -154,6 +156,10 @@ export default function Home() {
   };
 
   const promptDuration = (type: string, rate: number) => {
+    if (selectedProvider && selectedProvider.status === 'offline') {
+      alert(`${selectedProvider.name} is offline right now. Please try again later.`);
+      return;
+    }
     setSelectedInteraction({ type, rate });
     setDurationModal(true);
   };
@@ -208,6 +214,7 @@ export default function Home() {
             <Text style={styles.providerName}>{item.name}</Text>
             {item.verified ? <MaterialCommunityIcons name="check-decagram" size={16} color="#FDE047" /> : null}
             {item.status === 'busy' && <Text style={{color: '#FACC15', fontSize: 11, fontWeight: 'bold', marginLeft: 4, fontStyle: 'italic'}}>Talking...</Text>}
+            {item.status === 'offline' && <Text style={{color: '#EF4444', fontSize: 11, fontWeight: 'bold', marginLeft: 4, fontStyle: 'italic'}}>Offline</Text>}
           </View>
           <Text style={styles.providerDemo}>{item.demographic}</Text>
           <Text style={styles.providerRating}>
@@ -232,9 +239,13 @@ export default function Home() {
               <MaterialCommunityIcons name="bell" size={24} color="#FBBF24" />
             </TouchableOpacity>
           </View>
+        ) : item.status === 'offline' ? (
+          <TouchableOpacity style={[styles.talkButton, { borderColor: '#EF4444' }]} onPress={() => alert(`${item.name} is offline right now. Please try again later.`)}>
+            <Text style={[styles.talkButtonText, { color: '#EF4444' }]}>Offline</Text>
+          </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.talkButton} onPress={() => handleTalkNow(item)}>
-            <Text style={styles.talkButtonText}>TALK NOW</Text>
+            <Text style={styles.talkButtonText}>{t('talkNow')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -290,15 +301,21 @@ export default function Home() {
             <MaterialIcons name="person" size={24} color="rgba(255,255,255,0.45)" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.searchContainer} onPress={() => router.push('/search')}>
-            <Feather name="search" size={18} color="rgba(255,255,255,0.45)" style={{ marginRight: 8 }} />
-            <Text style={styles.fakeSearchInput}>Search listeners...</Text>
-          </TouchableOpacity>
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+             <Image source={require('../assets/images/icon.jpg')} style={{ width: 28, height: 28, borderRadius: 14 }} />
+             <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 18, fontWeight: 'bold' }}>BeHappyTalk</Text>
+          </View>
 
-          <TouchableOpacity style={styles.walletContainer} onPress={() => router.push('/wallet')}>
-            <MaterialCommunityIcons name="wallet-outline" size={20} color="#FACC15" />
-            <Text style={styles.walletText}>₹ {walletBalance.toFixed(2)}</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+             <TouchableOpacity onPress={() => router.push('/search')}>
+               <Feather name="search" size={22} color="rgba(255,255,255,0.7)" />
+             </TouchableOpacity>
+
+             <TouchableOpacity style={styles.walletContainer} onPress={() => router.push('/wallet')}>
+               <MaterialCommunityIcons name="wallet-outline" size={20} color="#FACC15" />
+               <Text style={styles.walletText}>₹ {walletBalance.toFixed(0)}</Text>
+             </TouchableOpacity>
+          </View>
         </View>
 
         {/* Tabs */}
@@ -307,14 +324,14 @@ export default function Home() {
             style={[styles.tabButton, activeTab === 'Verified' && styles.activeTabButton]}
             onPress={() => setActiveTab('Verified')}
           >
-            <Text style={[styles.tabText, activeTab === 'Verified' && styles.activeTabText]}>Verified</Text>
+            <Text style={[styles.tabText, activeTab === 'Verified' && styles.activeTabText]}>{t('verified')}</Text>
             {activeTab === 'Verified' && <MaterialCommunityIcons name="check-decagram" size={16} color="#FDE047" />}
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tabButton, activeTab === 'Inbox' && styles.activeTabButton]}
             onPress={() => setActiveTab('Inbox')}
           >
-            <Text style={[styles.tabText, activeTab === 'Inbox' && styles.activeTabText]}>Inbox</Text>
+            <Text style={[styles.tabText, activeTab === 'Inbox' && styles.activeTabText]}>{t('inbox')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -333,7 +350,7 @@ export default function Home() {
             ListHeaderComponent={
               recentContacts.length > 0 ? (
                 <View style={styles.recentsSection}>
-                  <Text style={styles.recentsTitle}>Recently Contacted</Text>
+                  <Text style={styles.recentsTitle}>{t('recentlyContacted')}</Text>
                   <FlatList
                     data={recentContacts}
                     keyExtractor={item => item.id}
@@ -354,7 +371,7 @@ export default function Home() {
             contentContainerStyle={[styles.listContent, { paddingTop: 8 }]}
             ListEmptyComponent={
               <Text style={{ color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 40 }}>
-                No messages yet.{'\n'}Start chatting with a listener!
+                {t('noMessages')}
               </Text>
             }
           />
@@ -375,6 +392,10 @@ export default function Home() {
           <Animated.View style={[styles.drawerContent, { transform: [{ translateX: slideAnim }] }]}>
             {/* Profile */}
             <View style={styles.drawerProfileSection}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 10 }}>
+                 <Image source={require('../assets/images/icon.jpg')} style={{ width: 32, height: 32, borderRadius: 16 }} />
+                 <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 18, fontWeight: 'bold' }}>BeHappyTalk</Text>
+              </View>
               <View style={styles.largeAvatar}>
                 <MaterialIcons name="person" size={60} color="#0A0B10" />
               </View>
@@ -383,36 +404,42 @@ export default function Home() {
 
               <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); setTimeout(() => setShowAnonModal(true), 320); }}>
                 <MaterialIcons name="account-circle" size={24} color="rgba(255,255,255,0.45)" />
-                <Text style={styles.drawerMenuText}>My Profile</Text>
+                <Text style={styles.drawerMenuText}>{t('myProfile')}</Text>
               </TouchableOpacity>
             </View>
 
             {/* Links */}
             <View style={styles.drawerListSection}>
-              <Text style={styles.drawerSectionTitle}>Communicate</Text>
+              <Text style={styles.drawerSectionTitle}>{t('communicate') || 'Communicate'}</Text>
+
+              <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/history'); }}>
+                <MaterialCommunityIcons name="history" size={24} color="rgba(255,255,255,0.70)" />
+                <Text style={styles.drawerMenuText}>{t('usage') || 'Call Summary'}</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/care'); }}>
                 <MaterialCommunityIcons name="heart-box" size={24} color="rgba(255,255,255,0.70)" />
-                <Text style={styles.drawerMenuText}>User Care</Text>
+                <Text style={styles.drawerMenuText}>{t('userCare')}</Text>
               </TouchableOpacity>
 
               <View style={styles.drawerMenuItem}>
                 <MaterialIcons name="settings" size={24} color="rgba(255,255,255,0.70)" />
-                <Text style={styles.drawerMenuText}>Settings</Text>
+                <Text style={styles.drawerMenuText}>{t('settings')}</Text>
               </View>
 
               <View style={styles.subMenu}>
+                <TouchableOpacity style={styles.subMenuItem} onPress={toggleLanguage}>
+                  <MaterialIcons name="language" size={20} color="#3B82F6" />
+                  <Text style={[styles.subMenuText, { color: '#3B82F6', fontWeight: 'bold' }]}>{t('changeLanguage')}</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity style={styles.subMenuItem}>
                   <MaterialCommunityIcons name="trash-can-outline" size={20} color="rgba(255,255,255,0.45)" />
-                  <Text style={styles.subMenuText}>Delete Account</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.subMenuItem}>
-                  <AntDesign name="loading" size={20} color="rgba(255,255,255,0.45)" />
-                  <Text style={styles.subMenuText}>Usage</Text>
+                  <Text style={styles.subMenuText}>{t('deleteAccount')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.subMenuItem} onPress={handleLogout}>
                   <AntDesign name="logout" size={20} color="#EF4444" />
-                  <Text style={[styles.subMenuText, { color: '#EF4444' }]}>Logout</Text>
+                  <Text style={[styles.subMenuText, { color: '#EF4444' }]}>{t('logout')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -582,11 +609,9 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingCt: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  topHeaderBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, gap: 12 },
+  topHeaderBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, gap: 12 },
   userIconBg: { backgroundColor: '#1A1C23', padding: 8, borderRadius: 8 },
-  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1C23', borderRadius: 20, paddingHorizontal: 12, height: 40 },
-  fakeSearchInput: { color: 'rgba(255,255,255,0.45)', fontSize: 14 },
-  walletContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#FACC15', borderRadius: 20, paddingHorizontal: 12, height: 40, gap: 6, backgroundColor: '#12141A' },
+  walletContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#FACC15', borderRadius: 20, paddingHorizontal: 12, height: 36, gap: 6, backgroundColor: '#12141A' },
   walletText: { color: '#FACC15', fontSize: 14, fontWeight: 'bold' },
 
   tabsContainer: { flexDirection: 'row', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },

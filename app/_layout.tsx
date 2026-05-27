@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { LanguageProvider } from '../hooks/useLanguage';
 
 // Global Fetch Bypass for localtunnel & ngrok warning screens
 const originalFetch = global.fetch;
@@ -24,7 +25,7 @@ global.fetch = function (input: any, init?: any) {
 
 export default function RootLayout() {
   return (
-    <>
+    <LanguageProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -44,6 +45,6 @@ export default function RootLayout() {
         <Stack.Screen name="payment" />
         <Stack.Screen name="permissions" />
       </Stack>
-    </>
+    </LanguageProvider>
   );
 }

@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "BeHappyTalk",
+    "name": "behappytalk",
     "slug": "behappytalk",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/icon.jpg",
     "scheme": "behappytalk",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
@@ -16,7 +16,8 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#000000",
-        "foregroundImage": "./assets/images/android-icon-foreground.png"
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.jpg"
       },
       "permissions": [
         "android.permission.ACCESS_NETWORK_STATE",
@@ -32,14 +33,14 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.jpg"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/splash-icon.jpg",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#000000"

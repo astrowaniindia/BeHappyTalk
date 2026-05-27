@@ -43,7 +43,7 @@ export default function ProviderProfile() {
     if (user?.id) {
       secureFetch(`${API_URL}/user/${user.id}`)
         .then(r => r.json())
-        .then(data => { if (data.walletBalance !== undefined) setWalletBalance(data.walletBalance); })
+        .then(data => { setWalletBalance(data.walletBalance || Math.floor(data.walletbalance) || 500); })
         .catch(console.error);
     }
   }, [id, user]);
@@ -76,7 +76,7 @@ export default function ProviderProfile() {
   const promptDuration = (type: string, rate: number) => {
     if (!provider) return;
     if (provider.status !== 'online') {
-      alert(`Provider is currently ${provider.status}. Please try again later.`);
+      alert(`${provider.name} is currently ${provider.status} right now. Please try again later.`);
       return;
     }
     setSelectedInteraction({ type, rate });
@@ -108,7 +108,7 @@ export default function ProviderProfile() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#00F5FF" />
+        <ActivityIndicator size="large" color="#FACC15" />
       </View>
     );
   }
@@ -129,7 +129,7 @@ export default function ProviderProfile() {
       <ScrollView contentContainerStyle={styles.scrollContent} bounces={false} showsVerticalScrollIndicator={false}>
         {/* Cover & Avatar Section */}
         <View style={styles.headerArea}>
-          <LinearGradient colors={['#1A202E', '#05070A']} style={styles.coverImage} />
+          <LinearGradient colors={['#1A1C23', '#0A0B10']} style={styles.coverImage} />
           
           <TouchableOpacity style={styles.topBackBtn} onPress={() => router.back()}>
             <Feather name="arrow-left" size={24} color="#FFF" />
@@ -148,7 +148,7 @@ export default function ProviderProfile() {
         <View style={styles.infoSection}>
           <View style={{flexDirection:'row', alignItems:'center', gap: 6}}>
              <Text style={styles.nameText}>{provider.name}</Text>
-             {provider.verified && <MaterialCommunityIcons name="check-decagram" size={20} color="#00F5FF" />}
+             {provider.verified && <MaterialCommunityIcons name="check-decagram" size={20} color="#FACC15" />}
           </View>
           <Text style={styles.taglineText}>{provider.tagline || 'Astrologer & Counselor'}</Text>
           
@@ -160,13 +160,13 @@ export default function ProviderProfile() {
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <MaterialCommunityIcons name="briefcase-clock" size={22} color="#00F5FF" />
+              <MaterialCommunityIcons name="briefcase-clock" size={22} color="#FACC15" />
               <Text style={styles.statValue}>{provider.exp || '3+'} Yrs</Text>
               <Text style={styles.statLabel}>Experience</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <MaterialIcons name="people" size={22} color="#3A8DFF" />
+              <MaterialIcons name="people" size={22} color="#FACC15" />
               <Text style={styles.statValue}>{provider.reviews || '0'}</Text>
               <Text style={styles.statLabel}>Consults</Text>
             </View>
@@ -202,19 +202,19 @@ export default function ProviderProfile() {
         <View style={styles.actionRow}>
           <TouchableOpacity style={[styles.actionBtn, styles.chatBtn]} onPress={() => promptDuration('Chat', provider.priceChat || 10)}>
             <View style={styles.priceTag}><Text style={styles.priceText}>₹{provider.priceChat || 10}/min</Text></View>
-            <MaterialCommunityIcons name="message-text" size={20} color="#05070A" />
+            <MaterialCommunityIcons name="message-text" size={20} color="#FACC15" />
             <Text style={styles.actionText}>Chat</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={[styles.actionBtn, styles.callBtn]} onPress={() => promptDuration('Call', provider.priceCall || 20)}>
             <View style={styles.priceTag}><Text style={styles.priceText}>₹{provider.priceCall || 20}/min</Text></View>
-            <MaterialIcons name="call" size={20} color="#05070A" />
+            <MaterialIcons name="call" size={20} color="#FACC15" />
             <Text style={styles.actionText}>Call</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.actionBtn, styles.videoBtn]} onPress={() => promptDuration('Video', provider.priceVideo || 30)}>
              <View style={styles.priceTag}><Text style={styles.priceText}>₹{provider.priceVideo || 30}/min</Text></View>
-            <MaterialIcons name="videocam" size={20} color="#05070A" />
+            <MaterialIcons name="videocam" size={20} color="#FACC15" />
             <Text style={styles.actionText}>Video</Text>
           </TouchableOpacity>
         </View>
@@ -269,59 +269,59 @@ export default function ProviderProfile() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#05070A' },
-  loadingContainer: { flex: 1, backgroundColor: '#05070A', justifyContent: 'center', alignItems: 'center' },
-  errorText: { color: '#F0F4F8', fontSize: 18, marginBottom: 20 },
-  backBtn: { backgroundColor: '#1A202E', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
-  backBtnText: { color: '#FFF', fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: '#0A0B10' },
+  loadingContainer: { flex: 1, backgroundColor: '#0A0B10', justifyContent: 'center', alignItems: 'center' },
+  errorText: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 18, marginBottom: 20 },
+  backBtn: { backgroundColor: '#1A1C23', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  backBtnText: { color: '#FACC15', fontWeight: 'bold' },
   scrollContent: { paddingBottom: 40 },
-  headerArea: { height: 180, position: 'relative', marginBottom: 60, backgroundColor: '#121620' },
+  headerArea: { height: 180, position: 'relative', marginBottom: 60, backgroundColor: '#1A1C23' },
   coverImage: { width: '100%', height: '100%' },
   topBackBtn: { position: 'absolute', top: 50, left: 20, zIndex: 10, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  avatarContainer: { position: 'absolute', bottom: -50, alignSelf: 'center', width: 130, height: 130, borderRadius: 65, borderWidth: 4, borderColor: '#05070A', backgroundColor: '#121620', elevation: 10 },
+  avatarContainer: { position: 'absolute', bottom: -50, alignSelf: 'center', width: 130, height: 130, borderRadius: 65, borderWidth: 4, borderColor: '#0A0B10', backgroundColor: '#1A1C23', elevation: 10 },
   avatar: { width: '100%', height: '100%', borderRadius: 65, resizeMode: 'cover' },
-  statusBadge: { position: 'absolute', bottom: 5, right: 12, width: 24, height: 24, borderRadius: 12, borderWidth: 4, borderColor: '#05070A' },
+  statusBadge: { position: 'absolute', bottom: 5, right: 12, width: 24, height: 24, borderRadius: 12, borderWidth: 4, borderColor: '#0A0B10' },
   infoSection: { alignItems: 'center', paddingHorizontal: 20 },
-  nameText: { color: '#F0F4F8', fontSize: 28, fontWeight: '900', marginBottom: 4 },
-  taglineText: { color: '#00F5FF', fontSize: 15, fontWeight: '600', marginBottom: 24 },
-  statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#121620', borderRadius: 20, paddingVertical: 18, paddingHorizontal: 24, width: '100%', justifyContent: 'space-between', borderWidth: 1, borderColor: 'rgba(0,245,255,0.1)' },
+  nameText: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 28, fontWeight: '900', marginBottom: 4 },
+  taglineText: { color: '#FACC15', fontSize: 15, fontWeight: '600', marginBottom: 24 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1C23', borderRadius: 20, paddingVertical: 18, paddingHorizontal: 24, width: '100%', justifyContent: 'space-between', borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.2)' },
   statItem: { alignItems: 'center', flex: 1, gap: 4 },
-  statValue: { color: '#F0F4F8', fontSize: 18, fontWeight: '900' },
-  statLabel: { color: '#94A3B8', fontSize: 11, textTransform: 'uppercase', fontWeight: '700' },
+  statValue: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 18, fontWeight: '900' },
+  statLabel: { color: 'rgba(255, 255, 255, 0.45)', fontSize: 11, textTransform: 'uppercase', fontWeight: '700' },
   statDivider: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.1)' },
   detailsSection: { padding: 24, marginTop: 10 },
-  sectionTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', marginBottom: 16 },
-  bioText: { color: '#94A3B8', fontSize: 15, lineHeight: 26 },
+  sectionTitle: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 20, fontWeight: '900', marginBottom: 16 },
+  bioText: { color: 'rgba(255, 255, 255, 0.45)', fontSize: 15, lineHeight: 26 },
   tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 24, gap: 10 },
-  tagBadge: { backgroundColor: 'rgba(58,141,255,0.10)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(58,141,255,0.2)' },
-  tagText: { color: '#3A8DFF', fontSize: 13, fontWeight: '700' },
-  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(10,13,20,0.95)', padding: 16, paddingBottom: 30, borderTopWidth: 1, borderTopColor: 'rgba(0,245,255,0.1)' },
+  tagBadge: { backgroundColor: 'rgba(250, 204, 21, 0.1)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.2)' },
+  tagText: { color: '#FACC15', fontSize: 13, fontWeight: '700' },
+  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(10, 11, 16, 0.95)', padding: 16, paddingBottom: 30, borderTopWidth: 1, borderTopColor: 'rgba(250, 204, 21, 0.2)' },
   actionRow: { flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
-  actionBtn: { flex: 1, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6, position: 'relative' },
-  chatBtn: { backgroundColor: '#3A8DFF' },
-  callBtn: { backgroundColor: '#00F5FF' },
-  videoBtn: { backgroundColor: '#00FF94' },
-  actionText: { color: '#05070A', fontWeight: '900', fontSize: 15, textTransform: 'uppercase' },
-  priceTag: { position: 'absolute', top: -12, backgroundColor: '#EF4444', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, borderWidth: 2, borderColor: '#05070A' },
-  priceText: { color: '#FFF', fontSize: 10, fontWeight: '900' },
+  actionBtn: { flex: 1, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6, position: 'relative', backgroundColor: '#1A1C23', borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.5)' },
+  chatBtn: {},
+  callBtn: {},
+  videoBtn: {},
+  actionText: { color: 'rgba(255, 255, 255, 0.92)', fontWeight: '900', fontSize: 15, textTransform: 'uppercase' },
+  priceTag: { position: 'absolute', top: -12, backgroundColor: '#FACC15', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, borderWidth: 2, borderColor: '#0A0B10' },
+  priceText: { color: '#0A0B10', fontSize: 10, fontWeight: '900' },
   
   // Modals
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#121620', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(0,245,255,0.2)', borderBottomWidth: 0 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#1A1C23', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: '#FACC15', borderBottomWidth: 0 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  modalTitle: { color: '#FFF', fontSize: 24, fontWeight: '900' },
-  modalSubtitle: { color: '#94A3B8', fontSize: 14, marginBottom: 24 },
+  modalTitle: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 24, fontWeight: '900' },
+  modalSubtitle: { color: 'rgba(255, 255, 255, 0.45)', fontSize: 14, marginBottom: 24 },
   durationGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' },
-  durationBtn: { width: '47%', backgroundColor: 'rgba(0,245,255,0.1)', padding: 20, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0,245,255,0.3)' },
-  durationMins: { color: '#00F5FF', fontSize: 20, fontWeight: '900', marginBottom: 4 },
-  durationPrice: { color: '#F0F4F8', fontSize: 14, fontWeight: '600' },
-  walletInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 24, gap: 8, backgroundColor: '#1A202E', paddingVertical: 12, borderRadius: 12 },
-  walletText: { color: '#94A3B8', fontSize: 13, fontWeight: '600' },
+  durationBtn: { width: '47%', backgroundColor: 'rgba(250, 204, 21, 0.1)', padding: 20, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#FACC15' },
+  durationMins: { color: '#FACC15', fontSize: 20, fontWeight: '900', marginBottom: 4 },
+  durationPrice: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 14, fontWeight: '600' },
+  walletInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 24, gap: 8, backgroundColor: '#0A0B10', paddingVertical: 12, borderRadius: 12 },
+  walletText: { color: 'rgba(255, 255, 255, 0.45)', fontSize: 13, fontWeight: '600' },
   
-  connectingOverlay: { flex: 1, backgroundColor: 'rgba(5,7,10,0.95)', justifyContent: 'center', alignItems: 'center' },
-  pulseRing: { width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(0,245,255,0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 24, borderWidth: 1, borderColor: '#00F5FF' },
+  connectingOverlay: { flex: 1, backgroundColor: 'rgba(10, 11, 16, 0.95)', justifyContent: 'center', alignItems: 'center' },
+  pulseRing: { width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(250, 204, 21, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 24, borderWidth: 1, borderColor: '#FACC15' },
   connectingAvatar: { width: 100, height: 100, borderRadius: 50 },
-  connectingTitle: { color: '#FFF', fontSize: 24, fontWeight: '900', marginBottom: 8 },
-  connectingSub: { color: '#00F5FF', fontSize: 16, fontWeight: '600', marginBottom: 40 },
+  connectingTitle: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 24, fontWeight: '900', marginBottom: 8 },
+  connectingSub: { color: '#FACC15', fontSize: 16, fontWeight: '600', marginBottom: 40 },
   cancelBtn: { backgroundColor: '#EF4444', width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', elevation: 10 }
 });

@@ -475,6 +475,20 @@ app.post('/api/admin/verify-provider', authenticateAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
+// Get User's Session History
+app.get('/api/user/sessions/:userId', async (req, res) => {
+  const { data, error } = await db.from('sessions')
+    .select('*, providers(name)')
+    .eq('userId', req.params.userId)
+    .eq('status', 'completed')
+    .order('startTime', { ascending: false });
+  if (error) {
+    res.status(500).json({ error: error.message });
+  } else {
+    res.json(data);
+  }
+});
+
 app.get('/api/admin/stats', authenticateAdmin, async (req, res) => {
   try {
     const { count: users } = await db.from('users').select('*', { count: 'exact', head: true });

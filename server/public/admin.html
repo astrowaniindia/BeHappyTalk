@@ -336,7 +336,7 @@
       allSessions.forEach(s => {
         const earn = (s.cost || 0) / 2;
         if (s.type === 'Chat') c += earn;
-        else if (s.type === 'Audio') a += earn;
+        else if (s.type === 'Audio' || s.type === 'Call') a += earn;
         else if (s.type === 'Video') v += earn;
       });
       document.getElementById('earn-chat').innerText = c.toFixed(2);
@@ -356,6 +356,7 @@
         activeBtn.classList.add('bg-purple-600', 'text-white', 'shadow');
       }
       if (filterType === 'all') renderTable('sessions', allSessions);
+      else if (filterType === 'Audio') renderTable('sessions', allSessions.filter(s => s.type === 'Audio' || s.type === 'Call'));
       else renderTable('sessions', allSessions.filter(s => s.type === filterType));
     }
 
