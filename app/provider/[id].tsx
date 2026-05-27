@@ -300,10 +300,10 @@ export default function ProviderProfile() {
             </Text>
             
             <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
-              <TouchableOpacity style={{ flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#1A1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center' }} onPress={() => setInsufficientModal(false)}>
-                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Cancel</Text>
+              <TouchableOpacity style={{ flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#1A1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }} onPress={() => setInsufficientModal(false)}>
+                <Text style={{ color: '#FFF', fontWeight: 'bold', textAlign: 'center' }}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#FACC15', alignItems: 'center' }} onPress={() => {
+              <TouchableOpacity style={{ flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#FACC15', alignItems: 'center', justifyContent: 'center' }} onPress={() => {
                 setInsufficientModal(false);
                 router.push('/wallet');
               }}>
@@ -327,7 +327,7 @@ export default function ProviderProfile() {
             </Text>
             
             <View style={{ flexDirection: 'column', gap: 12, width: '100%' }}>
-              <TouchableOpacity style={{ backgroundColor: '#FACC15', width: '100%', padding: 16, borderRadius: 12, alignItems: 'center' }} onPress={() => {
+              <TouchableOpacity style={{ backgroundColor: '#FACC15', width: '100%', padding: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }} onPress={() => {
                 setBusyModal(false);
                 socketRef.current?.emit('join_waitlist', {
                   providerId: provider?.id,
@@ -339,13 +339,13 @@ export default function ProviderProfile() {
                 });
                 alert(`You have successfully joined ${provider?.name}'s waiting room! Please stay on this screen. You will be automatically connected when the provider is ready.`);
               }}>
-                <Text style={{ color: '#0A0B10', fontWeight: 'bold' }}>Wait in Waiting Room</Text>
+                <Text style={{ color: '#0A0B10', fontWeight: 'bold', textAlign: 'center' }}>Wait in Waiting Room</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ backgroundColor: '#1A1C23', width: '100%', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center' }} onPress={() => {
+              <TouchableOpacity style={{ backgroundColor: '#1A1C23', width: '100%', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }} onPress={() => {
                 setBusyModal(false);
                 router.replace('/home');
               }}>
-                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Find Someone Else</Text>
+                <Text style={{ color: '#FFF', fontWeight: 'bold', textAlign: 'center' }}>Find Someone Else</Text>
               </TouchableOpacity>
             </View>
           </View>
