@@ -1098,6 +1098,7 @@
     let socket;
     let currentIncomingReq = null;
     let provider = null;
+    let token = null;
     let users = [];
     let activeUserId = null;
     let currentSessionId = null;
@@ -1108,6 +1109,7 @@
     const saved = localStorage.getItem('bt_provider');
     if (saved) {
       provider = JSON.parse(saved);
+      token = provider.token;
       initApp();
     }
 
@@ -1610,6 +1612,7 @@
       const data = await res.json();
       if (res.ok) {
         provider = data;
+        token = provider.token;
         localStorage.setItem('bt_provider', JSON.stringify(provider));
         initApp();
       } else {
@@ -2646,7 +2649,9 @@ function renderMsg(msg) {
             tagline: document.getElementById('prof-tagline').value,
             bio: document.getElementById('prof-bio').value,
             langs: document.getElementById('prof-langs').value,
+            languages: document.getElementById('prof-langs').value,
             exp: document.getElementById('prof-exp').value,
+            experience: document.getElementById('prof-exp').value,
             demographic: document.getElementById('prof-demographic').value,
             priceChat: parseInt(document.getElementById('prof-priceChat').value) || 10,
             priceCall: parseInt(document.getElementById('prof-priceCall').value) || 20,

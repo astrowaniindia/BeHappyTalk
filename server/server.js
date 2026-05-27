@@ -247,6 +247,50 @@ app.post('/api/provider/update-profile', authenticateToken, async (req, res) => 
   res.json({ success: true, message: 'Profile updated successfully!' });
 });
 
+// NEW: Get user profile endpoint (as requested)
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await db.from('users').select('*').eq('id', id).single();
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// NEW: Update user profile endpoint (as requested)
+app.put('/api/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { bio, languages, experience, pricing, demographic, profileImage, isPartner } = req.body;
+    
+    // Convert arrays/objects to JSON for Supabase JSONB fields
+    const langJson = Array.isArray(languages) ? JSON.stringify(languages) : languages;
+    const pricingJson = typeof pricing === 'object' ? JSON.stringify(pricing) : pricing;
+    const demoJson = typeof demographic === 'object' ? JSON.stringify(demographic) : demographic;
+
+    const { data, error } = await db.from('users')
+      .update({
+        bio,
+        languages: langJson,
+        experience,
+        pricing: pricingJson,
+        demographic: demoJson,
+        profileImage,
+        isPartner
+      })
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    res.json({ success: true, user: data[0] });
+  } catch (err) {
+    console.error('Update user error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/api/provider/upload-image', authenticateToken, async (req, res) => {
   if (req.user.role !== 'provider') return res.status(403).json({ error: 'Forbidden' });
   const { base64Image } = req.body;
