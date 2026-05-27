@@ -53,7 +53,7 @@ if (!firebaseInitialized) {
 
 // ─── Provider State Tracking ──────────────────────────────────────────────────
 const providerStates = {};
-const pendingRequests = {}; // userId -> providerId
+const pendingRequests = {}; // userId -> { providerId, userName, type, rate, duration }
 
 // ─── App setup ────────────────────────────────────────────────────────────────
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_local_dev_only';
@@ -645,19 +645,33 @@ io.on('connection', (socket) => {
     else providerStates[providerId].isOnline = true;
     io.emit('provider_status_changed', { providerId, state: providerStates[providerId] });
     socket.join(`provider_room_${providerId}`);
+    
+    // Resend any pending requests to the provider in case they refreshed
+    for (const [userId, req] of Object.entries(pendingRequests)) {
+      if (req.providerId === providerId) {
+        socket.emit('incoming_request', { 
+          userId, 
+          userName: req.userName, 
+          providerId, 
+          type: req.type, 
+          rate: req.rate, 
+          duration: req.duration 
+        });
+      }
+    }
   });
 
   socket.on('request_interaction', ({ userId, providerId, type, rate, userName, duration }) => {
     socket.userId = userId;
-    if (pendingRequests[userId] && pendingRequests[userId] !== providerId) {
-      io.to(`provider_room_${pendingRequests[userId]}`).emit('request_cancelled');
+    if (pendingRequests[userId] && pendingRequests[userId].providerId !== providerId) {
+      io.to(`provider_room_${pendingRequests[userId].providerId}`).emit('request_cancelled');
     }
-    pendingRequests[userId] = providerId;
+    pendingRequests[userId] = { providerId, userName, type, rate, duration };
     io.to(`provider_room_${providerId}`).emit('incoming_request', { userId, userName, providerId, type, rate, duration });
   });
 
   socket.on('cancel_interaction', ({ providerId }) => {
-    if (socket.userId && pendingRequests[socket.userId] === providerId) delete pendingRequests[socket.userId];
+    if (socket.userId && pendingRequests[socket.userId] && pendingRequests[socket.userId].providerId === providerId) delete pendingRequests[socket.userId];
     io.to(`provider_room_${providerId}`).emit('request_cancelled');
   });
 
@@ -706,7 +720,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('accept_interaction', async ({ userId, providerId, type, rate, duration }) => {
-    if (pendingRequests[userId] === providerId) delete pendingRequests[userId];
+    if (pendingRequests[userId] && pendingRequests[userId].providerId === providerId) delete pendingRequests[userId];
     const sessionId = `sess_${Date.now()}`;
 
     const { error } = await db.from('sessions').insert({
@@ -756,7 +770,7 @@ io.on('connection', (socket) => {
 
   socket.on('send_message', async ({ userId, providerId, senderId, text }) => {
     if (pendingRequests[userId] && senderId === userId) {
-      io.to(`provider_room_${pendingRequests[userId]}`).emit('request_cancelled');
+      io.to(`provider_room_${pendingRequests[userId].providerId}`).emit('request_cancelled');
       delete pendingRequests[userId];
     }
 
@@ -788,7 +802,7 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     if (socket.userId && pendingRequests[socket.userId]) {
-       const pId = pendingRequests[socket.userId];
+       const pId = pendingRequests[socket.userId].providerId;
        io.to(`provider_room_${pId}`).emit('request_cancelled');
        delete pendingRequests[socket.userId];
     }
