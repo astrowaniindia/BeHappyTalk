@@ -970,8 +970,49 @@
         </div>
 
         <div id="view-profile" class="view-content">
-           <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; max-width: 600px;">
-             <h3 style="margin: 0 0 24px; color: var(--text); font-size: 20px; font-weight: 700;">Edit Profile</h3>
+           <!-- Card View -->
+           <div id="profile-card-view" style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; max-width: 600px;">
+             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+               <div style="display: flex; gap: 20px; align-items: center;">
+                 <img id="card-prof-img" src="https://via.placeholder.com/80" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary);">
+                 <div>
+                   <h2 id="card-prof-name" style="margin: 0; color: var(--text); font-size: 24px; font-weight: 800;">Provider Name</h2>
+                   <p id="card-prof-tagline" style="margin: 4px 0 0; color: var(--primary); font-size: 14px; font-weight: 600;">Tagline</p>
+                 </div>
+               </div>
+               <button onclick="toggleProfileEdit()" style="background: transparent; color: var(--primary); border: 1px solid var(--primary); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px;">Edit Profile</button>
+             </div>
+             
+             <p id="card-prof-bio" style="color: var(--text-muted); font-size: 15px; line-height: 1.6; margin-bottom: 24px;">Bio goes here</p>
+             
+             <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px;">
+               <div style="background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px; font-size: 13px; color: var(--text-muted);"><span style="color: var(--text); font-weight: 600;">Langs:</span> <span id="card-prof-langs"></span></div>
+               <div style="background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px; font-size: 13px; color: var(--text-muted);"><span style="color: var(--text); font-weight: 600;">Exp:</span> <span id="card-prof-exp"></span></div>
+               <div style="background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px; font-size: 13px; color: var(--text-muted);"><span style="color: var(--text); font-weight: 600;">Demo:</span> <span id="card-prof-demo"></span></div>
+             </div>
+
+             <div style="display: flex; gap: 12px;">
+               <div style="flex: 1; background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.2); padding: 16px; border-radius: 12px; text-align: center;">
+                 <p style="margin: 0 0 4px; font-size: 12px; color: rgba(255,255,255,0.6); text-transform: uppercase;">Chat</p>
+                 <h4 id="card-prof-pChat" style="margin: 0; color: #34D399; font-size: 18px;">₹0/min</h4>
+               </div>
+               <div style="flex: 1; background: rgba(0, 229, 255, 0.1); border: 1px solid rgba(0, 229, 255, 0.2); padding: 16px; border-radius: 12px; text-align: center;">
+                 <p style="margin: 0 0 4px; font-size: 12px; color: rgba(255,255,255,0.6); text-transform: uppercase;">Audio</p>
+                 <h4 id="card-prof-pCall" style="margin: 0; color: #00E5FF; font-size: 18px;">₹0/min</h4>
+               </div>
+               <div style="flex: 1; background: rgba(250, 204, 21, 0.1); border: 1px solid rgba(250, 204, 21, 0.2); padding: 16px; border-radius: 12px; text-align: center;">
+                 <p style="margin: 0 0 4px; font-size: 12px; color: rgba(255,255,255,0.6); text-transform: uppercase;">Video</p>
+                 <h4 id="card-prof-pVideo" style="margin: 0; color: #FACC15; font-size: 18px;">₹0/min</h4>
+               </div>
+             </div>
+           </div>
+
+           <!-- Edit Form -->
+           <div id="profile-edit-form" style="display: none; background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 32px; max-width: 600px;">
+             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+               <h3 style="margin: 0; color: var(--text); font-size: 20px; font-weight: 700;">Edit Profile</h3>
+               <button onclick="toggleProfileEdit()" style="background: transparent; color: var(--text-muted); border: none; cursor: pointer; font-size: 14px;">Cancel</button>
+             </div>
              
              <div style="text-align: center; margin-bottom: 32px;">
                <img id="prof-img-preview" src="https://via.placeholder.com/120" style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid var(--primary); margin-bottom: 12px; cursor: pointer; box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);" onclick="document.getElementById('prof-img-upload').click()">
@@ -1144,6 +1185,7 @@
       };
 
       // Populate Profile Tab
+      updateProfileCard();
       if (document.getElementById('prof-tagline')) {
           if (provider.imagePath) document.getElementById('prof-img-preview').src = provider.imagePath;
           document.getElementById('prof-tagline').value = provider.tagline || '';
@@ -2567,6 +2609,32 @@ function renderMsg(msg) {
       }
     }
 
+    function toggleProfileEdit() {
+      const card = document.getElementById('profile-card-view');
+      const form = document.getElementById('profile-edit-form');
+      if(card.style.display === 'none') {
+        card.style.display = 'block';
+        form.style.display = 'none';
+      } else {
+        card.style.display = 'none';
+        form.style.display = 'block';
+      }
+    }
+
+    function updateProfileCard() {
+      if(!provider) return;
+      document.getElementById('card-prof-img').src = provider.imagePath || 'https://via.placeholder.com/80';
+      document.getElementById('card-prof-name').innerText = provider.name || provider.phone;
+      document.getElementById('card-prof-tagline').innerText = provider.tagline || 'No tagline set';
+      document.getElementById('card-prof-bio').innerText = provider.bio || 'No bio available.';
+      document.getElementById('card-prof-langs').innerText = provider.langs || 'N/A';
+      document.getElementById('card-prof-exp').innerText = provider.exp || 'N/A';
+      document.getElementById('card-prof-demo').innerText = provider.demographic || 'N/A';
+      document.getElementById('card-prof-pChat').innerText = `₹${provider.priceChat || 10}/min`;
+      document.getElementById('card-prof-pCall').innerText = `₹${provider.priceCall || 20}/min`;
+      document.getElementById('card-prof-pVideo').innerText = `₹${provider.priceVideo || 30}/min`;
+    }
+
     async function saveProfile() {
       const btn = document.getElementById('btn-save-prof');
       btn.innerText = 'Saving...';
@@ -2588,7 +2656,23 @@ function renderMsg(msg) {
         const data = await res.json();
         if(data.success) {
            btn.innerText = 'Saved Successfully!';
-           setTimeout(() => btn.innerText = 'Save Profile', 2000);
+           
+           // Update local provider object
+           provider.tagline = document.getElementById('prof-tagline').value;
+           provider.bio = document.getElementById('prof-bio').value;
+           provider.langs = document.getElementById('prof-langs').value;
+           provider.exp = document.getElementById('prof-exp').value;
+           provider.demographic = document.getElementById('prof-demographic').value;
+           provider.priceChat = parseInt(document.getElementById('prof-priceChat').value);
+           provider.priceCall = parseInt(document.getElementById('prof-priceCall').value);
+           provider.priceVideo = parseInt(document.getElementById('prof-priceVideo').value);
+           
+           updateProfileCard();
+
+           setTimeout(() => {
+             btn.innerText = 'Save Profile';
+             toggleProfileEdit();
+           }, 1000);
         } else {
            alert(data.error);
            btn.innerText = 'Save Profile';
