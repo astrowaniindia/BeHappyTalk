@@ -2648,9 +2648,9 @@ function renderMsg(msg) {
             langs: document.getElementById('prof-langs').value,
             exp: document.getElementById('prof-exp').value,
             demographic: document.getElementById('prof-demographic').value,
-            priceChat: parseInt(document.getElementById('prof-priceChat').value),
-            priceCall: parseInt(document.getElementById('prof-priceCall').value),
-            priceVideo: parseInt(document.getElementById('prof-priceVideo').value)
+            priceChat: parseInt(document.getElementById('prof-priceChat').value) || 10,
+            priceCall: parseInt(document.getElementById('prof-priceCall').value) || 20,
+            priceVideo: parseInt(document.getElementById('prof-priceVideo').value) || 30
           })
         });
         const data = await res.json();
@@ -2663,9 +2663,12 @@ function renderMsg(msg) {
            provider.langs = document.getElementById('prof-langs').value;
            provider.exp = document.getElementById('prof-exp').value;
            provider.demographic = document.getElementById('prof-demographic').value;
-           provider.priceChat = parseInt(document.getElementById('prof-priceChat').value);
-           provider.priceCall = parseInt(document.getElementById('prof-priceCall').value);
-           provider.priceVideo = parseInt(document.getElementById('prof-priceVideo').value);
+           provider.priceChat = parseInt(document.getElementById('prof-priceChat').value) || 10;
+           provider.priceCall = parseInt(document.getElementById('prof-priceCall').value) || 20;
+           provider.priceVideo = parseInt(document.getElementById('prof-priceVideo').value) || 30;
+           
+           // Update localStorage so it persists on refresh
+           localStorage.setItem('bt_provider', JSON.stringify(provider));
            
            updateProfileCard();
 
