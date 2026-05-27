@@ -489,16 +489,16 @@ export default function Home() {
         </View>
       </Modal>
 
-      {/* Recommended Modal */}
+      {/* Recommended / Favorites Modal */}
       <Modal visible={showRecommendedModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback onPress={() => setShowRecommendedModal(false)}>
             <View style={StyleSheet.absoluteFillObject} />
           </TouchableWithoutFeedback>
           <View style={styles.recommendedModalContent}>
-            <Text style={styles.recommendedTitle}>Recommended For You ✨</Text>
+            <Text style={styles.recommendedTitle}>{recentContacts.length > 0 ? "Quick Talk (Favorites) ⭐" : "Recommended For You ✨"}</Text>
             <View style={styles.recommendedGrid}>
-              {providers.slice(0, 3).map((rec: any) => (
+              {(recentContacts.length > 0 ? recentContacts : providers).slice(0, 3).map((rec: any) => (
                 <View key={rec.id} style={styles.recCard}>
                   <View style={styles.recAvatarRing}>
                     <Image source={rec.image} style={styles.recAvatar} />
