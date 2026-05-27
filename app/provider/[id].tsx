@@ -245,6 +245,7 @@ export default function ProviderProfile() {
       <Modal visible={durationModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <View style={styles.bottomSheetHandle} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Duration</Text>
               <TouchableOpacity onPress={() => setDurationModal(false)}>
@@ -288,10 +289,11 @@ export default function ProviderProfile() {
         </View>
       </Modal>
 
-      {/* Insufficient Funds Modal */}
-      <Modal visible={insufficientModal} transparent animationType="fade">
+      {/* Insufficient Balance Modal */}
+      <Modal visible={insufficientModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { alignItems: 'center' }]}>
+            <View style={styles.bottomSheetHandle} />
             <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
                <MaterialCommunityIcons name="wallet-remove" size={32} color="#EF4444" />
             </View>
@@ -316,9 +318,10 @@ export default function ProviderProfile() {
       </Modal>
 
       {/* Offline Modal */}
-      <Modal visible={offlineModal} transparent animationType="fade">
+      <Modal visible={offlineModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { alignItems: 'center' }]}>
+            <View style={styles.bottomSheetHandle} />
             <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
                <MaterialCommunityIcons name="account-cancel" size={32} color="#EF4444" />
             </View>
@@ -334,9 +337,10 @@ export default function ProviderProfile() {
       </Modal>
 
       {/* Busy Provider Modal */}
-      <Modal visible={busyModal} transparent animationType="fade">
+      <Modal visible={busyModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { alignItems: 'center' }]}>
+            <View style={styles.bottomSheetHandle} />
             <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(250, 204, 21, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
                <MaterialCommunityIcons name="phone-in-talk" size={32} color="#FACC15" />
             </View>
@@ -415,6 +419,7 @@ const styles = StyleSheet.create({
   // Modals
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#1A1C23', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: '#FACC15', borderBottomWidth: 0 },
+  bottomSheetHandle: { width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   modalTitle: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 24, fontWeight: '900' },
   modalSubtitle: { color: 'rgba(255, 255, 255, 0.45)', fontSize: 14, marginBottom: 24 },

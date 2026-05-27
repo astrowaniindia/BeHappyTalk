@@ -257,7 +257,10 @@ export default function Home() {
             </TouchableOpacity>
           </View>
         ) : item.status === 'offline' ? (
-          <TouchableOpacity style={[styles.talkButton, { borderColor: '#EF4444' }]} onPress={() => alert(`${item.name} is offline right now. Please try again later.`)}>
+          <TouchableOpacity style={[styles.talkButton, { borderColor: '#EF4444' }]} onPress={() => {
+             setOfflineMessage(`${item.name} is currently offline right now. Please try again later.`);
+             setOfflineModal(true);
+          }}>
             <Text style={[styles.talkButtonText, { color: '#EF4444' }]}>Offline</Text>
           </TouchableOpacity>
         ) : (
@@ -520,12 +523,13 @@ export default function Home() {
       </Modal>
 
       {/* Connection Mode Selection Modal */}
-      <Modal visible={!!selectedProvider && !connectingModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+      <Modal visible={!!selectedProvider && !connectingModal && !durationModal && !insufficientModal && !offlineModal && !busyModal} transparent animationType="slide">
+        <View style={styles.bottomSheetOverlay}>
            <TouchableWithoutFeedback onPress={() => setSelectedProvider(null)}>
              <View style={StyleSheet.absoluteFillObject} />
            </TouchableWithoutFeedback>
-           <View style={[styles.anonModalContent, { padding: 16 }]}>
+           <View style={styles.bottomSheetContent}>
+              <View style={styles.bottomSheetHandle} />
               {selectedProvider && (
                  <>
                     <View style={{ alignItems: 'center', marginBottom: 20 }}>
@@ -573,12 +577,13 @@ export default function Home() {
       </Modal>
 
       {/* Duration Selection Modal */}
-      <Modal visible={durationModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+      <Modal visible={durationModal} transparent animationType="slide">
+        <View style={styles.bottomSheetOverlay}>
            <TouchableWithoutFeedback onPress={() => setDurationModal(false)}>
              <View style={StyleSheet.absoluteFillObject} />
            </TouchableWithoutFeedback>
-           <View style={[styles.anonModalContent, { padding: 24 }]}>
+           <View style={styles.bottomSheetContent}>
+              <View style={styles.bottomSheetHandle} />
               <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 18, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>Select Duration</Text>
               <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>How long would you like to chat?</Text>
               
@@ -617,10 +622,14 @@ export default function Home() {
         </View>
       </Modal>
 
-      {/* Insufficient Funds Modal */}
-      <Modal visible={insufficientModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.anonModalContent, { alignItems: 'center' }]}>
+      {/* Insufficient Balance Modal */}
+      <Modal visible={insufficientModal} transparent animationType="slide">
+        <View style={styles.bottomSheetOverlay}>
+          <TouchableWithoutFeedback onPress={() => setInsufficientModal(false)}>
+            <View style={StyleSheet.absoluteFillObject} />
+          </TouchableWithoutFeedback>
+          <View style={[styles.bottomSheetContent, { alignItems: 'center' }]}>
+            <View style={styles.bottomSheetHandle} />
             <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
                <MaterialCommunityIcons name="wallet-remove" size={32} color="#EF4444" />
             </View>
@@ -645,9 +654,13 @@ export default function Home() {
       </Modal>
 
       {/* Offline Modal */}
-      <Modal visible={offlineModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.anonModalContent, { alignItems: 'center' }]}>
+      <Modal visible={offlineModal} transparent animationType="slide">
+        <View style={styles.bottomSheetOverlay}>
+          <TouchableWithoutFeedback onPress={() => setOfflineModal(false)}>
+            <View style={StyleSheet.absoluteFillObject} />
+          </TouchableWithoutFeedback>
+          <View style={[styles.bottomSheetContent, { alignItems: 'center' }]}>
+            <View style={styles.bottomSheetHandle} />
             <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
                <MaterialCommunityIcons name="account-cancel" size={32} color="#EF4444" />
             </View>
@@ -663,9 +676,13 @@ export default function Home() {
       </Modal>
 
       {/* Busy Provider Modal */}
-      <Modal visible={busyModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.anonModalContent, { alignItems: 'center' }]}>
+      <Modal visible={busyModal} transparent animationType="slide">
+        <View style={styles.bottomSheetOverlay}>
+          <TouchableWithoutFeedback onPress={() => setBusyModal(false)}>
+            <View style={StyleSheet.absoluteFillObject} />
+          </TouchableWithoutFeedback>
+          <View style={[styles.bottomSheetContent, { alignItems: 'center' }]}>
+            <View style={styles.bottomSheetHandle} />
             <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(250, 204, 21, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
                <MaterialCommunityIcons name="phone-in-talk" size={32} color="#FACC15" />
             </View>
@@ -779,7 +796,10 @@ const styles = StyleSheet.create({
   drawerFooter: { flex: 1, justifyContent: 'flex-end', padding: 24, paddingBottom: 40 },
   versionText: { color: 'rgba(255,255,255,0.15)', fontSize: 13, textAlign: 'center' },
 
-  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+  bottomSheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
+  bottomSheetContent: { backgroundColor: '#1A1C23', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: '#FACC15', borderBottomWidth: 0 },
+  bottomSheetHandle: { width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   anonModalContent: { backgroundColor: '#1A1C23', width: width * 0.85, borderRadius: 12, padding: 24, elevation: 5 },
   anonModalTitle: { color: 'rgba(255,255,255,0.92)', fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
   anonModalBody: { color: 'rgba(255,255,255,0.70)', fontSize: 14, lineHeight: 22, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', paddingBottom: 20, marginBottom: 16 },
