@@ -58,11 +58,11 @@ export default function Home() {
       secureFetch(`${API_URL}/user/${user.id}`).then(r => r.json()),
     ])
       .then(([prov, inbox, recents, userData]) => {
-        setProviders(prov.map((p: any) => ({ ...p, image: PROVIDER_IMAGE })));
+        setProviders(prov.map((p: any) => ({ ...p, image: p.imagePath ? { uri: p.imagePath } : PROVIDER_IMAGE })));
         setInboxItems(
-          inbox.map((i: any) => ({ ...i, image: i.isSystem ? null : PROVIDER_IMAGE }))
+          inbox.map((i: any) => ({ ...i, image: i.isSystem ? null : (i.provider?.imagePath ? { uri: i.provider.imagePath } : (i.imagePath ? { uri: i.imagePath } : PROVIDER_IMAGE)) }))
         );
-        setRecentContacts(recents.map((r: any) => ({ ...r, image: PROVIDER_IMAGE })));
+        setRecentContacts(recents.map((r: any) => ({ ...r, image: r.imagePath ? { uri: r.imagePath } : PROVIDER_IMAGE })));
         setWalletBalance(userData.walletBalance || Math.floor(userData.walletbalance) || 5000);
       })
       .catch(err => console.log('Fetch error:', err))
@@ -150,7 +150,7 @@ export default function Home() {
       secureFetch(`${API_URL}/inbox/${user.id}`)
         .then(r => r.json())
         .then(inbox =>
-          setInboxItems(inbox.map((i: any) => ({ ...i, image: i.isSystem ? null : PROVIDER_IMAGE })))
+          setInboxItems(inbox.map((i: any) => ({ ...i, image: i.isSystem ? null : (i.provider?.imagePath ? { uri: i.provider.imagePath } : (i.imagePath ? { uri: i.imagePath } : PROVIDER_IMAGE)) })))
         )
         .catch(() => {});
     }

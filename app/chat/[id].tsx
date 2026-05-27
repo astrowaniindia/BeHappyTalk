@@ -164,7 +164,7 @@ export default function ChatScreen() {
       .then(r => r.json())
       .then((data: any[]) => {
         const found = data.find((p: any) => p.id === providerId);
-        if (found) setContact({ ...found, image: PROVIDER_IMAGE });
+        if (found) setContact({ ...found, image: found.imagePath ? { uri: found.imagePath } : PROVIDER_IMAGE });
       })
       .catch(console.error);
 

@@ -415,11 +415,12 @@ app.get('/api/providers', async (req, res) => {
 });
 
 app.get('/api/inbox/:userId', async (req, res) => {
-  const { data, error } = await db.from('inbox').select('*, providers(name, status)').eq('userId', req.params.userId).order('date', { ascending: false });
+  const { data, error } = await db.from('inbox').select('*, providers(name, status, imagePath)').eq('userId', req.params.userId).order('date', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   const mapped = data.map(r => ({
     id: r.id, name: r.isSystem ? 'BeHappyTalk' : r.providers?.name, date: r.date, type: r.type, status: r.providers?.status || r.status,
     message: r.message, icon: r.icon, iconColor: r.iconColor, isSystem: Boolean(r.isSystem), providerId: r.providerId,
+    provider: r.providers
   }));
   res.json(mapped);
 });
@@ -432,7 +433,7 @@ app.get('/api/provider/history/:providerId', async (req, res) => {
 });
 
 app.get('/api/recents/:userId', async (req, res) => {
-  const { data, error } = await db.from('messages').select('providers(id, name, status)').eq('userId', req.params.userId).order('timestamp', { ascending: false }).limit(50);
+  const { data, error } = await db.from('messages').select('providers(id, name, status, imagePath, demographic)').eq('userId', req.params.userId).order('timestamp', { ascending: false }).limit(50);
   if (error) return res.status(500).json({ error: error.message });
   
   // Extract unique providers
