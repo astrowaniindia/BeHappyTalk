@@ -77,9 +77,9 @@ export default function UserCare() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0A0B10', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
+  safeArea: { flex: 1, backgroundColor: '#000000', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, borderBottomWidth: 1, borderBottomColor: '#0A0B10' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, borderBottomWidth: 1, borderBottomColor: '#000000' },
   headerTitle: { color: 'rgba(255, 255, 255, 0.70)', fontSize: 18, fontWeight: '500' },
   content: { flex: 1, alignItems: 'center', paddingTop: 60, paddingHorizontal: 24 },
   subtitle: { color: 'rgba(255, 255, 255, 0.45)', fontSize: 14, marginBottom: 40 },

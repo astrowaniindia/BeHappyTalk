@@ -150,12 +150,12 @@ export default function ProviderProfile() {
         bounces={true} 
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#1A1C23" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#111111" />
         }
       >
         {/* Cover & Avatar Section */}
         <View style={styles.headerArea}>
-          <LinearGradient colors={['#1A1C23', '#0A0B10']} style={styles.coverImage} />
+          <LinearGradient colors={['#111111', '#000000']} style={styles.coverImage} />
           
           <TouchableOpacity style={styles.topBackBtn} onPress={() => router.back()}>
             <Feather name="arrow-left" size={24} color="#FFF" />
@@ -319,14 +319,14 @@ export default function ProviderProfile() {
             </Text>
             
             <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
-              <TouchableOpacity style={{ flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#1A1C23', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }} onPress={() => setInsufficientModal(false)}>
+              <TouchableOpacity style={{ flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#111111', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }} onPress={() => setInsufficientModal(false)}>
                 <Text style={{ color: '#FFF', fontWeight: 'bold', textAlign: 'center' }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={{ flex: 1, padding: 16, borderRadius: 12, backgroundColor: '#FACC15', alignItems: 'center', justifyContent: 'center' }} onPress={() => {
                 setInsufficientModal(false);
                 router.push('/wallet');
               }}>
-                <Text style={{ color: '#0A0B10', fontWeight: 'bold' }}>Add Money</Text>
+                <Text style={{ color: '#000000', fontWeight: 'bold' }}>Add Money</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -346,7 +346,7 @@ export default function ProviderProfile() {
               {offlineMessage}
             </Text>
             <TouchableOpacity style={{ backgroundColor: '#FACC15', width: '100%', padding: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }} onPress={() => setOfflineModal(false)}>
-              <Text style={{ color: '#0A0B10', fontWeight: 'bold', textAlign: 'center' }}>OK</Text>
+              <Text style={{ color: '#000000', fontWeight: 'bold', textAlign: 'center' }}>OK</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -378,9 +378,9 @@ export default function ProviderProfile() {
                 });
                 alert(`You have successfully joined ${provider?.name}'s waiting room! Please stay on this screen. You will be automatically connected when the provider is ready.`);
               }}>
-                <Text style={{ color: '#0A0B10', fontWeight: 'bold', textAlign: 'center' }}>Wait in Waiting Room</Text>
+                <Text style={{ color: '#000000', fontWeight: 'bold', textAlign: 'center' }}>Wait in Waiting Room</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ backgroundColor: '#1A1C23', width: '100%', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }} onPress={() => {
+              <TouchableOpacity style={{ backgroundColor: '#111111', width: '100%', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }} onPress={() => {
                 setBusyModal(false);
                 router.replace('/home');
               }}>
@@ -396,22 +396,22 @@ export default function ProviderProfile() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0B10' },
-  loadingContainer: { flex: 1, backgroundColor: '#0A0B10', justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: '#000000' },
+  loadingContainer: { flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
   errorText: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 18, marginBottom: 20 },
-  backBtn: { backgroundColor: '#1A1C23', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  backBtn: { backgroundColor: '#111111', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
   backBtnText: { color: '#FACC15', fontWeight: 'bold' },
   scrollContent: { paddingBottom: 40 },
-  headerArea: { height: 180, position: 'relative', marginBottom: 60, backgroundColor: '#1A1C23' },
+  headerArea: { height: 180, position: 'relative', marginBottom: 60, backgroundColor: '#111111' },
   coverImage: { width: '100%', height: '100%' },
   topBackBtn: { position: 'absolute', top: 50, left: 20, zIndex: 10, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  avatarContainer: { position: 'absolute', bottom: -50, alignSelf: 'center', width: 130, height: 130, borderRadius: 65, borderWidth: 4, borderColor: '#0A0B10', backgroundColor: '#1A1C23', elevation: 10 },
+  avatarContainer: { position: 'absolute', bottom: -50, alignSelf: 'center', width: 130, height: 130, borderRadius: 65, borderWidth: 4, borderColor: '#000000', backgroundColor: '#111111', elevation: 10 },
   avatar: { width: '100%', height: '100%', borderRadius: 65, resizeMode: 'cover' },
-  statusBadge: { position: 'absolute', bottom: 5, right: 12, width: 24, height: 24, borderRadius: 12, borderWidth: 4, borderColor: '#0A0B10' },
+  statusBadge: { position: 'absolute', bottom: 5, right: 12, width: 24, height: 24, borderRadius: 12, borderWidth: 4, borderColor: '#000000' },
   infoSection: { alignItems: 'center', paddingHorizontal: 20 },
   nameText: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 28, fontWeight: '900', marginBottom: 4 },
   taglineText: { color: '#FACC15', fontSize: 15, fontWeight: '600', marginBottom: 24 },
-  statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1C23', borderRadius: 20, paddingVertical: 18, paddingHorizontal: 24, width: '100%', justifyContent: 'space-between', borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.2)' },
+  statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111111', borderRadius: 20, paddingVertical: 18, paddingHorizontal: 24, width: '100%', justifyContent: 'space-between', borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.2)' },
   statItem: { alignItems: 'center', flex: 1, gap: 4 },
   statValue: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 18, fontWeight: '900' },
   statLabel: { color: 'rgba(255, 255, 255, 0.45)', fontSize: 11, textTransform: 'uppercase', fontWeight: '700' },
@@ -424,17 +424,17 @@ const styles = StyleSheet.create({
   tagText: { color: '#FACC15', fontSize: 13, fontWeight: '700' },
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(10, 11, 16, 0.95)', padding: 16, paddingBottom: 30, borderTopWidth: 1, borderTopColor: 'rgba(250, 204, 21, 0.2)' },
   actionRow: { flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
-  actionBtn: { flex: 1, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6, position: 'relative', backgroundColor: '#1A1C23', borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.5)' },
+  actionBtn: { flex: 1, height: 56, borderRadius: 16, justifyContent: 'center', alignItems: 'center', flexDirection: 'row', gap: 6, position: 'relative', backgroundColor: '#111111', borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.5)' },
   chatBtn: {},
   callBtn: {},
   videoBtn: {},
   actionText: { color: 'rgba(255, 255, 255, 0.92)', fontWeight: '900', fontSize: 15, textTransform: 'uppercase' },
-  priceTag: { position: 'absolute', top: -12, backgroundColor: '#FACC15', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, borderWidth: 2, borderColor: '#0A0B10' },
-  priceText: { color: '#0A0B10', fontSize: 10, fontWeight: '900' },
+  priceTag: { position: 'absolute', top: -12, backgroundColor: '#FACC15', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, borderWidth: 2, borderColor: '#000000' },
+  priceText: { color: '#000000', fontSize: 10, fontWeight: '900' },
   
   // Modals
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#1A1C23', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40, borderBottomWidth: 0 },
+  modalContent: { backgroundColor: '#111111', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40, borderBottomWidth: 0 },
   bottomSheetHandle: { width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   modalTitle: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 24, fontWeight: '900' },
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   durationBtn: { width: '47%', backgroundColor: 'rgba(250, 204, 21, 0.1)', padding: 20, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: '#FACC15' },
   durationMins: { color: '#FACC15', fontSize: 20, fontWeight: '900', marginBottom: 4 },
   durationPrice: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 14, fontWeight: '600' },
-  walletInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 24, gap: 8, backgroundColor: '#0A0B10', paddingVertical: 12, borderRadius: 12 },
+  walletInfo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 24, gap: 8, backgroundColor: '#000000', paddingVertical: 12, borderRadius: 12 },
   walletText: { color: 'rgba(255, 255, 255, 0.45)', fontSize: 13, fontWeight: '600' },
   
   connectingOverlay: { flex: 1, backgroundColor: 'rgba(10, 11, 16, 0.95)', justifyContent: 'center', alignItems: 'center' },

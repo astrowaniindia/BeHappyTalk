@@ -53,10 +53,10 @@ export default function Search() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0A0B10', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
+  safeArea: { flex: 1, backgroundColor: '#000000', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
   container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 },
-  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 24, paddingHorizontal: 16, height: 48, backgroundColor: '#0A0B10' },
+  searchContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.25)', borderRadius: 24, paddingHorizontal: 16, height: 48, backgroundColor: '#000000' },
   searchIcon: { marginRight: 12 },
   searchInput: { flex: 1, color: 'rgba(255, 255, 255, 0.92)', fontSize: 14 },
   filterSection: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 20 },
@@ -64,6 +64,6 @@ const styles = StyleSheet.create({
   titleText: { alignSelf: 'flex-start', color: 'rgba(255, 255, 255, 0.25)', fontSize: 14, fontWeight: 'bold', marginBottom: 24 },
   subtitleText: { alignSelf: 'flex-start', color: '#FDE047', fontSize: 14, fontWeight: '600', marginBottom: 16 },
   tagsContainer: { flexDirection: 'row', alignSelf: 'flex-start', gap: 12 },
-  tagBadge: { backgroundColor: '#0A0B10', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, elevation: 2 },
+  tagBadge: { backgroundColor: '#000000', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8, elevation: 2 },
   tagText: { color: 'rgba(255, 255, 255, 0.70)', fontSize: 12, fontWeight: '500' }
 });

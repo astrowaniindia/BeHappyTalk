@@ -95,7 +95,7 @@ export default function Wallet() {
           style={styles.scrollContent} 
           contentContainerStyle={{ paddingBottom: 40 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#1A1C23" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#111111" />
           }
         >
           
@@ -197,9 +197,9 @@ export default function Wallet() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0A0B10', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
+  safeArea: { flex: 1, backgroundColor: '#000000', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#12141A', paddingVertical: 16, paddingHorizontal: 16, borderRadius: 16, marginHorizontal: 16, marginTop: 16, justifyContent: 'space-between' },
+  header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0A0A0A', paddingVertical: 16, paddingHorizontal: 16, borderRadius: 16, marginHorizontal: 16, marginTop: 16, justifyContent: 'space-between' },
   backButton: { marginRight: 12 },
   headerWalletBox: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   headerTitle: { color: 'rgba(255, 255, 255, 0.70)', fontSize: 16, fontWeight: '500' },
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   activeTabText: { color: 'rgba(255, 255, 255, 0.92)' },
   scrollContent: { flex: 1, paddingHorizontal: 24 },
   
-  historyCard: { backgroundColor: '#1A1C23', borderRadius: 12, padding: 16 },
+  historyCard: { backgroundColor: '#111111', borderRadius: 12, padding: 16 },
   historyDate: { color: 'rgba(255, 255, 255, 0.25)', fontSize: 12, marginBottom: 12 },
   historyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   historySuccessText: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 16, fontWeight: '500' },
@@ -220,10 +220,10 @@ const styles = StyleSheet.create({
   historyCoupon: { color: 'rgba(255, 255, 255, 0.25)', fontSize: 12 },
 
   gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 16 },
-  gridItem: { width: '30%', backgroundColor: '#1A1C23', borderRadius: 12, height: 60, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#0A0B10', position: 'relative' },
+  gridItem: { width: '30%', backgroundColor: '#111111', borderRadius: 12, height: 60, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#000000', position: 'relative' },
   gridItemActive: { borderColor: '#FACC15' },
   popularBadge: { position: 'absolute', top: -10, backgroundColor: '#FBBF24', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, zIndex: 1 },
-  popularText: { color: '#0A0B10', fontSize: 10, fontWeight: 'bold' },
+  popularText: { color: '#000000', fontSize: 10, fontWeight: 'bold' },
   planAmount: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 16, fontWeight: 'bold' },
   planLabel: { color: '#FACC15', fontSize: 10, marginTop: 4 },
   breakdownContainer: { marginTop: 40, marginBottom: 30, paddingHorizontal: 8 },
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   breakdownTotalLabel: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 16, fontWeight: 'bold' },
   breakdownTotalValue: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 16, fontWeight: 'bold' },
   paymentControls: { gap: 16 },
-  paymentButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#FACC15', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 16, backgroundColor: '#0A0B10' },
+  paymentButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderColor: '#FACC15', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 16, backgroundColor: '#000000' },
   paymentRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   paymentButtonText: { color: '#FACC15', fontSize: 16, fontWeight: '500' },
   upiIconBox: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#FACC15', justifyContent: 'center', alignItems: 'center' },
@@ -243,6 +243,6 @@ const styles = StyleSheet.create({
   nextButtonText: { color: '#FACC15', fontSize: 16, fontWeight: 'bold' },
 
   loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(33, 34, 44, 0.8)', justifyContent: 'center', alignItems: 'center', zIndex: 10 },
-  loadingSpinnerBox: { width: 80, height: 80, backgroundColor: '#1A1C23', borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  loadingSpinnerBox: { width: 80, height: 80, backgroundColor: '#111111', borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   loadingText: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 16, fontWeight: 'bold', letterSpacing: 1 }
 });

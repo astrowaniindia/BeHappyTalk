@@ -338,7 +338,7 @@ export default function ChatScreen() {
   const renderMessageContent = (text: string) => {
     if (text.startsWith('[IMAGE]')) {
       const url = text.replace('[IMAGE]', '');
-      return <Image source={{ uri: url }} style={{ width: 220, height: 220, borderRadius: 12, backgroundColor: '#1A1C23' }} resizeMode="cover" />;
+      return <Image source={{ uri: url }} style={{ width: 220, height: 220, borderRadius: 12, backgroundColor: '#111111' }} resizeMode="cover" />;
     }
     return <Text style={styles.msgText}>{text}</Text>;
   };
@@ -471,7 +471,7 @@ export default function ChatScreen() {
                 showsVerticalScrollIndicator={false}
                 onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
                 refreshControl={
-                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#1A1C23" />
+                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#111111" />
                 }
                 ListEmptyComponent={
                   <View style={styles.emptyCt}>
@@ -539,13 +539,13 @@ const styles = StyleSheet.create({
   },
   connectingText: { color: 'white', fontSize: 18, fontWeight: 'bold', marginTop: 8 },
   encryptionText: { color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '600' },
-  safeArea: { flex: 1, backgroundColor: '#1A1C23', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
-  container: { flex: 1, backgroundColor: '#0A0B10' },
-  header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1C23', paddingVertical: 10, paddingHorizontal: 12, elevation: 6 },
+  safeArea: { flex: 1, backgroundColor: '#111111', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
+  container: { flex: 1, backgroundColor: '#000000' },
+  header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111111', paddingVertical: 10, paddingHorizontal: 12, elevation: 6 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   avatarCt: { position: 'relative' },
   avatar: { width: 42, height: 42, borderRadius: 21 },
-  statusDot: { position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#1A1C23' },
+  statusDot: { position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#111111' },
   headerInfo: { flex: 1, marginLeft: 10 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   contactName: { color: 'rgba(255,255,255,0.92)', fontSize: 16, fontWeight: 'bold' },
@@ -553,13 +553,13 @@ const styles = StyleSheet.create({
   typingText: { color: '#34D399', fontSize: 12, marginTop: 1, fontStyle: 'italic' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   endBtn: { backgroundColor: '#EF4444', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
-  endBtnText: { color: '#0A0B10', fontWeight: 'bold', fontSize: 13 },
+  endBtnText: { color: '#000000', fontWeight: 'bold', fontSize: 13 },
   chatBg: { flex: 1, backgroundColor: '#0D0E16' },
   listContent: { padding: 16, gap: 10, flexGrow: 1 },
   emptyCt: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80, gap: 16 },
   emptyText: { color: 'rgba(255,255,255,0.25)', fontSize: 14, textAlign: 'center', lineHeight: 22 },
   systemPillCt: { alignItems: 'center', marginVertical: 8 },
-  systemPill: { backgroundColor: '#1A1C23', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
+  systemPill: { backgroundColor: '#111111', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16 },
   systemText: { color: 'rgba(255,255,255,0.60)', fontSize: 12 },
   incomingRow: { alignItems: 'flex-start', maxWidth: '78%' },
   incomingBubble: { backgroundColor: '#1E2028', padding: 12, borderRadius: 16, borderTopLeftRadius: 4 },
@@ -572,10 +572,10 @@ const styles = StyleSheet.create({
   typingBubbleRow: { paddingHorizontal: 16, paddingBottom: 8 },
   typingBubble: { backgroundColor: '#1E2028', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, borderTopLeftRadius: 4, alignSelf: 'flex-start' },
   typingDots: { color: 'rgba(255,255,255,0.45)', fontSize: 10, letterSpacing: 3 },
-  inputContainer: { flexDirection: 'row', alignItems: 'flex-end', padding: 12, paddingBottom: Platform.OS === 'android' ? 36 : 12, backgroundColor: '#0A0B10', gap: 10 },
-  inputWrapper: { flex: 1, backgroundColor: '#1A1C23', borderRadius: 24, paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 12 : 8, minHeight: 48, justifyContent: 'center' },
+  inputContainer: { flexDirection: 'row', alignItems: 'flex-end', padding: 12, paddingBottom: Platform.OS === 'android' ? 36 : 12, backgroundColor: '#000000', gap: 10 },
+  inputWrapper: { flex: 1, backgroundColor: '#111111', borderRadius: 24, paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 12 : 8, minHeight: 48, justifyContent: 'center' },
   textInput: { color: 'rgba(255,255,255,0.92)', fontSize: 15, maxHeight: 100 },
-  attachBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#1A1C23', justifyContent: 'center', alignItems: 'center' },
+  attachBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#111111', justifyContent: 'center', alignItems: 'center' },
   sendButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#4C1D95', justifyContent: 'center', alignItems: 'center' },
   sendButtonDisabled: { opacity: 0.4 },
 });

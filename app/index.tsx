@@ -79,7 +79,7 @@ export default function Splash() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0B10',
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingBottom: 40,

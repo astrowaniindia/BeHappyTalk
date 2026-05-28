@@ -374,6 +374,35 @@ app.get('/api/user/:userId', async (req, res) => {
   res.json(row);
 });
 
+app.post('/api/user/upload-image', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'user') return res.status(403).json({ error: 'Forbidden' });
+  const { base64Image } = req.body;
+  if (!base64Image) return res.status(400).json({ error: 'No image provided' });
+
+  try {
+    const matches = base64Image.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) return res.status(400).json({ error: 'Invalid base64 format' });
+
+    const type = matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+    const fileName = `user_${req.user.id}_${Date.now()}.${type}`;
+
+    const { error } = await db.storage.from('profiles').upload(fileName, buffer, {
+      contentType: `image/${type}`,
+      upsert: true
+    });
+    if (error) throw error;
+
+    const { data: publicUrlData } = db.storage.from('profiles').getPublicUrl(fileName);
+    const publicUrl = publicUrlData.publicUrl;
+
+    await db.from('users').update({ profileImage: publicUrl }).eq('id', req.user.id);
+    res.json({ success: true, url: publicUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/user/:userId/active-session', async (req, res) => {
   const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
   const { data: row, error } = await db.from('sessions')

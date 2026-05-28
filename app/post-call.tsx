@@ -88,7 +88,7 @@ export default function PostCallScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0A0B10', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
+  safeArea: { flex: 1, backgroundColor: '#000000', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
   container: { flex: 1, justifyContent: 'space-between' },
   header: { padding: 20, alignItems: 'flex-end' },
   closeBtn: { padding: 8 },
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   iconContainer: { marginBottom: 20 },
   title: { fontSize: 28, fontWeight: 'bold', color: '#FFF', marginBottom: 12 },
   subtitle: { fontSize: 16, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 40, lineHeight: 24 },
-  providerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1C23', padding: 20, borderRadius: 20, width: '100%', marginBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  providerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111111', padding: 20, borderRadius: 20, width: '100%', marginBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   providerAvatar: { width: 64, height: 64, borderRadius: 32, marginRight: 16, borderWidth: 2, borderColor: '#FACC15' },
   providerName: { fontSize: 18, fontWeight: 'bold', color: '#FFF', marginBottom: 4 },
   providerRole: { fontSize: 14, color: 'rgba(255,255,255,0.45)' },
@@ -107,5 +107,5 @@ const styles = StyleSheet.create({
   actionBtnOutline: { flex: 1, paddingVertical: 18, borderRadius: 100, borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center' },
   actionBtnOutlineText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
   actionBtnSolid: { flex: 1, paddingVertical: 18, borderRadius: 100, backgroundColor: '#FACC15', alignItems: 'center' },
-  actionBtnSolidText: { color: '#0A0B10', fontSize: 16, fontWeight: 'bold' }
+  actionBtnSolidText: { color: '#000000', fontSize: 16, fontWeight: 'bold' }
 });

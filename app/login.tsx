@@ -253,7 +253,7 @@ export default function Login() {
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="#0A0B10" />
+              <ActivityIndicator color="#000000" />
             ) : (
               <Text style={styles.submitBtnText}>
                 {mode === 'login' ? 'Log In Securely' : 'Create Account'}
@@ -275,7 +275,7 @@ export default function Login() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0B10' },
+  container: { flex: 1, backgroundColor: '#000000' },
   topSection: { flex: 1, paddingTop: 56, paddingHorizontal: 24 },
   logoBox: { alignSelf: 'flex-start', marginBottom: 32 },
   logoText: { color: 'rgba(255,255,255,0.92)', fontSize: 22, fontWeight: '800', letterSpacing: 0.5 },
@@ -288,31 +288,31 @@ const styles = StyleSheet.create({
   activeDot: { width: 20, backgroundColor: '#FACC15', borderRadius: 3 },
 
   bottomSheet: {
-    backgroundColor: '#12141A',
+    backgroundColor: '#0A0A0A',
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
     paddingHorizontal: 24, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 36 : 24,
     maxHeight: '62%',
   },
 
   tabRow: {
-    flexDirection: 'row', backgroundColor: '#1A1C23',
+    flexDirection: 'row', backgroundColor: '#111111',
     borderRadius: 12, padding: 4, marginBottom: 24
   },
   tab: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
   activeTab: { backgroundColor: '#FACC15' },
   tabText: { color: 'rgba(255,255,255,0.45)', fontWeight: '600', fontSize: 14 },
-  activeTabText: { color: '#0A0B10', fontWeight: '700' },
+  activeTabText: { color: '#000000', fontWeight: '700' },
 
   fieldWrapper: { marginBottom: 16 },
   fieldLabel: { color: 'rgba(255,255,255,0.45)', fontSize: 12, marginBottom: 6, marginLeft: 2, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   fieldInput: {
-    backgroundColor: '#1A1C23', borderRadius: 10, height: 50,
+    backgroundColor: '#111111', borderRadius: 10, height: 50,
     paddingHorizontal: 14, color: 'rgba(255,255,255,0.92)', fontSize: 15,
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)'
   },
   phoneRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   countryCode: {
-    backgroundColor: '#1A1C23', borderRadius: 10, height: 50,
+    backgroundColor: '#111111', borderRadius: 10, height: 50,
     paddingHorizontal: 14, justifyContent: 'center',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)'
   },
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', marginBottom: 16
   },
   submitBtnDisabled: { opacity: 0.6 },
-  submitBtnText: { color: '#0A0B10', fontSize: 16, fontWeight: '800' },
+  submitBtnText: { color: '#000000', fontSize: 16, fontWeight: '800' },
 
   termsText: { color: 'rgba(255,255,255,0.25)', fontSize: 12, textAlign: 'center', lineHeight: 18 },
   termsLink: { color: '#FACC15' },

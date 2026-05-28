@@ -8,6 +8,7 @@ export type AuthUser = {
   name: string;
   phone: string;
   token?: string;
+  profileImage?: string;
 };
 
 let _globalUser: AuthUser | null = null;

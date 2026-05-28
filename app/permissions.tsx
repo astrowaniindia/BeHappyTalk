@@ -107,7 +107,7 @@ export default function Permissions() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0A0B10', 
+    backgroundColor: '#000000', 
     paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
   },
   container: {
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: '#1A1C23', 
+    backgroundColor: '#111111', 
   },
   buttonText: {
     color: '#FACC15',

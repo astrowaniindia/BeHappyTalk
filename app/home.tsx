@@ -7,10 +7,11 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons, MaterialIcons, Feather, AntDesign } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useAuth, clearUser } from '../hooks/useAuth';
+import { useAuth, clearUser, saveUser } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
 import { API_URL, SOCKET_URL, secureFetch } from '../constants/ServerConfig';
 import io from 'socket.io-client';
+import * as ImagePicker from 'expo-image-picker';
 
 const { width } = Dimensions.get('window');
 
@@ -167,6 +168,34 @@ export default function Home() {
     }
   };
 
+  const pickImage = async () => {
+    if (!user) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0].base64) {
+      const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      try {
+        const res = await secureFetch(`${API_URL}/user/upload-image`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64Image: base64Img })
+        });
+        const data = await res.json();
+        if (data.success) {
+          saveUser({ ...user, profileImage: data.url });
+        }
+      } catch (err) {
+        console.log(err);
+      }
+    }
+  };
+
   const handleTalkNow = (provider: any) => {
     setSelectedProvider(provider);
   };
@@ -295,7 +324,7 @@ export default function Home() {
           <Image source={item.image} style={styles.inboxAvatar} />
         ) : (
           <View style={styles.inboxAvatarPlaceholder}>
-            <MaterialIcons name="person" size={32} color="#0A0B10" />
+            <MaterialIcons name="person" size={32} color="#000000" />
           </View>
         )}
         {!item.isSystem && (
@@ -372,7 +401,7 @@ export default function Home() {
             contentContainerStyle={styles.listContent}
             keyboardShouldPersistTaps="handled"
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#1A1C23" />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#111111" />
             }
             ListHeaderComponent={
               recentContacts.length > 0 ? (
@@ -397,7 +426,7 @@ export default function Home() {
             renderItem={renderInboxItem}
             contentContainerStyle={[styles.listContent, { paddingTop: 8 }]}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#1A1C23" />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#111111" />
             }
             ListEmptyComponent={
               <Text style={{ color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 40 }}>
@@ -410,7 +439,7 @@ export default function Home() {
 
       {/* FAB */}
       <TouchableOpacity style={styles.fabBtn} onPress={() => setShowRecommendedModal(true)}>
-        <MaterialCommunityIcons name="star-shooting" size={24} color="#0A0B10" />
+        <MaterialCommunityIcons name="star-shooting" size={24} color="#000000" />
       </TouchableOpacity>
 
       {/* Drawer */}
@@ -426,9 +455,18 @@ export default function Home() {
                  <Image source={require('../assets/images/icon.jpg')} style={{ width: 32, height: 32, borderRadius: 16 }} />
                  <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 18, fontWeight: 'bold' }}>BeHappyTalk</Text>
               </View>
-              <View style={styles.largeAvatar}>
-                <MaterialIcons name="person" size={60} color="#0A0B10" />
-              </View>
+              <TouchableOpacity style={styles.largeAvatar} onPress={pickImage} activeOpacity={0.8}>
+                {user?.profileImage ? (
+                  <Image source={{ uri: user.profileImage }} style={{ width: 80, height: 80, borderRadius: 40 }} />
+                ) : (
+                  <>
+                    <MaterialIcons name="person" size={50} color="#000000" />
+                    <View style={{ position: 'absolute', bottom: -5, right: -5, backgroundColor: '#FACC15', borderRadius: 12, padding: 4, borderWidth: 2, borderColor: '#000000' }}>
+                      <MaterialIcons name="add-a-photo" size={14} color="#000000" />
+                    </View>
+                  </>
+                )}
+              </TouchableOpacity>
               <Text style={styles.drawerName}>{user?.name || 'You'}</Text>
               <Text style={styles.drawerPhone}>{user?.phone || ''}</Text>
 
@@ -649,14 +687,14 @@ export default function Home() {
             </Text>
             
             <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
-              <TouchableOpacity style={{ backgroundColor: '#1A1C23', flex: 1, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }} onPress={() => setInsufficientModal(false)}>
+              <TouchableOpacity style={{ backgroundColor: '#111111', flex: 1, padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }} onPress={() => setInsufficientModal(false)}>
                 <Text style={{ color: '#FFF', fontWeight: 'bold', textAlign: 'center' }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={{ backgroundColor: '#FACC15', flex: 1, padding: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }} onPress={() => {
                 setInsufficientModal(false);
                 router.push('/wallet');
               }}>
-                <Text style={{ color: '#0A0B10', fontWeight: 'bold', textAlign: 'center' }}>Add Money</Text>
+                <Text style={{ color: '#000000', fontWeight: 'bold', textAlign: 'center' }}>Add Money</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -679,7 +717,7 @@ export default function Home() {
               {offlineMessage}
             </Text>
             <TouchableOpacity style={{ backgroundColor: '#FACC15', width: '100%', padding: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }} onPress={() => setOfflineModal(false)}>
-              <Text style={{ color: '#0A0B10', fontWeight: 'bold', textAlign: 'center' }}>OK</Text>
+              <Text style={{ color: '#000000', fontWeight: 'bold', textAlign: 'center' }}>OK</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -714,9 +752,9 @@ export default function Home() {
                 });
                 alert(`You have successfully joined ${selectedProvider?.name}'s waiting room! Please stay on this screen. You will be automatically connected when the provider is ready.`);
               }}>
-                <Text style={{ color: '#0A0B10', fontWeight: 'bold', textAlign: 'center' }}>Wait in Waiting Room</Text>
+                <Text style={{ color: '#000000', fontWeight: 'bold', textAlign: 'center' }}>Wait in Waiting Room</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ backgroundColor: '#1A1C23', width: '100%', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }} onPress={() => {
+              <TouchableOpacity style={{ backgroundColor: '#111111', width: '100%', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }} onPress={() => {
                 setBusyModal(false);
                 setSelectedProvider(null);
               }}>
@@ -732,13 +770,13 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0A0B10', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
+  safeArea: { flex: 1, backgroundColor: '#000000', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
   container: { flex: 1 },
   loadingCt: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   topHeaderBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, gap: 12 },
-  userIconBg: { backgroundColor: '#1A1C23', padding: 8, borderRadius: 8 },
-  walletContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#FACC15', borderRadius: 20, paddingHorizontal: 12, height: 36, gap: 6, backgroundColor: '#12141A' },
+  userIconBg: { backgroundColor: '#111111', padding: 8, borderRadius: 8 },
+  walletContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#FACC15', borderRadius: 20, paddingHorizontal: 12, height: 36, gap: 6, backgroundColor: '#0A0A0A' },
   walletText: { color: '#FACC15', fontSize: 14, fontWeight: 'bold' },
 
   tabsContainer: { flexDirection: 'row', paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
@@ -753,10 +791,10 @@ const styles = StyleSheet.create({
   recentItem: { alignItems: 'center', width: 64 },
   recentAvatarCt: { position: 'relative' },
   recentAvatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.08)' },
-  statusDot: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: '#0A0B10' },
+  statusDot: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: '#000000' },
   recentName: { color: 'rgba(255,255,255,0.70)', fontSize: 12, marginTop: 8, textAlign: 'center' },
 
-  providerCard: { backgroundColor: '#1A1C23', borderRadius: 12, padding: 16 },
+  providerCard: { backgroundColor: '#111111', borderRadius: 12, padding: 16 },
   providerHeader: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16 },
   providerAvatarCt: { position: 'relative' },
   providerAvatar: { width: 64, height: 64, borderRadius: 32 },
@@ -780,7 +818,7 @@ const styles = StyleSheet.create({
   inboxAvatarCt: { position: 'relative' },
   inboxAvatar: { width: 56, height: 56, borderRadius: 28 },
   inboxAvatarPlaceholder: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center' },
-  statusDotLg: { position: 'absolute', bottom: 0, right: 0, width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: '#0A0B10' },
+  statusDotLg: { position: 'absolute', bottom: 0, right: 0, width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: '#000000' },
   inboxContent: { flex: 1 },
   inboxHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   inboxName: { color: 'rgba(255,255,255,0.92)', fontSize: 15, fontWeight: '600' },
@@ -791,7 +829,7 @@ const styles = StyleSheet.create({
   fabBtn: { position: 'absolute', bottom: 20, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#FACC15', justifyContent: 'center', alignItems: 'center', elevation: 5 },
 
   drawerOverlay: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.6)' },
-  drawerContent: { width: '75%', backgroundColor: '#0A0B10', height: '100%', elevation: 8 },
+  drawerContent: { width: '75%', backgroundColor: '#000000', height: '100%', elevation: 8 },
   drawerProfileSection: { padding: 24, paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) + 20 : 60, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
   largeAvatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   drawerName: { color: 'rgba(255,255,255,0.92)', fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
@@ -808,21 +846,21 @@ const styles = StyleSheet.create({
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
   bottomSheetOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  bottomSheetContent: { backgroundColor: '#1A1C23', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40, borderBottomWidth: 0 },
+  bottomSheetContent: { backgroundColor: '#111111', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: 40, borderBottomWidth: 0 },
   bottomSheetHandle: { width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  anonModalContent: { backgroundColor: '#1A1C23', width: width * 0.85, borderRadius: 12, padding: 24, elevation: 5 },
+  anonModalContent: { backgroundColor: '#111111', width: width * 0.85, borderRadius: 12, padding: 24, elevation: 5 },
   anonModalTitle: { color: 'rgba(255,255,255,0.92)', fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
   anonModalBody: { color: 'rgba(255,255,255,0.70)', fontSize: 14, lineHeight: 22, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', paddingBottom: 20, marginBottom: 16 },
   anonModalBtn: { alignSelf: 'flex-end', borderWidth: 1, borderColor: '#FACC15', borderRadius: 8, paddingHorizontal: 24, paddingVertical: 10 },
   anonModalBtnText: { color: '#FACC15', fontSize: 14, fontWeight: 'bold' },
 
-  recommendedModalContent: { backgroundColor: '#1A1C23', width, position: 'absolute', bottom: 0, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
+  recommendedModalContent: { backgroundColor: '#111111', width, position: 'absolute', bottom: 0, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
   recommendedTitle: { color: 'rgba(255,255,255,0.92)', fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 24 },
   recommendedGrid: { flexDirection: 'row', justifyContent: 'space-between' },
-  recCard: { backgroundColor: '#12141A', width: '31%', borderRadius: 12, padding: 12, alignItems: 'center' },
+  recCard: { backgroundColor: '#0A0A0A', width: '31%', borderRadius: 12, padding: 12, alignItems: 'center' },
   recAvatarRing: { width: 62, height: 62, borderRadius: 31, borderWidth: 2.5, borderColor: '#FDE047', alignItems: 'center', justifyContent: 'center', marginBottom: 10, position: 'relative' },
   recAvatar: { width: 52, height: 52, borderRadius: 26 },
-  recStatusDot: { position: 'absolute', bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: '#34D399', borderWidth: 2, borderColor: '#12141A' },
+  recStatusDot: { position: 'absolute', bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: '#34D399', borderWidth: 2, borderColor: '#0A0A0A' },
   recName: { color: 'rgba(255,255,255,0.92)', fontSize: 13, fontWeight: 'bold' },
   recDemo: { color: 'rgba(255,255,255,0.35)', fontSize: 11, marginBottom: 12, marginTop: 2, textAlign: 'center' },
   recTalkBtn: { borderWidth: 1, borderColor: '#FACC15', borderRadius: 6, paddingVertical: 6, width: '100%', alignItems: 'center' },
