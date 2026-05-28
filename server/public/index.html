@@ -263,16 +263,19 @@
     .cta-final {
       padding: 120px 80px;
       text-align: center;
-      background: #fafafa;
+      background: #ffffff;
     }
     .cta-box {
-      max-width: 700px; margin: 0 auto;
-      background: #ffffff;
-      padding: 60px; border-radius: 12px; 
-      border: 1px solid var(--border);
+      max-width: 1000px; margin: 0 auto;
+      background: var(--primary);
+      padding: 80px 40px; border-radius: 24px; 
+      border: none;
+      box-shadow: 0 24px 48px rgba(32, 123, 255, 0.25);
     }
-    .cta-box h2 { font-size: 36px; font-weight: 600; margin: 0 0 16px; letter-spacing: -1px; color: var(--text); }
-    .cta-box p { color: var(--text-dim); font-size: 16px; margin-bottom: 32px; }
+    .cta-box h2 { font-size: 48px; font-weight: 800; margin: 0 0 16px; letter-spacing: -1.5px; color: #ffffff; }
+    .cta-box p { color: rgba(255, 255, 255, 0.9); font-size: 20px; margin-bottom: 48px; }
+    .cta-box .btn-login { background: #ffffff; color: var(--primary); box-shadow: 0 8px 24px rgba(0,0,0,0.15); transition: 0.3s; }
+    .cta-box .btn-login:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.2); background: #f8fafc; }
 
     /* Footer */
     footer {
@@ -418,9 +421,14 @@
 
   <section class="cta-final">
     <div class="cta-box" data-aos="zoom-in">
+      <div style="display: flex; justify-content: center; margin-bottom: 32px;">
+        <div style="background: rgba(255,255,255,0.15); padding: 8px 20px; border-radius: 100px; font-size: 14px; font-weight: 600; color: #ffffff; border: 1px solid rgba(255,255,255,0.3); display: inline-flex; align-items: center; gap: 8px;">
+          <i class="fas fa-rocket"></i> Scale Your Independence
+        </div>
+      </div>
       <h2>Your Professional<br>Studio Awaits</h2>
-      <p style="margin-bottom: 40px; color: var(--text-dim);">Don't just talk. Create a career with BeHappyTalk Partner Hub today.</p>
-      <a href="/portal.html" class="btn-login" style="margin: 0 auto; width: fit-content; font-size: 20px; padding: 24px 60px;">Join BeHappyTalk Partner Hub Now</a>
+      <p>Don't just talk. Create a career with BeHappyTalk Partner Hub today.</p>
+      <a href="/portal.html" class="btn-login" style="margin: 0 auto; width: fit-content; font-size: 20px; padding: 20px 48px;">Join Partner Hub Now</a>
     </div>
   </section>
 
