@@ -18,7 +18,7 @@ export default function SafetyScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.lastUpdated}>Last updated: May 15, 2026</Text>
         
-        <Text style={styles.paragraph}>We are committed to free expression, and we believe everyone is best served when everyone has a voice. We believe a rich diversity of viewpoints and experiences enriches our entire community. In order to protect the experience and safety of our users, however, there are some limitations on the type of content and behavior that we allow.</p>
+        <Text style={styles.paragraph}>We are committed to free expression, and we believe everyone is best served when everyone has a voice. We believe a rich diversity of viewpoints and experiences enriches our entire community. In order to protect the experience and safety of our users, however, there are some limitations on the type of content and behavior that we allow.</Text>
         <Text style={styles.paragraph}>If you see something on BeHappyTalk that you believe violates our policies, please report it to us. This Content and Conduct Policy is part of our Terms & Conditions.</Text>
 
         <Text style={styles.heading}>Content and Conduct Guidelines</Text>

@@ -19,7 +19,7 @@ export default function PrivacyScreen() {
         <Text style={styles.lastUpdated}>Last updated: 5/28/2026</Text>
         
         <Text style={styles.heading}>Data We Collect and Usage</Text>
-        <Text style={styles.paragraph}>BeHappyTalk asks for User's personal information (email, demographic location and address, age, name, sex, phone number, preference in partner selection, payment details, personality facets, interests) when the User registers with the Site. All information collected at the Site to become a Registered User is obtained purely for providing the Services and to improve the quality of your experience.</p>
+        <Text style={styles.paragraph}>BeHappyTalk asks for User's personal information (email, demographic location and address, age, name, sex, phone number, preference in partner selection, payment details, personality facets, interests) when the User registers with the Site. All information collected at the Site to become a Registered User is obtained purely for providing the Services and to improve the quality of your experience.</Text>
         <Text style={styles.paragraph}>The User information collected at the Site is of two categories: Personally Identifiable Information and Non-Personally Identifiable Information. BeHappyTalk uses the information collected at the Site for providing high quality Services and suggesting and recommending matches best suited for the User, processing payments, assessing User preference and compatibility aspects.</Text>
 
         <Text style={styles.heading}>Sources of Data Collection</Text>
