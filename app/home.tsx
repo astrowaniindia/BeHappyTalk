@@ -564,6 +564,16 @@ export default function Home() {
                 <MaterialIcons name="security" size={24} color="rgba(255,255,255,0.70)" />
                 <Text style={styles.drawerMenuText}>{t('safety') || 'Safety Policy'}</Text>
               </TouchableOpacity>
+
+              <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/child-safety'); }}>
+                <MaterialIcons name="child-care" size={24} color="rgba(255,255,255,0.70)" />
+                <Text style={styles.drawerMenuText}>Child Safety</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/report-vulnerability'); }}>
+                <MaterialIcons name="bug-report" size={24} color="rgba(255,255,255,0.70)" />
+                <Text style={styles.drawerMenuText}>Report Vulnerability</Text>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.drawerFooter}>

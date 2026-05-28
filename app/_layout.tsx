@@ -47,6 +47,8 @@ export default function RootLayout() {
         <Stack.Screen name="terms" />
         <Stack.Screen name="privacy" />
         <Stack.Screen name="safety" />
+        <Stack.Screen name="child-safety" />
+        <Stack.Screen name="report-vulnerability" />
       </Stack>
     </LanguageProvider>
   );
