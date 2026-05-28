@@ -158,7 +158,9 @@ app.post('/api/provider/login', async (req, res) => {
   if (!validPassword) return res.status(401).json({ error: 'Incorrect password.' });
 
   const token = jwt.sign({ id: row.id, phone: row.phone, role: 'provider' }, JWT_SECRET, { expiresIn: '30d' });
-  res.json({ id: row.id, name: row.name, phone: row.phone, token });
+  const { password: _, ...safeData } = row;
+  safeData.token = token;
+  res.json(safeData);
 });
 
 app.post('/api/provider/firebase-login', async (req, res) => {
@@ -178,7 +180,9 @@ app.post('/api/provider/firebase-login', async (req, res) => {
     if (!row) return res.status(404).json({ error: 'No provider account found for this phone number.' });
 
     const token = jwt.sign({ id: row.id, phone: row.phone, role: 'provider' }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ id: row.id, name: row.name, phone: row.phone, token });
+    const { password: _, ...safeData } = row;
+    safeData.token = token;
+    res.json(safeData);
   } catch (error) {
     console.error('Firebase Auth Error:', error.message);
     res.status(401).json({ error: 'Authentication failed. Invalid token.' });
