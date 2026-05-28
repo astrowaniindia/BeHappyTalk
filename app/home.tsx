@@ -228,8 +228,11 @@ export default function Home() {
         if (data.success) {
           saveUser({ ...user, profileImage: data.url });
           setShowAvatarModal(false);
+        } else {
+          alert(data.error || 'Failed to upload image');
         }
-      } catch (err) {
+      } catch (err: any) {
+        alert(err.message || 'Network error');
         console.log(err);
       }
     }
@@ -247,8 +250,11 @@ export default function Home() {
       if (data.success) {
         saveUser({ ...user, profileImage: avatarId });
         setShowAvatarModal(false);
+      } else {
+        alert(data.error || 'Failed to update avatar');
       }
-    } catch (err) {
+    } catch (err: any) {
+      alert(err.message || 'Network error');
       console.log(err);
     }
   };
