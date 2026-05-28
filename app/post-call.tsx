@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBa
 import { StatusBar } from 'expo-status-bar';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, secureFetch } from '../constants/ServerConfig';
 
 export default function PostCallScreen() {
@@ -10,6 +11,33 @@ export default function PostCallScreen() {
   const { providerId, duration, type, reason } = useLocalSearchParams();
   const [provider, setProvider] = useState<any>(null);
   const [rating, setRating] = useState(0);
+  const [hasRatedBefore, setHasRatedBefore] = useState(true);
+
+  useEffect(() => {
+    const checkRated = async () => {
+      if (!providerId) return;
+      try {
+        const stored = await AsyncStorage.getItem('rated_providers');
+        const ratedArr = stored ? JSON.parse(stored) : [];
+        setHasRatedBefore(ratedArr.includes(providerId));
+      } catch (e) {
+        setHasRatedBefore(false);
+      }
+    };
+    checkRated();
+  }, [providerId]);
+
+  const handleRating = async (star: number) => {
+    setRating(star);
+    try {
+      const stored = await AsyncStorage.getItem('rated_providers');
+      const ratedArr = stored ? JSON.parse(stored) : [];
+      if (!ratedArr.includes(providerId)) {
+        ratedArr.push(providerId);
+        await AsyncStorage.setItem('rated_providers', JSON.stringify(ratedArr));
+      }
+    } catch (e) {}
+  };
 
   useEffect(() => {
     if (providerId) {
@@ -48,7 +76,7 @@ export default function PostCallScreen() {
            
            {provider && (
              <View style={styles.providerCard}>
-                <Image source={require('../assets/images/girl_smiling_1775250936696.png')} style={styles.providerAvatar} />
+                <Image source={provider.imagePath ? { uri: provider.imagePath } : require('../assets/images/girl_smiling_1775250936696.png')} style={styles.providerAvatar} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.providerName}>{provider.name}</Text>
                   <Text style={styles.providerRole}>{provider.tagline || 'BeHappyTalk Provider'}</Text>
@@ -56,20 +84,22 @@ export default function PostCallScreen() {
              </View>
            )}
 
-           <View style={styles.reviewSection}>
-             <Text style={styles.reviewLabel}>How was your experience?</Text>
-             <View style={styles.starsRow}>
-               {[1,2,3,4,5].map(star => (
-                 <TouchableOpacity key={star} onPress={() => setRating(star)}>
-                   <MaterialCommunityIcons 
-                      name={star <= rating ? "star" : "star-outline"} 
-                      size={40} 
-                      color={star <= rating ? "#FACC15" : "rgba(255,255,255,0.2)"} 
-                   />
-                 </TouchableOpacity>
-               ))}
+           {!hasRatedBefore && (
+             <View style={styles.reviewSection}>
+               <Text style={styles.reviewLabel}>How was your experience?</Text>
+               <View style={styles.starsRow}>
+                 {[1,2,3,4,5].map(star => (
+                   <TouchableOpacity key={star} onPress={() => handleRating(star)}>
+                     <MaterialCommunityIcons 
+                        name={star <= rating ? "star" : "star-outline"} 
+                        size={40} 
+                        color={star <= rating ? "#FACC15" : "rgba(255,255,255,0.2)"} 
+                     />
+                   </TouchableOpacity>
+                 ))}
+               </View>
              </View>
-           </View>
+           )}
         </View>
 
         <View style={styles.footer}>

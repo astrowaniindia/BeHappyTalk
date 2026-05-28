@@ -129,6 +129,15 @@ export default function ChatScreen() {
 
   const fetchMessages = (isRefresh = false) => {
     if (!userId || !providerId) return;
+    if (providerId === 'system') {
+      setMessages([{
+        id: 'sys_msg',
+        type: 'incoming',
+        text: 'Hello! Welcome to BeHappyTalk. How can I help you today?',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }]);
+      return;
+    }
     if (isRefresh) setRefreshing(true);
     
     secureFetch(`${API_URL}/chat/${userId}/${providerId}`)
@@ -158,6 +167,12 @@ export default function ChatScreen() {
   // ─── Main setup ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!userId || !providerId) return;
+
+    if (providerId === 'system') {
+      setContact({ name: 'BeHappyTalk', image: require('../../assets/images/icon.jpg'), status: 'online', verified: true });
+      fetchMessages();
+      return;
+    }
 
     // 1. Fetch provider info
     secureFetch(`${API_URL}/providers`)
@@ -250,7 +265,11 @@ export default function ChatScreen() {
     });
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      endSession();
+      if (sessionId) {
+        endSession();
+      } else {
+        router.back();
+      }
       return true;
     });
 
@@ -281,7 +300,11 @@ export default function ChatScreen() {
     if (sessionId && socketRef.current) {
       socketRef.current.emit('end_interaction', { sessionId });
     }
-    router.replace(`/post-call?providerId=${providerId}&type=${type}&reason=user_ended`);
+    if (providerId === 'system') {
+      router.back();
+    } else {
+      router.replace(`/post-call?providerId=${providerId}&type=${type}&reason=user_ended`);
+    }
   }, [endCall, sessionId, providerId, type]);
 
   const sendMessage = () => {
@@ -333,7 +356,7 @@ export default function ChatScreen() {
     }
   };
 
-  const isSessionActive = Boolean(sessionId) && (timeLeft === null || timeLeft > 0);
+  const isSessionActive = providerId !== 'system' && Boolean(sessionId) && (timeLeft === null || timeLeft > 0);
 
   const renderMessageContent = (text: string) => {
     if (text.startsWith('[IMAGE]')) {
@@ -409,7 +432,13 @@ export default function ChatScreen() {
           <>
             {/* Header */}
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <TouchableOpacity onPress={() => {
+                if (sessionId) {
+                  endSession();
+                } else {
+                  router.back();
+                }
+              }} style={styles.backBtn}>
                 <MaterialIcons name="arrow-back" size={24} color="rgba(255,255,255,0.92)" />
                 <View style={styles.avatarCt}>
                   <Image source={contact.image} style={styles.avatar} />
@@ -500,7 +529,7 @@ export default function ChatScreen() {
               <View style={[styles.inputWrapper, !isSessionActive && { backgroundColor: '#12141B' }]}>
                 <TextInput
                   style={styles.textInput}
-                  placeholder={isSessionActive ? 'Message...' : 'Session ended'}
+                  placeholder={providerId === 'system' ? 'Cannot reply to system message' : (isSessionActive ? 'Message...' : 'Session ended')}
                   placeholderTextColor="rgba(255,255,255,0.35)"
                   value={message}
                   onChangeText={setMessage}

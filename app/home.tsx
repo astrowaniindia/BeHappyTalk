@@ -36,10 +36,11 @@ export default function Home() {
   const { user } = useAuth();
   const { t, toggleLanguage, language } = useLanguage();
 
-  const [activeTab, setActiveTab] = useState<'Verified' | 'Inbox'>('Verified');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showAnonModal, setShowAnonModal] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [showEditNameModal, setShowEditNameModal] = useState(false);
+  const [editNameValue, setEditNameValue] = useState('');
   const [showRecommendedModal, setShowRecommendedModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,7 +55,6 @@ export default function Home() {
   const socketRef = useRef<any>(null);
 
   const [providers, setProviders] = useState<any[]>([]);
-  const [inboxItems, setInboxItems] = useState<any[]>([]);
   const [recentContacts, setRecentContacts] = useState<any[]>([]);
   const [insufficientModal, setInsufficientModal] = useState(false);
   const [busyModal, setBusyModal] = useState(false);
@@ -66,10 +66,10 @@ export default function Home() {
     if (!isRefresh) setLoading(true);
 
     Promise.all([
-      secureFetch(`${API_URL}/providers`).then(r => r.json()),
-      secureFetch(`${API_URL}/inbox/${user.id}`).then(r => r.json()),
-      secureFetch(`${API_URL}/recents/${user.id}`).then(r => r.json()),
-      secureFetch(`${API_URL}/user/${user.id}`).then(r => r.json()),
+      secureFetch(`${API_URL}/providers?t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()),
+      secureFetch(`${API_URL}/inbox/${user.id}?t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()),
+      secureFetch(`${API_URL}/recents/${user.id}?t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()),
+      secureFetch(`${API_URL}/user/${user.id}?t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()),
     ])
       .then(([prov, inbox, recents, userData]) => {
         setProviders(prov.map((p: any) => ({ ...p, image: p.imagePath ? { uri: p.imagePath } : PROVIDER_IMAGE })));
@@ -158,17 +158,6 @@ export default function Home() {
     }
   }, [user]);
 
-  // Refresh inbox when switching to Inbox tab
-  useEffect(() => {
-    if (activeTab === 'Inbox' && user) {
-      secureFetch(`${API_URL}/inbox/${user.id}`)
-        .then(r => r.json())
-        .then(inbox =>
-          setInboxItems(inbox.map((i: any) => ({ ...i, image: i.isSystem ? null : (i.provider?.imagePath ? { uri: i.provider.imagePath } : (i.imagePath ? { uri: i.imagePath } : PROVIDER_IMAGE)) })))
-        )
-        .catch(() => {});
-    }
-  }, [activeTab]);
 
   const isDrawerOpenRef = useRef(isDrawerOpen);
   useEffect(() => {
@@ -221,7 +210,10 @@ export default function Home() {
       try {
         const res = await secureFetch(`${API_URL}/user/upload-image`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.token}`
+          },
           body: JSON.stringify({ base64Image: base64Img })
         });
         const data = await res.json();
@@ -243,7 +235,10 @@ export default function Home() {
     try {
       const res = await secureFetch(`${API_URL}/user/update-profile`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
         body: JSON.stringify({ profileImage: avatarId })
       });
       const data = await res.json();
@@ -252,6 +247,31 @@ export default function Home() {
         setShowAvatarModal(false);
       } else {
         alert(data.error || 'Failed to update avatar');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Network error');
+      console.log(err);
+    }
+  };
+
+  const saveName = async () => {
+    if (!user) return;
+    if (!editNameValue.trim()) return;
+    try {
+      const res = await secureFetch(`${API_URL}/user/update-profile`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.token}`
+        },
+        body: JSON.stringify({ name: editNameValue.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        saveUser({ ...user, name: editNameValue.trim() });
+        setShowEditNameModal(false);
+      } else {
+        alert(data.error || 'Failed to update name');
       }
     } catch (err: any) {
       alert(err.message || 'Network error');
@@ -373,43 +393,6 @@ export default function Home() {
     </TouchableOpacity>
   );
 
-  const renderInboxItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.inboxItem}
-      onPress={() => !item.isSystem && router.push(`/chat/${item.providerId}`)}
-    >
-      <View style={styles.inboxAvatarCt}>
-        {item.isSystem ? (
-          <View style={[styles.inboxAvatarPlaceholder, { backgroundColor: '#4C1D95' }]}>
-            <MaterialCommunityIcons name="emoticon-happy" size={28} color="#FACC15" />
-          </View>
-        ) : item.image ? (
-          <Image source={item.image} style={styles.inboxAvatar} />
-        ) : (
-          <View style={styles.inboxAvatarPlaceholder}>
-            <MaterialIcons name="person" size={32} color="#000000" />
-          </View>
-        )}
-        {!item.isSystem && (
-          <View style={[styles.statusDotLg, { backgroundColor: item.status === 'online' ? '#34D399' : '#EF4444' }]} />
-        )}
-      </View>
-
-      <View style={styles.inboxContent}>
-        <View style={styles.inboxHeaderRow}>
-          <View style={styles.nameRow}>
-            <Text style={styles.inboxName}>{item.name}</Text>
-            {item.isSystem && <MaterialCommunityIcons name="check-decagram" size={14} color="#3B82F6" style={{ marginLeft: 4 }} />}
-          </View>
-          <Text style={styles.inboxDate}>{item.date}</Text>
-        </View>
-        <View style={styles.inboxMsgRow}>
-          <MaterialCommunityIcons name={(item.icon || 'message-text') as any} size={14} color={item.iconColor || '#34D399'} />
-          <Text style={styles.inboxMessage} numberOfLines={1}>{item.message}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
 
   return (
     <SafeAreaView style={styles.safeArea} {...panResponder.panHandlers}>
@@ -437,16 +420,16 @@ export default function Home() {
 
         {/* Action Row */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 5, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
-          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} onPress={() => setActiveTab('Verified')}>
-            <Text style={{ color: activeTab === 'Verified' ? '#fff' : 'rgba(255,255,255,0.5)', fontSize: 16, fontWeight: '700' }}>{t('verified')}</Text>
-            <MaterialCommunityIcons name="check-decagram" size={16} color={activeTab === 'Verified' ? "#22C55E" : "rgba(255,255,255,0.3)"} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{t('verified')}</Text>
+            <MaterialCommunityIcons name="check-decagram" size={16} color="#22C55E" />
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
             <TouchableOpacity onPress={() => router.push('/search')}>
               <Feather name="search" size={22} color="rgba(255,255,255,0.8)" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setActiveTab('Inbox')}>
-              <MaterialCommunityIcons name="message-text-outline" size={22} color={activeTab === 'Inbox' ? '#FACC15' : 'rgba(255,255,255,0.8)'} />
+            <TouchableOpacity onPress={() => router.push('/inbox')}>
+              <MaterialCommunityIcons name="message-text-outline" size={22} color="rgba(255,255,255,0.8)" />
             </TouchableOpacity>
           </View>
         </View>
@@ -456,7 +439,7 @@ export default function Home() {
           <View style={styles.loadingCt}>
             <ActivityIndicator size="large" color="#FACC15" />
           </View>
-        ) : activeTab === 'Verified' ? (
+        ) : (
           <FlatList
             data={providers}
             keyExtractor={item => item.id}
@@ -480,21 +463,6 @@ export default function Home() {
                   />
                 </View>
               ) : null
-            }
-          />
-        ) : (
-          <FlatList
-            data={inboxItems}
-            keyExtractor={item => item.id}
-            renderItem={renderInboxItem}
-            contentContainerStyle={[styles.listContent, { paddingTop: 8 }]}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#111111" />
-            }
-            ListEmptyComponent={
-              <Text style={{ color: 'rgba(255,255,255,0.25)', textAlign: 'center', marginTop: 40 }}>
-                {t('noMessages')}
-              </Text>
             }
           />
         )}
@@ -531,7 +499,12 @@ export default function Home() {
                   </>
                 )}
               </TouchableOpacity>
-              <Text style={styles.drawerName}>{user?.name || 'You'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 8 }}>
+                <Text style={[styles.drawerName, { marginBottom: 0 }]}>{user?.name || 'You'}</Text>
+                <TouchableOpacity onPress={() => { setEditNameValue(user?.name || ''); setShowEditNameModal(true); }}>
+                  <MaterialIcons name="edit" size={18} color="#FACC15" />
+                </TouchableOpacity>
+              </View>
               <Text style={styles.drawerPhone}>{user?.phone || ''}</Text>
 
               <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); setTimeout(() => setShowAnonModal(true), 320); }}>
@@ -850,6 +823,31 @@ export default function Home() {
                 setSelectedProvider(null);
               }}>
                 <Text style={{ color: '#FFF', fontWeight: 'bold', textAlign: 'center' }}>Find Someone Else</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Name Modal */}
+      <Modal visible={showEditNameModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.anonModalContent}>
+            <Text style={styles.anonModalTitle}>Edit Your Name</Text>
+            <TextInput
+              style={{ backgroundColor: '#1A1A1A', color: 'rgba(255,255,255,0.92)', padding: 12, borderRadius: 8, fontSize: 16, marginBottom: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+              value={editNameValue}
+              onChangeText={setEditNameValue}
+              placeholder="Enter your name"
+              placeholderTextColor="rgba(255,255,255,0.25)"
+              autoFocus
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12 }}>
+              <TouchableOpacity onPress={() => setShowEditNameModal(false)} style={{ paddingVertical: 10, paddingHorizontal: 16 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 15, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={saveName} style={{ backgroundColor: '#FACC15', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 }}>
+                <Text style={{ color: '#000', fontSize: 15, fontWeight: 'bold' }}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
