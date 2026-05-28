@@ -73,9 +73,6 @@ export default function Home() {
     ])
       .then(([prov, inbox, recents, userData]) => {
         setProviders(prov.map((p: any) => ({ ...p, image: p.imagePath ? { uri: p.imagePath } : PROVIDER_IMAGE })));
-        setInboxItems(
-          inbox.map((i: any) => ({ ...i, image: i.isSystem ? null : (i.provider?.imagePath ? { uri: i.provider.imagePath } : (i.imagePath ? { uri: i.imagePath } : PROVIDER_IMAGE)) }))
-        );
         setRecentContacts(recents.map((r: any) => ({ ...r, image: r.imagePath ? { uri: r.imagePath } : PROVIDER_IMAGE })));
         setWalletBalance(userData.walletBalance || Math.floor(userData.walletbalance) || 5000);
       })
