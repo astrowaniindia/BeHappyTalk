@@ -403,6 +403,19 @@ app.post('/api/user/upload-image', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/api/user/update-profile', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'user') return res.status(403).json({ error: 'Forbidden' });
+  const { profileImage } = req.body;
+  if (!profileImage) return res.status(400).json({ error: 'Missing fields' });
+  
+  try {
+    await db.from('users').update({ profileImage }).eq('id', req.user.id);
+    res.json({ success: true, profileImage });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/user/:userId/active-session', async (req, res) => {
   const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
   const { data: row, error } = await db.from('sessions')

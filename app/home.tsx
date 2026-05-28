@@ -19,6 +19,13 @@ const { width } = Dimensions.get('window');
 // We use the same image for all 3 providers for now
 const PROVIDER_IMAGE = require('../assets/images/girl_smiling_1775250936696.png');
 
+const PREDEFINED_AVATARS = [
+  { id: 'avatar_fox', source: require('../assets/images/avatars/fox.png') },
+  { id: 'avatar_girl', source: require('../assets/images/avatars/girl.png') },
+  { id: 'avatar_boy', source: require('../assets/images/avatars/boy.png') },
+  { id: 'avatar_panda', source: require('../assets/images/avatars/panda.png') }
+];
+
 export default function Home() {
   const router = useRouter();
   const { user } = useAuth();
@@ -27,6 +34,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'Verified' | 'Inbox'>('Verified');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showAnonModal, setShowAnonModal] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showRecommendedModal, setShowRecommendedModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -189,10 +197,29 @@ export default function Home() {
         const data = await res.json();
         if (data.success) {
           saveUser({ ...user, profileImage: data.url });
+          setShowAvatarModal(false);
         }
       } catch (err) {
         console.log(err);
       }
+    }
+  };
+
+  const selectPredefinedAvatar = async (avatarId: string) => {
+    if (!user) return;
+    try {
+      const res = await secureFetch(`${API_URL}/user/update-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileImage: avatarId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        saveUser({ ...user, profileImage: avatarId });
+        setShowAvatarModal(false);
+      }
+    } catch (err) {
+      console.log(err);
     }
   };
 
@@ -455,9 +482,9 @@ export default function Home() {
                  <Image source={require('../assets/images/icon.jpg')} style={{ width: 32, height: 32, borderRadius: 16 }} />
                  <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 18, fontWeight: 'bold' }}>BeHappyTalk</Text>
               </View>
-              <TouchableOpacity style={styles.largeAvatar} onPress={pickImage} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.largeAvatar} onPress={() => setShowAvatarModal(true)} activeOpacity={0.8}>
                 {user?.profileImage ? (
-                  <Image source={{ uri: user.profileImage }} style={{ width: 80, height: 80, borderRadius: 40 }} />
+                  <Image source={user.profileImage.startsWith('avatar_') ? PREDEFINED_AVATARS.find(a => a.id === user.profileImage)?.source : { uri: user.profileImage }} style={{ width: 80, height: 80, borderRadius: 40 }} />
                 ) : (
                   <>
                     <MaterialIcons name="person" size={50} color="#000000" />
@@ -520,6 +547,32 @@ export default function Home() {
       </Modal>
 
       {/* Anonymous Modal */}
+      <Modal visible={showAvatarModal} transparent animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setShowAvatarModal(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.anonModalContent}>
+                <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' }}>Choose Avatar</Text>
+                
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 16, marginBottom: 20 }}>
+                  {PREDEFINED_AVATARS.map((avatar) => (
+                    <TouchableOpacity key={avatar.id} onPress={() => selectPredefinedAvatar(avatar.id)} style={{ width: 80, height: 80, borderRadius: 40, borderWidth: user?.profileImage === avatar.id ? 3 : 0, borderColor: '#FACC15' }}>
+                      <Image source={avatar.source} style={{ width: '100%', height: '100%', borderRadius: 40 }} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111111', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#333', gap: 10 }} onPress={pickImage}>
+                  <MaterialIcons name="photo-library" size={24} color="#fff" />
+                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>Choose from Gallery</Text>
+                </TouchableOpacity>
+
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
       <Modal visible={showAnonModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <TouchableWithoutFeedback onPress={() => setShowAnonModal(false)}>
