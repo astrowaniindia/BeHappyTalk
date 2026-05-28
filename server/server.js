@@ -407,12 +407,16 @@ app.post('/api/user/upload-image', authenticateToken, async (req, res) => {
 
 app.post('/api/user/update-profile', authenticateToken, async (req, res) => {
   if (req.user.role === 'provider') return res.status(403).json({ error: 'Forbidden' });
-  const { profileImage } = req.body;
-  if (!profileImage) return res.status(400).json({ error: 'Missing fields' });
+  const { profileImage, name } = req.body;
+  if (!profileImage && !name) return res.status(400).json({ error: 'Missing fields' });
   
   try {
-    await db.from('users').update({ profileImage }).eq('id', req.user.id);
-    res.json({ success: true, profileImage });
+    const updates = {};
+    if (profileImage !== undefined) updates.profileImage = profileImage;
+    if (name !== undefined) updates.name = name;
+
+    await db.from('users').update(updates).eq('id', req.user.id);
+    res.json({ success: true, ...updates });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
