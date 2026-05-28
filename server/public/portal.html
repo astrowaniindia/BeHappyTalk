@@ -1277,17 +1277,22 @@
             activeUserId = u.id; 
             openChat(u);
             
-            const overlay = document.getElementById('media-overlay');
-            overlay.style.display = 'flex';
-            document.getElementById('media-name').innerText = req.userName;
-            document.getElementById('media-desc').innerText = `Establishing ${req.type} session...`;
-            
-            if (req.type === 'Video') {
-               document.getElementById('local-video').style.display = 'block';
-               document.getElementById('call-cam').style.display = 'flex';
+            if (req.type !== 'Chat') {
+              const overlay = document.getElementById('media-overlay');
+              overlay.style.display = 'flex';
+              document.getElementById('media-name').innerText = req.userName;
+              document.getElementById('media-desc').innerText = `Establishing ${req.type} session...`;
+              
+              if (req.type === 'Video') {
+                 document.getElementById('local-video').style.display = 'block';
+                 document.getElementById('call-cam').style.display = 'flex';
+              } else {
+                 document.getElementById('local-video').style.display = 'none';
+                 document.getElementById('call-cam').style.display = 'none';
+              }
             } else {
-               document.getElementById('local-video').style.display = 'none';
-               document.getElementById('call-cam').style.display = 'none';
+              // Enable chat input immediately
+              document.getElementById('chat-input-row').style.display = 'flex';
             }
 
             // NOTE: Do NOT call startMedia here.
@@ -1346,8 +1351,12 @@
         }, 1000);
 
         // Start WebRTC Media
-        if (type === 'Chat') {
-           startMedia(type); // Only start chat automatically
+        if (type !== 'Chat') {
+           startMedia(type); 
+        } else {
+           // For Chat, just make sure input is enabled
+           document.getElementById('chat-input-row').style.display = 'flex';
+           document.getElementById('msg-input').disabled = false;
         }
       });
 
