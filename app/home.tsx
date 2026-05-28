@@ -23,7 +23,11 @@ const PREDEFINED_AVATARS = [
   { id: 'avatar_fox', source: require('../assets/images/avatars/fox.png') },
   { id: 'avatar_girl', source: require('../assets/images/avatars/girl.png') },
   { id: 'avatar_boy', source: require('../assets/images/avatars/boy.png') },
-  { id: 'avatar_panda', source: require('../assets/images/avatars/panda.png') }
+  { id: 'avatar_panda', source: require('../assets/images/avatars/panda.png') },
+  { id: 'avatar_dog', source: require('../assets/images/avatars/dog.png') },
+  { id: 'avatar_cat', source: require('../assets/images/avatars/cat.png') },
+  { id: 'avatar_boy2', source: require('../assets/images/avatars/boy2.png') },
+  { id: 'avatar_girl2', source: require('../assets/images/avatars/girl2.png') }
 ];
 
 export default function Home() {
