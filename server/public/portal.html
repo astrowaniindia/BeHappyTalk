@@ -321,11 +321,6 @@
         <input type="password" id="login-pwd" placeholder="Enter your secret key">
       </div>
 
-      <div class="input-grp" id="otp-grp" style="display: none;">
-        <label>Verification Code</label>
-        <input type="text" id="login-otp" placeholder="Enter 6-digit code">
-      </div>
-
       <!-- Registration Fields (Hidden by default) -->
       <div id="signup-extra" style="display: none;">
         <div class="input-grp">
@@ -333,13 +328,12 @@
           <input type="text" id="reg-name" placeholder="How users see you">
         </div>
         <div class="input-grp">
-          <label>Set Password</label>
-          <input type="password" id="reg-pwd" placeholder="Create a secure key">
+          <label>Email Address</label>
+          <input type="email" id="reg-email" placeholder="your@email.com">
         </div>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 32px;">
-        <button class="btn-login" id="btn-get-otp" onclick="sendOTP()" style="display: none;">Get OTP</button>
         <button class="btn-login" id="login-btn">Secure Login</button>
       </div>
       
@@ -1500,129 +1494,84 @@
     function setupAuthToggle() {
        const toggle = document.getElementById('auth-toggle');
        const loginBtn = document.getElementById('login-btn');
-       const otpBtn = document.getElementById('btn-get-otp');
-       const pwdGrp = document.getElementById('pwd-grp');
        if (!toggle) return;
        
        toggle.onclick = () => {
           isRegisterMode = !isRegisterMode;
           toggle.innerText = isRegisterMode ? 'Already have an account? Login' : "Don't have an account? Join BeHappyTalk Partner Hub";
-          loginBtn.innerText = isRegisterMode ? 'START REGISTRATION' : 'SECURE LOGIN';
+          loginBtn.innerText = isRegisterMode ? 'CREATE ACCOUNT' : 'SECURE LOGIN';
           
-          // Logic: Hide password during signup (until OTP)
-          // Show password during login
-          pwdGrp.style.display = isRegisterMode ? 'none' : 'block';
-          otpBtn.style.display = isRegisterMode ? 'block' : 'none';
-          
-          if (isRegisterMode) {
-             loginBtn.style.opacity = '0.2';
-             loginBtn.style.pointerEvents = 'none';
-          } else {
-             loginBtn.style.opacity = '1';
-             loginBtn.style.pointerEvents = 'auto';
-          }
+          document.getElementById('signup-extra').style.display = isRegisterMode ? 'block' : 'none';
        };
     }
     setupAuthToggle();
 
-    let firebaseIdToken = null;
+    async function finishRegistration() {
+       const phone = document.getElementById('login-phone').value;
+       const name = document.getElementById('reg-name').value;
+       const email = document.getElementById('reg-email').value;
+       const password = document.getElementById('login-pwd').value;
+       
+       if (!phone || !name || !email || !password) return alert('Please fill all fields');
 
-    async function verifyOTP() {
-      const code = document.getElementById('login-otp').value;
-      if (!code) return alert('Enter the 6-digit code');
+       const loginBtn = document.getElementById('login-btn');
+       loginBtn.innerText = 'Creating Account...';
+       
+       try {
+           const res = await fetch('/api/provider/register', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ phone, name, email, password })
+           });
+           const data = await res.json();
+           if (res.ok) {
+              provider = data;
+              localStorage.setItem('bt_provider', JSON.stringify(provider));
+              initApp();
+           } else {
+              document.getElementById('error-msg').innerText = data.error;
+              document.getElementById('error-msg').style.color = 'var(--danger)';
+           }
+       } catch (err) {
+           document.getElementById('error-msg').innerText = 'Registration failed. Please try again.';
+       }
+       loginBtn.innerText = 'CREATE ACCOUNT';
+    }
 
+    // Update login-btn logic
+    document.getElementById('login-btn').onclick = async () => {
+      if (isRegisterMode) {
+         return finishRegistration();
+      }
+
+      const phone = document.getElementById('login-phone').value;
+      const password = document.getElementById('login-pwd').value;
+      
+      if (!phone || !password) return alert('Please enter phone and password');
+
+      // Standard Login
+      const loginBtn = document.getElementById('login-btn');
+      loginBtn.innerText = 'Logging in...';
       try {
-        const result = await confirmationResult.confirm(code);
-        firebaseIdToken = await result.user.getIdToken();
-        
-        // Unlock Registration Button on success
-        const loginBtn = document.getElementById('login-btn');
-        loginBtn.style.opacity = '1';
-        loginBtn.style.pointerEvents = 'auto';
-
-        if (isRegisterMode) {
-           // Transition to Profile Creation UI
-           document.getElementById('otp-grp').style.display = 'none';
-           document.getElementById('signup-extra').style.display = 'block';
-           document.getElementById('error-msg').innerText = 'Phone Verified! Please set your profile.';
-           document.getElementById('error-msg').style.color = 'var(--success)';
-           return;
-        }
-
-        // Standard Login
-        const res = await fetch('/api/provider/firebase-login', {
+        const res = await fetch('/api/provider/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken: firebaseIdToken })
+          body: JSON.stringify({ phone, password })
         });
         const data = await res.json();
         if (res.ok) {
           provider = data;
+          token = provider.token;
           localStorage.setItem('bt_provider', JSON.stringify(provider));
           initApp();
         } else {
-          // If not found in login mode, maybe suggest signup
-          document.getElementById('error-msg').innerText = data.error + " Use 'Join' to register.";
+          document.getElementById('error-msg').innerText = data.error;
           document.getElementById('error-msg').style.color = 'var(--danger)';
         }
       } catch (err) {
-        document.getElementById('error-msg').innerText = 'Invalid OTP code';
-        document.getElementById('error-msg').style.color = 'var(--danger)';
+        document.getElementById('error-msg').innerText = 'Login failed.';
       }
-    }
-
-    async function finishRegistration() {
-       const name = document.getElementById('reg-name').value;
-       const password = document.getElementById('reg-pwd').value;
-       if (!name || !password) return alert('Please enter both name and password');
-
-       const res = await fetch('/api/provider/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken: firebaseIdToken, name, password })
-       });
-       const data = await res.json();
-       if (res.ok) {
-          provider = data;
-          localStorage.setItem('bt_provider', JSON.stringify(provider));
-          initApp();
-       } else {
-          document.getElementById('error-msg').innerText = data.error;
-          document.getElementById('error-msg').style.color = 'var(--danger)';
-       }
-    }
-
-    // Update login-btn logic to handle multiple steps
-    document.getElementById('login-btn').onclick = async () => {
-      // Step 1: Finish Registration if fields are visible
-      if (document.getElementById('signup-extra').style.display === 'block') {
-         return finishRegistration();
-      }
-      
-      // Step 2: Verify OTP if field is visible
-      if (document.getElementById('otp-grp').style.display === 'block') {
-         return verifyOTP();
-      }
-
-      // Step 0: Classic Password Login
-      const phone = document.getElementById('login-phone').value;
-      const pwd = document.getElementById('login-pwd').value;
-      if (!phone || !pwd) return;
-      
-      const res = await fetch('/api/provider/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password: pwd })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        provider = data;
-        token = provider.token;
-        localStorage.setItem('bt_provider', JSON.stringify(provider));
-        initApp();
-      } else {
-        document.getElementById('error-msg').innerText = data.error;
-      }
+      loginBtn.innerText = 'SECURE LOGIN';
     };
 
     

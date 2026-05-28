@@ -192,36 +192,33 @@ app.post('/api/provider/firebase-login', async (req, res) => {
 });
 
 app.post('/api/provider/register', async (req, res) => {
-  const { idToken, name, password } = req.body;
-  if (!idToken || !name || !password) return res.status(400).json({ error: 'Missing required fields.' });
-  if (!firebaseInitialized) return res.status(503).json({ error: 'Firebase not configured on server.' });
+  const { phone, name, email, password } = req.body;
+  if (!phone || !name || !password) return res.status(400).json({ error: 'Missing required fields.' });
 
   try {
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    const phone = decodedToken.phone_number;
-    if (!phone) return res.status(400).json({ error: 'Phone number not found in token.' });
-
     const cleanPhone = phone.replace('+91', '').replace('+', '');
 
     const { data: existing } = await db.from('providers').select('id').eq('phone', cleanPhone).maybeSingle();
     if (existing) return res.status(400).json({ error: 'Account already exists. Please log in.' });
 
-    try {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const newId = 'p' + Date.now();
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newId = 'p' + Date.now();
 
-      const { error } = await db.from('providers').insert({
-        id: newId, name, phone: cleanPhone, password: hashedPassword, walletBalance: 0.0, status: 'online'
-      });
-      if (error) throw error;
-      
-      const token = jwt.sign({ id: newId, phone: cleanPhone, role: 'provider' }, JWT_SECRET, { expiresIn: '30d' });
-      res.json({ id: newId, name, phone: cleanPhone, token });
-    } catch (hashErr) {
-      res.status(500).json({ error: 'Error processing password.' });
+    const { error } = await db.from('providers').insert({
+      id: newId, name, phone: cleanPhone, password: hashedPassword, walletBalance: 0.0, status: 'online'
+      // Email is captured in the UI but omitted from DB insert until added to the Supabase schema
+    });
+    
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ error: 'Failed to create provider account.' });
     }
+    
+    const token = jwt.sign({ id: newId, phone: cleanPhone, role: 'provider' }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ id: newId, name, phone: cleanPhone, token });
   } catch (error) {
-    res.status(401).json({ error: 'Authentication failed.' });
+    console.error(error);
+    res.status(500).json({ error: 'Server error during registration.' });
   }
 });
 
