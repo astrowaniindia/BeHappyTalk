@@ -377,7 +377,7 @@ app.get('/api/user/:userId', async (req, res) => {
 });
 
 app.post('/api/user/upload-image', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'user') return res.status(403).json({ error: 'Forbidden' });
+  if (req.user.role === 'provider') return res.status(403).json({ error: 'Forbidden' });
   const { base64Image } = req.body;
   if (!base64Image) return res.status(400).json({ error: 'No image provided' });
 
@@ -406,7 +406,7 @@ app.post('/api/user/upload-image', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/user/update-profile', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'user') return res.status(403).json({ error: 'Forbidden' });
+  if (req.user.role === 'provider') return res.status(403).json({ error: 'Forbidden' });
   const { profileImage } = req.body;
   if (!profileImage) return res.status(400).json({ error: 'Missing fields' });
   
