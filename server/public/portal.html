@@ -1227,6 +1227,7 @@
 
       // Stats Fetch
       fetchStats();
+      fetchHistory();
       socket.on('wallet_update', fetchStats);
 
       // Session UI Logic
@@ -1744,7 +1745,30 @@
         setVidState('active');
         setTalkingState(true);
       } else {
-        setVidState('idle');
+        setVidState('history');
+        document.getElementById('vid-hist-name').innerText = curVid.name;
+        document.getElementById('vid-hist-avatar').innerText = curVid.name.charAt(0);
+        document.getElementById('vid-hist-list').innerHTML = `
+          <div style="background: rgba(255,255,255,0.05); padding: 24px; border-radius: 16px; border: 1px solid var(--border);">
+            <h4 style="margin:0 0 16px; color:var(--text);"><i class="fas fa-info-circle"></i> Session Details</h4>
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+              <span style="color:var(--text-dim);">Status</span>
+              <span style="color:white; font-weight:700;">${curVid.status.toUpperCase()}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+              <span style="color:var(--text-dim);">Time</span>
+              <span style="color:white; font-weight:700;">${curVid.time}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+              <span style="color:var(--text-dim);">Duration</span>
+              <span style="color:white; font-weight:700;">${curVid.duration} min</span>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+              <span style="color:var(--text-dim);">Earnings</span>
+              <span style="color:var(--success); font-weight:800;">₹${(curVid.cost / 2).toFixed(2)}</span>
+            </div>
+          </div>
+        `;
       }
     }
 
@@ -1994,7 +2018,30 @@
         setAudioState('active');
         setTalkingState(true);
       } else {
-        setAudioState('idle');
+        setAudioState('history');
+        document.getElementById('audio-hist-name').innerText = currentAudioCall.name;
+        document.getElementById('audio-hist-avatar').innerText = currentAudioCall.name.charAt(0);
+        document.getElementById('audio-hist-list').innerHTML = `
+          <div style="background: rgba(255,255,255,0.05); padding: 24px; border-radius: 16px; border: 1px solid var(--border);">
+            <h4 style="margin:0 0 16px; color:var(--text);"><i class="fas fa-info-circle"></i> Session Details</h4>
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+              <span style="color:var(--text-dim);">Status</span>
+              <span style="color:white; font-weight:700;">${currentAudioCall.status.toUpperCase()}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+              <span style="color:var(--text-dim);">Time</span>
+              <span style="color:white; font-weight:700;">${currentAudioCall.time}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+              <span style="color:var(--text-dim);">Duration</span>
+              <span style="color:white; font-weight:700;">${currentAudioCall.duration} min</span>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+              <span style="color:var(--text-dim);">Earnings</span>
+              <span style="color:var(--success); font-weight:800;">₹${(currentAudioCall.cost / 2).toFixed(2)}</span>
+            </div>
+          </div>
+        `;
       }
     }
 
@@ -2199,6 +2246,26 @@
       allProvSessions = await res.json();
       renderHistory(allProvSessions);
       filterProvSessions('all');
+      
+      audioCalls = allProvSessions.filter(s => s.type === 'Audio').map(s => ({
+        id: s.id,
+        name: s.userName,
+        time: new Date(s.startTime).toLocaleTimeString('en-IN', {hour: '2-digit', minute:'2-digit'}),
+        status: s.duration > 0 ? 'ended' : 'missed',
+        duration: s.duration,
+        cost: s.cost || 0
+      }));
+      renderAudioQueue();
+      
+      vidCalls = allProvSessions.filter(s => s.type === 'Video').map(s => ({
+        id: s.id,
+        name: s.userName,
+        time: new Date(s.startTime).toLocaleTimeString('en-IN', {hour: '2-digit', minute:'2-digit'}),
+        status: s.duration > 0 ? 'ended' : 'missed',
+        duration: s.duration,
+        cost: s.cost || 0
+      }));
+      renderVidQueue();
     }
 
     function filterProvSessions(type) {
