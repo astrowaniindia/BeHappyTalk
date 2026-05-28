@@ -546,6 +546,26 @@ export default function Home() {
               </View>
             </View>
 
+            {/* Legal Links */}
+            <View style={styles.drawerListSection}>
+              <Text style={styles.drawerSectionTitle}>{t('legal') || 'Legal'}</Text>
+
+              <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/terms'); }}>
+                <MaterialCommunityIcons name="file-document-outline" size={24} color="rgba(255,255,255,0.70)" />
+                <Text style={styles.drawerMenuText}>{t('terms') || 'Terms & Conditions'}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/privacy'); }}>
+                <MaterialCommunityIcons name="shield-account-outline" size={24} color="rgba(255,255,255,0.70)" />
+                <Text style={styles.drawerMenuText}>{t('privacy') || 'Privacy Policy'}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/safety'); }}>
+                <MaterialIcons name="security" size={24} color="rgba(255,255,255,0.70)" />
+                <Text style={styles.drawerMenuText}>{t('safety') || 'Safety Policy'}</Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.drawerFooter}>
               <Text style={styles.versionText}>App v341: 3.44.0</Text>
             </View>

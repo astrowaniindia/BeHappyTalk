@@ -44,6 +44,9 @@ export default function RootLayout() {
         <Stack.Screen name="offers" />
         <Stack.Screen name="payment" />
         <Stack.Screen name="permissions" />
+        <Stack.Screen name="terms" />
+        <Stack.Screen name="privacy" />
+        <Stack.Screen name="safety" />
       </Stack>
     </LanguageProvider>
   );
