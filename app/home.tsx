@@ -327,19 +327,15 @@ export default function Home() {
         {/* Header */}
         <View style={styles.topHeaderBar}>
           <TouchableOpacity style={styles.userIconBg} onPress={toggleDrawer}>
-            <MaterialIcons name="person" size={24} color="rgba(255,255,255,0.45)" />
+            <MaterialCommunityIcons name="menu" size={24} color="rgba(255,255,255,0.9)" />
           </TouchableOpacity>
 
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-             <Image source={require('../assets/images/icon.jpg')} style={{ width: 28, height: 28, borderRadius: 14 }} />
-             <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 18, fontWeight: 'bold' }}>BeHappyTalk</Text>
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+             <Image source={require('../assets/images/icon.jpg')} style={{ width: 34, height: 34, borderRadius: 17 }} />
+             <Text style={{ color: 'rgba(255,255,255,0.95)', fontSize: 22, fontWeight: 'bold' }}>BeHappyTalk</Text>
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-             <TouchableOpacity onPress={() => router.push('/search')}>
-               <Feather name="search" size={22} color="rgba(255,255,255,0.7)" />
-             </TouchableOpacity>
-
              <TouchableOpacity style={styles.walletContainer} onPress={() => router.push('/wallet')}>
                <MaterialCommunityIcons name="wallet-outline" size={20} color="#FACC15" />
                <Text style={styles.walletText}>₹ {walletBalance.toFixed(0)}</Text>
@@ -347,21 +343,20 @@ export default function Home() {
           </View>
         </View>
 
-        {/* Tabs */}
-        <View style={styles.tabsContainer}>
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'Verified' && styles.activeTabButton]}
-            onPress={() => setActiveTab('Verified')}
-          >
-            <Text style={[styles.tabText, activeTab === 'Verified' && styles.activeTabText]}>{t('verified')}</Text>
-            {activeTab === 'Verified' && <MaterialCommunityIcons name="check-decagram" size={16} color="#FDE047" />}
+        {/* Action Row */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 5, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} onPress={() => setActiveTab('Verified')}>
+            <Text style={{ color: activeTab === 'Verified' ? '#fff' : 'rgba(255,255,255,0.5)', fontSize: 16, fontWeight: '700' }}>{t('verified')}</Text>
+            <MaterialCommunityIcons name="check-decagram" size={16} color={activeTab === 'Verified' ? "#22C55E" : "rgba(255,255,255,0.3)"} />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'Inbox' && styles.activeTabButton]}
-            onPress={() => setActiveTab('Inbox')}
-          >
-            <Text style={[styles.tabText, activeTab === 'Inbox' && styles.activeTabText]}>{t('inbox')}</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+            <TouchableOpacity onPress={() => router.push('/search')}>
+              <Feather name="search" size={22} color="rgba(255,255,255,0.8)" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setActiveTab('Inbox')}>
+              <MaterialCommunityIcons name="message-text-outline" size={22} color={activeTab === 'Inbox' ? '#FACC15' : 'rgba(255,255,255,0.8)'} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Content */}

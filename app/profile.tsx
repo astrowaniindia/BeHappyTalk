@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
-import { API_URL } from '../config'; // Assuming you have a config for API URL
+import { API_URL } from '../constants/ServerConfig';
 
 const ProfileManager = () => {
   const { user } = useAuth(); // Assuming useAuth provides the logged-in user

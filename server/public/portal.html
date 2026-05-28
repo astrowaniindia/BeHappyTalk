@@ -2589,7 +2589,11 @@ function renderMsg(msg) {
             body: JSON.stringify({ base64Image })
           });
           const data = await res.json();
-          if(!data.success) {
+          if(data.success) {
+            provider.imagePath = data.url;
+            localStorage.setItem('bt_provider', JSON.stringify(provider));
+            updateProfileCard();
+          } else {
             alert('Failed to upload image: ' + data.error);
           }
         } catch(err) {
@@ -2603,10 +2607,16 @@ function renderMsg(msg) {
       if(!confirm("Are you sure you want to remove your profile picture?")) return;
       document.getElementById('prof-img-preview').src = 'https://via.placeholder.com/120';
       try {
-        await fetch('/api/provider/remove-image', {
+        const res = await fetch('/api/provider/remove-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
         });
+        const data = await res.json();
+        if(data.success) {
+          provider.imagePath = null;
+          localStorage.setItem('bt_provider', JSON.stringify(provider));
+          updateProfileCard();
+        }
       } catch (err) {
         console.error(err);
       }
@@ -2621,6 +2631,18 @@ function renderMsg(msg) {
       } else {
         card.style.display = 'none';
         form.style.display = 'block';
+        
+        // Populate existing data when opening the form
+        if (provider) {
+          document.getElementById('prof-tagline').value = provider.tagline || '';
+          document.getElementById('prof-bio').value = provider.bio || '';
+          document.getElementById('prof-langs').value = provider.langs || '';
+          document.getElementById('prof-exp').value = provider.exp || '';
+          document.getElementById('prof-demographic').value = provider.demographic || '';
+          document.getElementById('prof-priceChat').value = provider.priceChat || 10;
+          document.getElementById('prof-priceCall').value = provider.priceCall || 20;
+          document.getElementById('prof-priceVideo').value = provider.priceVideo || 30;
+        }
       }
     }
 
