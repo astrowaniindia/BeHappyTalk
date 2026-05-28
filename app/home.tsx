@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar,
   TextInput, FlatList, Image, TouchableOpacity, Modal, Animated,
-  Dimensions, TouchableWithoutFeedback, ActivityIndicator, RefreshControl
+  Dimensions, TouchableWithoutFeedback, ActivityIndicator, RefreshControl,
+  ScrollView, PanResponder
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons, MaterialIcons, Feather, AntDesign } from '@expo/vector-icons';
@@ -169,16 +170,41 @@ export default function Home() {
     }
   }, [activeTab]);
 
-  const toggleDrawer = () => {
-    if (isDrawerOpen) {
-      Animated.timing(slideAnim, { toValue: -width * 0.75, duration: 280, useNativeDriver: true }).start(() =>
-        setIsDrawerOpen(false)
-      );
-    } else {
-      setIsDrawerOpen(true);
-      Animated.timing(slideAnim, { toValue: 0, duration: 280, useNativeDriver: true }).start();
-    }
+  const isDrawerOpenRef = useRef(isDrawerOpen);
+  useEffect(() => {
+    isDrawerOpenRef.current = isDrawerOpen;
+  }, [isDrawerOpen]);
+
+  const openDrawer = () => {
+    setIsDrawerOpen(true);
+    Animated.timing(slideAnim, { toValue: 0, duration: 280, useNativeDriver: true }).start();
   };
+
+  const closeDrawer = () => {
+    Animated.timing(slideAnim, { toValue: -width * 0.75, duration: 280, useNativeDriver: true }).start(() =>
+      setIsDrawerOpen(false)
+    );
+  };
+
+  const toggleDrawer = () => {
+    if (isDrawerOpenRef.current) closeDrawer();
+    else openDrawer();
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 2 && Math.abs(gestureState.dx) > 15;
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dx > 40 && !isDrawerOpenRef.current) {
+          openDrawer();
+        } else if (gestureState.dx < -40 && isDrawerOpenRef.current) {
+          closeDrawer();
+        }
+      }
+    })
+  ).current;
 
   const pickImage = async () => {
     if (!user) return;
@@ -380,7 +406,7 @@ export default function Home() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} {...panResponder.panHandlers}>
       <StatusBar style="light" />
       <View style={styles.container}>
 
@@ -480,6 +506,7 @@ export default function Home() {
             <View style={StyleSheet.absoluteFillObject} />
           </TouchableWithoutFeedback>
           <Animated.View style={[styles.drawerContent, { transform: [{ translateX: slideAnim }] }]}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
             {/* Profile */}
             <View style={styles.drawerProfileSection}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 10 }}>
@@ -546,6 +573,7 @@ export default function Home() {
             <View style={styles.drawerFooter}>
               <Text style={styles.versionText}>App v341: 3.44.0</Text>
             </View>
+            </ScrollView>
           </Animated.View>
         </View>
       </Modal>
