@@ -20,21 +20,29 @@ import {
 } from 'react-native-webrtc';
 import InCallManager from 'react-native-incall-manager';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../constants/ServerConfig';
 
-// ─── ICE Config with TURN servers ─────────────────────────────────────────────
-// STUN alone only works when both devices are on the same WiFi.
-// TURN servers relay the traffic when on mobile data or different networks.
-// These are FREE public TURN servers — for production, get your own from:
-// https://www.metered.ca/tools/openrelay/ (free tier available)
-const ICE_CONFIG = {
-  iceServers: [
-    // Google STUN
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' }
-  ],
-  iceCandidatePoolSize: 10,
+const getIceServers = async () => {
+  try {
+    const token = await AsyncStorage.getItem('userToken');
+    const res = await fetch(`${API_URL}/api/turn-credentials`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error('Failed to fetch TURN');
+    const data = await res.json();
+    return data.iceServers || [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ];
+  } catch (err) {
+    console.warn('[ICE] Falling back to Google STUN:', err);
+    return [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ];
+  }
 };
-
 export function useWebRTC(socketRef: any, roomId: string) {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const pendingCandidates = useRef<any[]>([]);
@@ -63,10 +71,11 @@ export function useWebRTC(socketRef: any, roomId: string) {
   }, []);
 
   // ─── Create PeerConnection ────────────────────────────────────────────────────
-  const createPC = useCallback(() => {
+  const createPC = useCallback(async () => {
     cleanupPC(); // Always clean up before creating a new one
 
-    const pc = new RTCPeerConnection(ICE_CONFIG);
+    const iceServers = await getIceServers();
+    const pc = new RTCPeerConnection({ iceServers, iceCandidatePoolSize: 10 });
 
     pc.onicecandidate = (event: any) => {
       if (event.candidate && socketRef.current?.connected) {
@@ -178,7 +187,7 @@ export function useWebRTC(socketRef: any, roomId: string) {
         InCallManager.setForceSpeakerphoneOn(true); // speaker for video
       }
 
-      const pc = createPC();
+      const pc = await createPC();
       stream.getTracks().forEach((track: any) => {
         console.log('[WebRTC] Adding track:', track.kind);
         pc.addTrack(track, stream);
@@ -225,7 +234,7 @@ export function useWebRTC(socketRef: any, roomId: string) {
       let pc = pcRef.current;
       if (!pc) {
         if (signal.type === 'offer') {
-          pc = createPC();
+          pc = await createPC();
         } else {
           console.log('[WebRTC] No PC exists and signal is not an offer — ignoring');
           return;

@@ -1106,13 +1106,24 @@
     let pendingCandidates = [];
     let mediaPromise = null;
 
-    const ICE_CONFIG = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ],
-      iceCandidatePoolSize: 10,
-    };
+    async function getIceConfig() {
+      try {
+        const res = await fetch('/api/turn-credentials', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        return { iceServers: data.iceServers, iceCandidatePoolSize: 10 };
+      } catch (e) {
+        console.warn('[ICE] Could not fetch TURN credentials, falling back to STUN only');
+        return {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ],
+          iceCandidatePoolSize: 10
+        };
+      }
+    }
 
     // Local Persistence
     const saved = localStorage.getItem('bt_provider');
@@ -2412,11 +2423,12 @@ function renderMsg(msg) {
     }
 
     // WebRTC Implementation
-    function createPeerConnection() {
+    async function createPeerConnection() {
       // Return existing PC if it exists (so we don't destroy it during a race condition)
       if (pc) return pc;
       pendingCandidates = [];
-      pc = new RTCPeerConnection(ICE_CONFIG);
+      const iceConfig = await getIceConfig();
+      pc = new RTCPeerConnection(iceConfig);
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
@@ -2471,7 +2483,7 @@ function renderMsg(msg) {
     async function handleWebRTCSignal(signal) {
       // Only create PC automatically when an offer arrives (mobile sends the offer)
       // For candidates, if there's no PC yet, queue them — don't create a PC with no media tracks
-      if (signal.type === 'offer' && !pc) createPeerConnection();
+      if (signal.type === 'offer' && !pc) await createPeerConnection();
 
       if (!pc) { // No PC yet — queue candidates, ignore others
         if (signal.type === 'candidate') pendingCandidates.push(signal.candidate);
@@ -2556,7 +2568,7 @@ function renderMsg(msg) {
                 localVideo.style.zIndex = '10';
              }
 
-             if (!pc) createPeerConnection();
+             if (!pc) await createPeerConnection();
              localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
              resolve(localStream);
          } catch (err) {

@@ -448,6 +448,26 @@ app.post('/api/agora/token', authenticateToken, (req, res) => {
   }
 });
 
+app.get('/api/turn-credentials', authenticateToken, async (req, res) => {
+  try {
+    const response = await fetch(
+      `https://${process.env.METERED_APP_SUBDOMAIN}.metered.live/api/v1/turn/credentials?apiKey=${process.env.METERED_API_KEY}`
+    );
+    if (!response.ok) throw new Error('Failed to fetch TURN credentials');
+    const iceServers = await response.json();
+    res.json({ iceServers });
+  } catch (err) {
+    console.error('[TURN] Credential fetch failed:', err.message);
+    // Fallback to Google STUN only
+    res.json({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    });
+  }
+});
+
 app.get('/api/providers', async (req, res) => {
   const { data: rows, error } = await db.from('providers').select('*');
   if (error) return res.status(500).json({ error: error.message });
