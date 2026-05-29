@@ -1337,8 +1337,7 @@
 
       socket.on('request_cancelled', () => {
         const modal = document.getElementById('incoming-modal');
-        modal.style.display = 'none';
-        document.getElementById('ringtone').pause();
+        if (modal) modal.style.display = 'none';
         logActivity('Incoming request was cancelled by user.', 'warn');
       });
 
@@ -1388,6 +1387,32 @@
         currentSessionId = null; // Clear session reference
         document.getElementById('chat-timer').style.display = 'none';
         document.getElementById('chat-input-row').style.display = 'none';
+        
+        // Handle Video UI transition if active
+        if (typeof curVid !== 'undefined' && curVid && (curVid.status === 'active' || curVid.status === 'connecting' || curVid.status === 'waiting')) {
+           clearInterval(vidTimer);
+           curVid.status = 'ended';
+           curVid.duration = vidSecs;
+           renderVidQueue();
+           document.getElementById('v-ended-name').innerText = curVid.name;
+           document.getElementById('v-ended-duration').innerText = document.getElementById('vid-active-timer').innerText;
+           document.getElementById('v-ended-earnings').innerText = '₹' + ((vidSecs/60)*(provider.priceVideo || 15)).toFixed(2);
+           setVidState('ended');
+           toggleVidPanel(null);
+        }
+        
+        // Handle Audio UI transition if active
+        if (typeof currentAudioCall !== 'undefined' && currentAudioCall && (currentAudioCall.status === 'active' || currentAudioCall.status === 'connecting' || currentAudioCall.status === 'waiting')) {
+           clearInterval(audioTimerInt);
+           currentAudioCall.status = 'ended';
+           currentAudioCall.duration = audioSecs;
+           renderAudioQueue();
+           document.getElementById('ended-name').innerText = currentAudioCall.name;
+           document.getElementById('ended-duration').innerText = document.getElementById('active-timer').innerText;
+           document.getElementById('ended-earnings').innerText = document.getElementById('active-earnings').innerText;
+           setAudioState('ended');
+        }
+
         stopMedia();
         fetchStats();
         fetchHistory(); // Refresh history real-time
