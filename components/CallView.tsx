@@ -112,7 +112,8 @@ export default function CallView({
       {/* ── Remote video (full screen) ────────────────────────────────────── */}
       {hasRemoteVideo ? (
         <RTCView
-          stream={remoteStream}
+          key={remoteStream?.id || 'remote-video'}
+          streamURL={remoteStream.toURL()}
           style={styles.remoteVideo}
           objectFit="cover"
           zOrder={0}
@@ -165,7 +166,7 @@ export default function CallView({
       {/* ── Local PiP (bottom-right), video only ─────────────────────────── */}
       {hasLocalVideo && (
         <RTCView
-          stream={localStream}
+          streamURL={localStream.toURL()}
           style={styles.localVideo}
           objectFit="cover"
           zOrder={1}
@@ -182,7 +183,7 @@ export default function CallView({
       */}
       {!isVideo && remoteStream && (
         <RTCView
-          stream={remoteStream}
+          streamURL={remoteStream.toURL()}
           style={styles.hiddenAudio}
           zOrder={0}
           objectFit="cover"
