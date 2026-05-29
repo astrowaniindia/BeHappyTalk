@@ -421,7 +421,7 @@ export default function Home() {
           </TouchableOpacity>
 
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-             <Image source={require('../assets/images/icon.jpg')} style={{ width: 34, height: 34, borderRadius: 17 }} />
+             <Image source={require('../assets/images/icon.png')} style={{ width: 34, height: 34, borderRadius: 17 }} />
              <Text style={{ color: 'rgba(255,255,255,0.95)', fontSize: 22, fontWeight: 'bold' }}>BeHappyTalk</Text>
           </View>
 
@@ -499,7 +499,7 @@ export default function Home() {
             {/* Profile */}
             <View style={styles.drawerProfileSection}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 10 }}>
-                 <Image source={require('../assets/images/icon.jpg')} style={{ width: 32, height: 32, borderRadius: 16 }} />
+                 <Image source={require('../assets/images/icon.png')} style={{ width: 32, height: 32, borderRadius: 16 }} />
                  <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 18, fontWeight: 'bold' }}>BeHappyTalk</Text>
               </View>
               <TouchableOpacity style={styles.largeAvatar} onPress={() => setShowAvatarModal(true)} activeOpacity={0.8}>

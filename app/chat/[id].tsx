@@ -182,7 +182,7 @@ export default function ChatScreen() {
     if (!userId || !providerId) return;
 
     if (providerId === 'system') {
-      setContact({ name: 'BeHappyTalk', image: require('../../assets/images/icon.jpg'), status: 'online', verified: true });
+      setContact({ name: 'BeHappyTalk', image: require('../../assets/images/icon.png'), status: 'online', verified: true });
       fetchMessages();
       return;
     }
