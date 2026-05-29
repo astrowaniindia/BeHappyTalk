@@ -562,10 +562,31 @@ app.get('/api/admin/sessions', authenticateAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/update-wallet', authenticateAdmin, async (req, res) => {
-  const { type, id, amount } = req.body;
+  const { type, id, amount, reason } = req.body;
   const table = type === 'user' ? 'users' : 'providers';
+  
+  // 1. Fetch old balance to calculate difference
+  const { data: oldData, error: fetchErr } = await db.from(table).select('walletBalance').eq('id', id).single();
+  if (fetchErr) return res.status(500).json({ error: fetchErr.message });
+  
+  const oldBalance = oldData.walletBalance || 0;
+  const difference = Number(amount) - Number(oldBalance);
+
+  // 2. Update the wallet balance
   const { error } = await db.from(table).update({ walletBalance: amount }).eq('id', id);
   if (error) return res.status(500).json({ error: error.message });
+  
+  // 3. Log the transaction securely
+  if (difference !== 0) {
+    await db.from('wallet_transactions').insert({
+      userId: type === 'user' ? id : null,
+      providerId: type === 'provider' ? id : null,
+      amount: difference,
+      type: difference > 0 ? 'admin_manual_credit' : 'admin_manual_debit',
+      // We log the admin ID and reason if provided in a real app, but for now we rely on the type.
+    });
+  }
+
   res.json({ success: true });
 });
 
@@ -667,7 +688,7 @@ async function stopBillingInterval(sessionId) {
 
 function startBillingInterval(sessionId, userId, providerId, rate, room, passedDuration) {
   if (activeBillingTimers[sessionId]) return;
-  const duration = Number(passedDuration) || 5;
+  const duration = passedDuration === 'unlimited' ? Infinity : (Number(passedDuration) || 5);
   let minutesPassed = 0;
 
   const deduct = async () => {

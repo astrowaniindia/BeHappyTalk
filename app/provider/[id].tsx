@@ -30,25 +30,48 @@ export default function ProviderProfile() {
 
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchProviderData = (isRefresh = false) => {
+  const fetchProviderData = async (isRefresh = false) => {
     if (!id) return;
     if (!isRefresh) setLoading(true);
 
-    Promise.all([
-      secureFetch(`${API_URL}/provider/${id}`).then(r => r.json()),
-      user?.id ? secureFetch(`${API_URL}/user/${user.id}`).then(r => r.json()) : Promise.resolve(null)
-    ])
-    .then(([providerData, userData]) => {
-      if (!providerData.error) setProvider(providerData);
-      if (userData && !userData.error) {
-        setWalletBalance(userData.walletBalance || Math.floor(userData.walletbalance) || 500);
+    try {
+      // Fetch provider data
+      const provRes = await secureFetch(`${API_URL}/provider/${id}`);
+      const providerData = await provRes.json();
+      if (!providerData.error) {
+        setProvider(providerData);
       }
-    })
-    .catch(err => console.error('Fetch error:', err))
-    .finally(() => {
+
+      // Fetch user data for wallet balance
+      if (user?.id) {
+        try {
+          const userRes = await secureFetch(`${API_URL}/user/${user.id}?t=${Date.now()}`, { cache: 'no-store' });
+          if (userRes.ok) {
+            const userData = await userRes.json();
+            if (userData && !userData.error) {
+              const balance = userData.walletBalance || Math.floor(userData.walletbalance) || 5000;
+              setWalletBalance(Number(balance));
+            } else if (userData && userData.error === 'User not found.') {
+              clearUser().then(() => router.replace('/login'));
+            } else {
+              setWalletBalance(5000); // Fallback for network errors
+            }
+          } else if (userRes.status === 404) {
+            clearUser().then(() => router.replace('/login'));
+          } else {
+            setWalletBalance(5000);
+          }
+        } catch (e) {
+          console.log('Failed to fetch user wallet balance:', e);
+          setWalletBalance(5000);
+        }
+      }
+    } catch (err) {
+      console.error('Fetch error:', err);
+    } finally {
       setLoading(false);
       setRefreshing(false);
-    });
+    }
   };
 
   useEffect(() => {
@@ -94,11 +117,12 @@ export default function ProviderProfile() {
     setDurationModal(true);
   };
 
-  const submitRequest = (duration: number) => {
+  const submitRequest = (duration: number | 'unlimited') => {
     if (!selectedInteraction || !provider || !user) return;
     const { type, rate } = selectedInteraction;
 
-    if (walletBalance < rate * duration) {
+    const requiredBalance = duration === 'unlimited' ? rate * 1 : rate * duration;
+    if (walletBalance < requiredBalance) {
       setDurationModal(false);
       setInsufficientModal(true);
       return;
@@ -277,6 +301,12 @@ export default function ProviderProfile() {
                   <Text style={styles.durationPrice}>₹{(selectedInteraction?.rate || 0) * mins}</Text>
                 </TouchableOpacity>
               ))}
+              <TouchableOpacity style={[styles.durationBtn, { width: '100%', borderColor: 'rgba(52, 211, 153, 0.3)', backgroundColor: 'rgba(52, 211, 153, 0.1)' }]} onPress={() => submitRequest('unlimited')}>
+                <View style={{ alignItems: 'center' }}>
+                   <Text style={[styles.durationMins, { color: '#34D399' }]}>Pay As You Go</Text>
+                   <Text style={styles.durationPrice}>Talk until balance runs out (₹{selectedInteraction?.rate || 0}/min)</Text>
+                </View>
+              </TouchableOpacity>
             </View>
             
             <View style={styles.walletInfo}>

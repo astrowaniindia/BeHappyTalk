@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar,
   TextInput, FlatList, Image, TouchableOpacity, Modal, Animated,
   Dimensions, TouchableWithoutFeedback, ActivityIndicator, RefreshControl,
-  ScrollView, PanResponder
+  ScrollView, PanResponder, Share, Linking
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons, MaterialIcons, Feather, AntDesign } from '@expo/vector-icons';
@@ -61,6 +61,16 @@ export default function Home() {
 
   const slideAnim = useRef(new Animated.Value(-width * 0.75)).current;
 
+  const handleShareApp = async () => {
+    try {
+      await Share.share({
+        message: 'Download BeHappyTalk to talk with expert consultants instantly! https://behappytalk.com/download',
+      });
+    } catch (error: any) {
+      console.log(error.message);
+    }
+  };
+
   const fetchData = (isRefresh = false) => {
     if (!user) return;
     if (!isRefresh) setLoading(true);
@@ -72,6 +82,12 @@ export default function Home() {
       secureFetch(`${API_URL}/user/${user.id}?t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()),
     ])
       .then(([prov, inbox, recents, userData]) => {
+        // SECURITY: If the user's account was deleted or banned from the database, force log them out immediately
+        if (userData && userData.error === 'User not found.') {
+          clearUser().then(() => router.replace('/login'));
+          return;
+        }
+
         setProviders(prov.map((p: any) => ({ ...p, image: p.imagePath ? { uri: p.imagePath } : PROVIDER_IMAGE })));
         setRecentContacts(recents.map((r: any) => ({ ...r, image: r.imagePath ? { uri: r.imagePath } : PROVIDER_IMAGE })));
         setWalletBalance(userData.walletBalance || Math.floor(userData.walletbalance) || 5000);
@@ -290,11 +306,12 @@ export default function Home() {
     setDurationModal(true);
   };
 
-  const submitRequest = (duration: number) => {
+  const submitRequest = (duration: number | 'unlimited') => {
     if (!selectedInteraction || !selectedProvider) return;
     const { type, rate } = selectedInteraction;
 
-    if (walletBalance < rate * duration) {
+    const requiredBalance = duration === 'unlimited' ? rate * 1 : rate * duration;
+    if (walletBalance < requiredBalance) {
       setDurationModal(false);
       setInsufficientModal(true);
       return;
@@ -514,14 +531,24 @@ export default function Home() {
             <View style={styles.drawerListSection}>
               <Text style={styles.drawerSectionTitle}>{t('communicate') || 'Communicate'}</Text>
 
+              <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/refer'); }}>
+                <MaterialCommunityIcons name="gift-outline" size={24} color="rgba(255,255,255,0.70)" />
+                <Text style={styles.drawerMenuText}>Refer a Friend</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); handleShareApp(); }}>
+                <MaterialCommunityIcons name="share-variant" size={24} color="rgba(255,255,255,0.70)" />
+                <Text style={styles.drawerMenuText}>Share App</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/history'); }}>
                 <MaterialCommunityIcons name="history" size={24} color="rgba(255,255,255,0.70)" />
                 <Text style={styles.drawerMenuText}>{t('usage') || 'Call Summary'}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/care'); }}>
-                <MaterialCommunityIcons name="heart-box" size={24} color="rgba(255,255,255,0.70)" />
-                <Text style={styles.drawerMenuText}>{t('userCare')}</Text>
+              <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); Linking.openURL('mailto:care@BeHappyTalk.com'); }}>
+                <MaterialCommunityIcons name="headset" size={24} color="rgba(255,255,255,0.70)" />
+                <Text style={styles.drawerMenuText}>Support</Text>
               </TouchableOpacity>
 
               <View style={styles.drawerMenuItem}>
@@ -737,6 +764,17 @@ export default function Home() {
                        <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14 }}>₹ {selectedInteraction ? selectedInteraction.rate * min : 0}</Text>
                     </TouchableOpacity>
                  ))}
+                 
+                 <TouchableOpacity
+                    style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(52, 211, 153, 0.1)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(52, 211, 153, 0.3)' }}
+                    onPress={() => submitRequest('unlimited')}
+                 >
+                    <View>
+                       <Text style={{ color: '#34D399', fontSize: 16, fontWeight: 'bold' }}>Pay As You Go</Text>
+                       <Text style={{ color: 'rgba(52, 211, 153, 0.7)', fontSize: 12, marginTop: 2 }}>Talk until your balance runs out</Text>
+                    </View>
+                    <Text style={{ color: 'rgba(52, 211, 153, 0.7)', fontSize: 14 }}>₹ {selectedInteraction ? selectedInteraction.rate : 0}/min</Text>
+                 </TouchableOpacity>
               </View>
            </View>
         </View>
