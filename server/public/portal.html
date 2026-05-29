@@ -1100,6 +1100,12 @@
     let isVidShare = false;
     let activeVidPanel = null;
 
+    // WebRTC State Variables
+    let pc = null;
+    let localStream = null;
+    let pendingCandidates = [];
+    let mediaPromise = null;
+
     // Local Persistence
     const saved = localStorage.getItem('bt_provider');
     if (saved) {
@@ -2415,10 +2421,6 @@ function renderMsg(msg) {
     }
 
     // WebRTC Implementation
-    let pc = null;
-    let localStream = null;
-    let pendingCandidates = [];
-
     const ICE_CONFIG = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -2521,48 +2523,54 @@ function renderMsg(msg) {
     }
 
     async function startMedia(type) {
-       if (localStream) {
-         console.log('[WebRTC] startMedia called but stream already exists — skipping duplicate');
-         return;
-       }
-       if (type === 'Chat') return;
+       if (mediaPromise) return mediaPromise;
+       
+       mediaPromise = new Promise(async (resolve, reject) => {
+         if (localStream) {
+           console.log('[WebRTC] startMedia called but stream already exists — skipping duplicate');
+           return resolve(localStream);
+         }
+         if (type === 'Chat') return resolve(null);
 
-       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-           console.error('FATAL: Camera/Microphone API blocked.');
-           return Promise.reject('Camera API blocked');
-       }
+         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+             console.error('FATAL: Camera/Microphone API blocked.');
+             return reject('Camera API blocked');
+         }
 
-       try {
-           localStream = await navigator.mediaDevices.getUserMedia({
-              audio: true,
-              video: type === 'Video'
-           });
+         try {
+             localStream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: type === 'Video'
+             });
 
-           if (type === 'Video') {
-              let localVideo = document.getElementById('local-video');
-              if (currentIncomingReq && currentIncomingReq.type === 'Video') {
-                  document.getElementById('vid-pip-cam').style.display = 'none';
-                  document.getElementById('vid-pip-off').style.display = 'none';
-              }
-              localVideo.innerHTML = '';
-              const videoEl = document.createElement('video');
-              videoEl.srcObject = localStream;
-              videoEl.autoplay = true;
-              videoEl.playsInline = true;
-              videoEl.muted = true;
-              if (currentIncomingReq && currentIncomingReq.type === 'Video') {
-                 videoEl.style.width = '100%'; videoEl.style.height = '100%'; videoEl.style.objectFit = 'cover';
-              }
-              localVideo.appendChild(videoEl);
-           }
+             if (type === 'Video') {
+                let localVideo = document.getElementById('local-video');
+                if (currentIncomingReq && currentIncomingReq.type === 'Video') {
+                    document.getElementById('vid-pip-cam').style.display = 'none';
+                    document.getElementById('vid-pip-off').style.display = 'none';
+                }
+                localVideo.innerHTML = '';
+                const videoEl = document.createElement('video');
+                videoEl.srcObject = localStream;
+                videoEl.autoplay = true;
+                videoEl.playsInline = true;
+                videoEl.muted = true;
+                if (currentIncomingReq && currentIncomingReq.type === 'Video') {
+                   videoEl.style.width = '100%'; videoEl.style.height = '100%'; videoEl.style.objectFit = 'cover';
+                }
+                localVideo.appendChild(videoEl);
+             }
 
-           if (!pc) createPeerConnection();
-           localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-           return localStream;
-       } catch (err) {
-           console.error('[WebRTC] Media Error:', err);
-           throw err;
-       }
+             if (!pc) createPeerConnection();
+             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+             resolve(localStream);
+         } catch (err) {
+             console.error('[WebRTC] Media Error:', err);
+             reject(err);
+         }
+       });
+       
+       return mediaPromise;
     }
 
     function stopMedia() {
