@@ -2484,7 +2484,7 @@ function renderMsg(msg) {
 
       pc.ontrack = (event) => {
         const track = event.track;
-        console.log('[WebRTC] ontrack:', track.kind, 'readyState:', track.readyState, 'streams:', event.streams.length);
+        console.log('[WebRTC] ontrack:', track.kind, 'readyState:', track.readyState, 'muted:', track.muted, 'streams:', event.streams.length);
 
         const isVideoCall = currentIncomingReq && currentIncomingReq.type === 'Video';
 
@@ -2507,7 +2507,6 @@ function renderMsg(msg) {
         if (!videoEl) { console.error('[WebRTC] remote-video-el not found!'); return; }
 
         const stream = event.streams[0] || (() => {
-          // Build/extend stream if tracks arrive without one
           let s = videoEl.srcObject instanceof MediaStream ? videoEl.srcObject : new MediaStream();
           if (!s.getTracks().find(t => t.id === track.id)) s.addTrack(track);
           return s;
@@ -2518,6 +2517,18 @@ function renderMsg(msg) {
           videoEl.srcObject = stream;
         }
 
+        // onunmute fires the moment RTP packets start arriving from the mobile.
+        // This is more reliable than a fixed timer — we play() exactly when data flows.
+        track.onunmute = () => {
+          console.log('[WebRTC] Track UNMUTED (RTP flowing):', track.kind);
+          videoEl.play().catch(err => {
+            console.warn('[WebRTC] play() after unmute blocked:', err);
+            showPlayOverlay(document.getElementById('remote-video'), videoEl);
+          });
+        };
+        track.onmute = () => console.warn('[WebRTC] Track MUTED (RTP stopped):', track.kind);
+
+        // Also attempt play immediately (in case track is already unmuted)
         videoEl.play().catch(err => {
           console.warn('[WebRTC] Remote video play blocked:', err);
           showPlayOverlay(document.getElementById('remote-video'), videoEl);
@@ -2541,20 +2552,33 @@ function renderMsg(msg) {
            setTalkingState(true);
            setVidState('active');
 
-           // Re-trigger play after UI becomes visible
-           setTimeout(() => {
-             const videoEl = document.getElementById('remote-video-el');
-             if (videoEl && videoEl.srcObject) {
-               const tracks = videoEl.srcObject.getTracks();
-               console.log('[WebRTC] Post-active tracks:', tracks.map(t => `${t.kind}(enabled=${t.enabled},muted=${t.muted})`));
-               videoEl.play().catch(err => showPlayOverlay(document.getElementById('remote-video'), videoEl));
-             } else {
-               console.warn('[WebRTC] No srcObject on remote-video-el after ICE connected');
-             }
-           }, 300);
+           // Attempt play immediately when ICE connects
+           const videoEl = document.getElementById('remote-video-el');
+           if (videoEl && videoEl.srcObject) {
+             videoEl.play().catch(console.warn);
+           }
         }
         if (['disconnected', 'failed', 'closed'].includes(pc.iceConnectionState)) {
            stopMedia();
+        }
+      };
+
+      // Track DTLS/full connection state (fires AFTER ICE + DTLS both complete)
+      pc.onconnectionstatechange = () => {
+        if (!pc) return;
+        console.log('[WebRTC] Connection state (DTLS):', pc.connectionState);
+        if (pc.connectionState === 'connected') {
+          // DTLS done — RTP should be flowing now. Force play.
+          const videoEl = document.getElementById('remote-video-el');
+          if (videoEl && videoEl.srcObject) {
+            videoEl.play().catch(console.warn);
+            const tracks = videoEl.srcObject.getTracks();
+            console.log('[WebRTC] DTLS connected, tracks:', tracks.map(t => `${t.kind}(muted=${t.muted})`));
+          }
+        }
+        if (pc.connectionState === 'failed') {
+          console.error('[WebRTC] Connection FAILED — DTLS or media failed');
+          stopMedia();
         }
       };
 
