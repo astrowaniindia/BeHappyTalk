@@ -2450,304 +2450,62 @@ function renderMsg(msg) {
       document.getElementById('stat-time').innerText = `${m}:${s}`;
     }
 
-    // WebRTC Implementation
+    // WebRTC Implementation (Stubbed)
     async function createPeerConnection() {
-      // Return existing PC only if it is in a usable state
-      if (pc && pc.signalingState !== 'closed' && pc.iceConnectionState !== 'failed' && pc.iceConnectionState !== 'closed') {
-        return pc;
-      }
-      // Otherwise clean up the stale/dead PC and create a fresh one
-      if (pc) {
-        try { pc.close(); } catch(e) {}
-        pc = null;
-      }
-      pendingCandidates = [];
-      isProcessingOffer = false;
-      const iceConfig = await getIceConfig();
-      pc = new RTCPeerConnection(iceConfig);
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit('webrtc_signal', {
-            to: `chat_${activeUserId}_${provider.id}`,
-            signal: { type: 'candidate', candidate: event.candidate }
-          });
-        }
-      };
-
-      pc.ontrack = (event) => {
-        const track = event.track;
-        console.log('[WebRTC] ontrack:', track.kind, 'readyState:', track.readyState, 'muted:', track.muted, 'streams:', event.streams.length);
-
-        const isVideoCall = currentIncomingReq && currentIncomingReq.type === 'Video';
-
-        // Audio-only call: dedicated hidden <audio> element
-        if (!isVideoCall && track.kind === 'audio') {
-          if (!remoteAudioEl) {
-            remoteAudioEl = document.createElement('audio');
-            remoteAudioEl.autoplay = true;
-            remoteAudioEl.style.display = 'none';
-            document.body.appendChild(remoteAudioEl);
-          }
-          const s = event.streams[0] || new MediaStream([track]);
-          if (remoteAudioEl.srcObject !== s) remoteAudioEl.srcObject = s;
-          remoteAudioEl.play().catch(e => console.warn('[WebRTC] Remote audio play blocked:', e));
-          return;
-        }
-
-        // Video call: use the permanent pre-rendered <video> element
-        const videoEl = document.getElementById('remote-video-el');
-        if (!videoEl) { console.error('[WebRTC] remote-video-el not found!'); return; }
-
-        const stream = event.streams[0] || (() => {
-          let s = videoEl.srcObject instanceof MediaStream ? videoEl.srcObject : new MediaStream();
-          if (!s.getTracks().find(t => t.id === track.id)) s.addTrack(track);
-          return s;
-        })();
-
-        // Add event listeners on the video element for detailed debugging
-        videoEl.onplay = () => console.log('[VideoEl] play event fired');
-        videoEl.onplaying = () => console.log('[VideoEl] playing event fired, dimensions:', videoEl.videoWidth, 'x', videoEl.videoHeight);
-        videoEl.onpause = () => console.log('[VideoEl] pause event fired');
-        videoEl.onresize = () => console.log('[VideoEl] resize event fired, new dimensions:', videoEl.videoWidth, 'x', videoEl.videoHeight);
-        videoEl.onerror = () => console.error('[VideoEl] error event fired:', videoEl.error);
-
-        if (videoEl.srcObject !== stream) {
-          console.log('[WebRTC] Setting srcObject, tracks:', stream.getTracks().map(t => t.kind));
-          videoEl.srcObject = stream;
-        }
-
-        // onunmute fires the moment RTP packets start arriving from the mobile.
-        // This is more reliable than a fixed timer — we play() exactly when data flows.
-        track.onunmute = () => {
-          console.log('[WebRTC] Track UNMUTED (RTP flowing):', track.kind);
-          if (track.kind === 'video') {
-            console.log('[WebRTC] Video track unmuted, refreshing srcObject...');
-            videoEl.srcObject = stream; // Re-assign to force renderer refresh
-          }
-          videoEl.play().catch(err => {
-            console.warn('[WebRTC] play() after unmute blocked:', err);
-            showPlayOverlay(document.getElementById('remote-video'), videoEl);
-          });
-        };
-        track.onmute = () => console.warn('[WebRTC] Track MUTED (RTP stopped):', track.kind);
-
-        // Also attempt play immediately (in case track is already unmuted)
-        videoEl.play().catch(err => {
-          console.warn('[WebRTC] Remote video play blocked:', err);
-          showPlayOverlay(document.getElementById('remote-video'), videoEl);
-        });
-      };
-
-      pc.oniceconnectionstatechange = () => {
-        if (!pc) return;
-        console.log('[WebRTC] ICE state:', pc.iceConnectionState);
-        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-           curVid.status = 'active';
-           renderVidQueue();
-           document.getElementById('vid-active-name').innerText = curVid.name;
-           document.getElementById('vid-active-avatar').innerText = curVid.name.charAt(0);
-           const saved = localStorage.getItem('vnotes_' + curVid.id);
-           document.getElementById('vid-notes-input').value = saved || '';
-           document.getElementById('vid-chat-list').innerHTML = '';
-           
-           vidSecs = 0; isVidHold = false; clearInterval(vidTimer);
-           vidTimer = setInterval(tickVid, 1000);
-           setTalkingState(true);
-           setVidState('active');
-
-           // Attempt play immediately when ICE connects
-           const videoEl = document.getElementById('remote-video-el');
-           if (videoEl && videoEl.srcObject) {
-             videoEl.play().catch(console.warn);
-           }
-        }
-        if (['disconnected', 'failed', 'closed'].includes(pc.iceConnectionState)) {
-           stopMedia();
-        }
-      };
-
-      // Track DTLS/full connection state (fires AFTER ICE + DTLS both complete)
-      pc.onconnectionstatechange = () => {
-        if (!pc) return;
-        console.log('[WebRTC] Connection state (DTLS):', pc.connectionState);
-        if (pc.connectionState === 'connected') {
-          // DTLS done — RTP should be flowing now. Force play.
-          const videoEl = document.getElementById('remote-video-el');
-          if (videoEl && videoEl.srcObject) {
-            videoEl.play().catch(console.warn);
-            const tracks = videoEl.srcObject.getTracks();
-            console.log('[WebRTC] DTLS connected, tracks:', tracks.map(t => `${t.kind}(muted=${t.muted})`));
-          }
-        }
-        if (pc.connectionState === 'failed') {
-          console.error('[WebRTC] Connection FAILED — DTLS or media failed');
-          stopMedia();
-        }
-      };
-
-      return pc;
+      console.log('[WebRTC Stub] createPeerConnection called');
+      return null;
     }
 
-    let isProcessingOffer = false;
     async function handleWebRTCSignal(signal) {
-      // Only create PC automatically when an offer arrives (mobile sends the offer)
-      // For candidates, if there's no PC yet, queue them — don't create a PC with no media tracks
-      if (signal.type === 'offer' && !pc) await createPeerConnection();
-
-      if (!pc) { // No PC yet — queue candidates, ignore others
-        if (signal.type === 'candidate') pendingCandidates.push(signal.candidate);
-        return;
-      }
-
-      try {
-        if (signal.type === 'offer') {
-          if (pc.signalingState !== 'stable') return;
-          if (isProcessingOffer) return;
-          isProcessingOffer = true;
-          
-          try {
-            await pc.setRemoteDescription(new RTCSessionDescription(signal));
-            
-            for (const c of pendingCandidates) {
-              await pc.addIceCandidate(new RTCIceCandidate(c));
-            }
-            pendingCandidates = [];
-
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            
-            socket.emit('webrtc_signal', {
-              to: `chat_${activeUserId}_${provider.id}`,
-              signal: pc.localDescription
-            });
-          } finally {
-            isProcessingOffer = false;
-          }
-          
-        } else if (signal.type === 'answer') {
-           // Portal does not send offers, so shouldn't receive answers, but just in case
-           if (pc.signalingState !== 'have-local-offer') return;
-           await pc.setRemoteDescription(new RTCSessionDescription(signal));
-           for (const c of pendingCandidates) {
-             await pc.addIceCandidate(new RTCIceCandidate(c));
-           }
-           pendingCandidates = [];
-        } else if (signal.type === 'candidate') {
-          if (pc.remoteDescription) {
-            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
-          } else {
-            pendingCandidates.push(signal.candidate);
-          }
-        }
-      } catch (err) {
-        console.error('[WebRTC] Signal Error:', err);
-      }
+      console.log('[WebRTC Stub] handleWebRTCSignal received:', signal?.type);
     }
 
     async function startMedia(type) {
-       if (mediaPromise) return mediaPromise;
+       console.log('[WebRTC Stub] startMedia requested for:', type);
+       if (type === 'Video') {
+         let localVideo = document.getElementById('local-video');
+         if (localVideo) {
+           localVideo.innerHTML = '<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#222; color:#fff;">Local Video Preview</div>';
+           localVideo.style.display = 'block';
+           localVideo.style.zIndex = '10';
+         }
+       }
+       // Automatically transition the portal UI state to simulated active after 1 second
+       setTimeout(() => {
+          if (pc === null) {
+            console.log('[WebRTC Stub] Simulating ICE connect...');
+            curVid.status = 'active';
+            renderVidQueue();
+            document.getElementById('vid-active-name').innerText = curVid.name;
+            document.getElementById('vid-active-avatar').innerText = curVid.name.charAt(0);
+            
+            vidSecs = 0; isVidHold = false; clearInterval(vidTimer);
+            vidTimer = setInterval(tickVid, 1000);
+            setTalkingState(true);
+            setVidState('active');
+          }
+       }, 1000);
        
-       mediaPromise = new Promise(async (resolve, reject) => {
-         if (localStream) {
-           console.log('[WebRTC] startMedia called but stream already exists — skipping duplicate');
-           return resolve(localStream);
-         }
-         if (type === 'Chat') return resolve(null);
-
-         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-             console.error('FATAL: Camera/Microphone API blocked.');
-             return reject('Camera API blocked');
-         }
-
-         try {
-             localStream = await Promise.race([
-               navigator.mediaDevices.getUserMedia({
-                  audio: true,
-                  video: type === 'Video'
-               }),
-               new Promise((_, reject) => setTimeout(() => reject(new Error('Camera/Microphone permission timeout. Please check your browser settings and allow access.')), 15000))
-             ]);
-
-             if (type === 'Video') {
-                let localVideo = document.getElementById('local-video');
-                localVideo.innerHTML = '';
-                const videoEl = document.createElement('video');
-                videoEl.srcObject = localStream;
-                videoEl.autoplay = true;
-                videoEl.playsInline = true;
-                videoEl.muted = true;
-                if (currentIncomingReq && currentIncomingReq.type === 'Video') {
-                   videoEl.style.width = '100%'; videoEl.style.height = '100%'; videoEl.style.objectFit = 'cover';
-                }
-                localVideo.appendChild(videoEl);
-                localVideo.style.display = 'block';
-                localVideo.style.zIndex = '10';
-             }
-
-             if (!pc) await createPeerConnection();
-             localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-             resolve(localStream);
-         } catch (err) {
-             console.error('[WebRTC] Media Error:', err);
-             reject(err);
-         }
-       });
-       
-       return mediaPromise;
+       return null;
     }
 
     function stopMedia() {
-       if (localStream) {
-         localStream.getTracks().forEach(t => t.stop());
-         localStream = null;
-       }
-       mediaPromise = null;       // BUG 1 FIX: reset so next call fetches a fresh stream
-       isProcessingOffer = false; // BUG 6 FIX: unblock offer processing on reconnect
-       if (remoteAudioEl) {       // BUG 4 FIX: tear down dedicated audio element
-         remoteAudioEl.srcObject = null;
-         try { remoteAudioEl.remove(); } catch(e) {}
-         remoteAudioEl = null;
-       }
-       if (pc) {
-         pc.close();
-         pc = null;
-       }
-       pendingCandidates = [];
+       console.log('[WebRTC Stub] stopMedia called');
+       clearInterval(vidTimer);
        if (document.getElementById('remote-video')) document.getElementById('remote-video').innerHTML = '';
        if (document.getElementById('local-video')) document.getElementById('local-video').innerHTML = '';
     }
 
-    // BUG 2 FIX: fallback overlay when browser blocks autoplay
     function showPlayOverlay(container, videoEl) {
-      if (container.querySelector('.play-overlay')) return;
-      const overlay = document.createElement('div');
-      overlay.className = 'play-overlay';
-      overlay.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);z-index:50;cursor:pointer;';
-      overlay.innerHTML = '<div style="background:var(--primary);color:var(--bg-darker);padding:16px 32px;border-radius:50px;font-weight:800;font-size:16px;">▶ Click to Enable Video</div>';
-      overlay.onclick = () => { videoEl.play().catch(console.error); overlay.remove(); };
-      container.style.position = 'relative';
-      container.appendChild(overlay);
+      console.log('[WebRTC Stub] showPlayOverlay');
     }
 
     function toggleOverlayMic() {
-      if (localStream) {
-        localStream.getAudioTracks().forEach(t => t.enabled = !t.enabled);
-        const isMuted = !localStream.getAudioTracks()[0].enabled;
-        const icon = isMuted ? 'fa-microphone-slash' : 'fa-microphone';
-        document.getElementById('call-mic').innerHTML = `<i class="fas ${icon}"></i>`;
-        document.getElementById('call-mic').style.background = isMuted ? 'var(--danger)' : 'rgba(255,255,255,0.08)';
-      }
+      console.log('[WebRTC Stub] toggleOverlayMic');
     }
     
     function toggleOverlayCam() {
-      if (localStream) {
-        localStream.getVideoTracks().forEach(t => t.enabled = !t.enabled);
-        const isMuted = !localStream.getVideoTracks()[0].enabled;
-        const icon = isMuted ? 'fa-video-slash' : 'fa-video';
-        document.getElementById('call-cam').innerHTML = `<i class="fas ${icon}"></i>`;
-        document.getElementById('call-cam').style.background = isMuted ? 'var(--danger)' : 'rgba(255,255,255,0.08)';
-      }
+      console.log('[WebRTC Stub] toggleOverlayCam');
     }
     
     function endOverlayCall() {
