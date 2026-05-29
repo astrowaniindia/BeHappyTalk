@@ -934,6 +934,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('webrtc_signal', ({ to, signal }) => {
+    // BUG 5 FIX: Log signal routing so we can verify room IDs match between mobile and portal
+    console.log(`[WebRTC Signal] socket=${socket.id} → room="${to}" type=${signal?.type || 'candidate'}`);
     socket.to(to).emit('webrtc_signal', { signal });
     // Failsafe routing: if the room is a chat room, also broadcast to the explicit user/provider rooms
     // to prevent signal loss during socket reconnections or navigation transitions.

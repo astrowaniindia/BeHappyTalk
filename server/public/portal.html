@@ -1113,6 +1113,7 @@
     let localStream = null;
     let pendingCandidates = [];
     let mediaPromise = null;
+    let remoteAudioEl = null;
 
     async function getIceConfig() {
       try {
@@ -2454,9 +2455,17 @@ function renderMsg(msg) {
 
     // WebRTC Implementation
     async function createPeerConnection() {
-      // Return existing PC if it exists (so we don't destroy it during a race condition)
-      if (pc) return pc;
+      // Return existing PC only if it is in a usable state
+      if (pc && pc.signalingState !== 'closed' && pc.iceConnectionState !== 'failed' && pc.iceConnectionState !== 'closed') {
+        return pc;
+      }
+      // Otherwise clean up the stale/dead PC and create a fresh one
+      if (pc) {
+        try { pc.close(); } catch(e) {}
+        pc = null;
+      }
       pendingCandidates = [];
+      isProcessingOffer = false;
       const iceConfig = await getIceConfig();
       pc = new RTCPeerConnection(iceConfig);
 
@@ -2471,20 +2480,39 @@ function renderMsg(msg) {
 
       pc.ontrack = (event) => {
         const stream = event.streams[0] || new MediaStream([event.track]);
+        const track = event.track;
+
+        // For audio-only calls, use a dedicated hidden <audio> element so
+        // audio plays regardless of which UI panel is currently visible.
+        if (track.kind === 'audio' && currentIncomingReq && currentIncomingReq.type !== 'Video') {
+          if (!remoteAudioEl) {
+            remoteAudioEl = document.createElement('audio');
+            remoteAudioEl.autoplay = true;
+            remoteAudioEl.style.display = 'none';
+            document.body.appendChild(remoteAudioEl);
+          }
+          if (remoteAudioEl.srcObject !== stream) remoteAudioEl.srcObject = stream;
+          remoteAudioEl.play().catch(e => console.warn('[WebRTC] Remote audio play blocked:', e));
+          return;
+        }
+
+        // Video call: reuse existing <video> element to avoid flicker
         const remoteVideo = document.getElementById('remote-video');
-        
-        // Remove existing video element if any
-        remoteVideo.innerHTML = '';
-        
-        const videoEl = document.createElement('video');
-        videoEl.srcObject = stream;
-        videoEl.autoplay = true;
-        videoEl.playsInline = true;
-        videoEl.style.width = '100%';
-        videoEl.style.height = '100%';
-        videoEl.style.objectFit = 'cover';
-        
-        remoteVideo.appendChild(videoEl);
+        let videoEl = remoteVideo.querySelector('video');
+        if (!videoEl) {
+          videoEl = document.createElement('video');
+          videoEl.autoplay = true;
+          videoEl.playsInline = true;
+          videoEl.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+          remoteVideo.appendChild(videoEl);
+        }
+        if (videoEl.srcObject !== stream) videoEl.srcObject = stream;
+
+        // Manually trigger play — handles browsers that block autoplay
+        videoEl.play().catch(err => {
+          console.warn('[WebRTC] Remote video autoplay blocked:', err);
+          showPlayOverlay(remoteVideo, videoEl);
+        });
       };
 
       pc.oniceconnectionstatechange = () => {
@@ -2624,6 +2652,13 @@ function renderMsg(msg) {
          localStream.getTracks().forEach(t => t.stop());
          localStream = null;
        }
+       mediaPromise = null;       // BUG 1 FIX: reset so next call fetches a fresh stream
+       isProcessingOffer = false; // BUG 6 FIX: unblock offer processing on reconnect
+       if (remoteAudioEl) {       // BUG 4 FIX: tear down dedicated audio element
+         remoteAudioEl.srcObject = null;
+         try { remoteAudioEl.remove(); } catch(e) {}
+         remoteAudioEl = null;
+       }
        if (pc) {
          pc.close();
          pc = null;
@@ -2631,6 +2666,18 @@ function renderMsg(msg) {
        pendingCandidates = [];
        if (document.getElementById('remote-video')) document.getElementById('remote-video').innerHTML = '';
        if (document.getElementById('local-video')) document.getElementById('local-video').innerHTML = '';
+    }
+
+    // BUG 2 FIX: fallback overlay when browser blocks autoplay
+    function showPlayOverlay(container, videoEl) {
+      if (container.querySelector('.play-overlay')) return;
+      const overlay = document.createElement('div');
+      overlay.className = 'play-overlay';
+      overlay.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);z-index:50;cursor:pointer;';
+      overlay.innerHTML = '<div style="background:var(--primary);color:var(--bg-darker);padding:16px 32px;border-radius:50px;font-weight:800;font-size:16px;">▶ Click to Enable Video</div>';
+      overlay.onclick = () => { videoEl.play().catch(console.error); overlay.remove(); };
+      container.style.position = 'relative';
+      container.appendChild(overlay);
     }
 
     function toggleOverlayMic() {
