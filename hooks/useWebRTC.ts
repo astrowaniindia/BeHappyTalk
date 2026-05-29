@@ -125,29 +125,32 @@ export function useWebRTC(socketRef: any, roomId: string): UseWebRTCReturn {
         }
       };
 
-      // ── KEY FIX: Use ontrack (not deprecated onaddstream) ─────────────────
-      // Build the remote MediaStream incrementally as tracks arrive.
+      // ── KEY FIX: Use native stream from event.streams[0] ──────────────────
       pc.ontrack = (event) => {
         console.log('[WebRTC] ontrack fired, kind:', event.track.kind);
 
-        // Re-use the existing remote stream or create one
-        let stream = remoteStreamRef.current;
-        if (!stream) {
-          stream = new MediaStream([]);
-          remoteStreamRef.current = stream;
-        }
+        if (event.streams && event.streams[0]) {
+          console.log('[WebRTC] Remote stream obtained from event:', event.streams[0].id);
+          remoteStreamRef.current = event.streams[0];
+          setRemoteStream(event.streams[0]);
+        } else {
+          // Fallback: build stream from individual tracks if streams is empty
+          let stream = remoteStreamRef.current;
+          if (!stream) {
+            stream = new MediaStream([]);
+            remoteStreamRef.current = stream;
+          }
 
-        // Avoid adding the same track twice
-        const alreadyHas = stream
-          .getTracks()
-          .some((t) => t.id === event.track.id);
-        if (!alreadyHas) {
-          stream.addTrack(event.track);
-          console.log('[WebRTC] Added remote track:', event.track.kind);
-        }
+          const alreadyHas = stream
+            .getTracks()
+            .some((t) => t.id === event.track.id);
+          if (!alreadyHas) {
+            stream.addTrack(event.track);
+            console.log('[WebRTC] Added remote track to fallback stream:', event.track.kind);
+          }
 
-        // Force a state update so RTCView re-renders
-        setRemoteStream(new MediaStream(stream.getTracks()));
+          setRemoteStream(stream);
+        }
       };
 
       return pc;
