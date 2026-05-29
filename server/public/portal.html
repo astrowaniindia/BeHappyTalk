@@ -2510,6 +2510,20 @@ function renderMsg(msg) {
       // ── Remote track handler — THE key fix for black screen ──────────────
       newPc.ontrack = (event) => {
         console.log('[WebRTC] ontrack:', event.track.kind);
+        
+        // Activate UI as soon as we get remote tracks (fallback if ICE state fires early)
+        if (curVid && curVid.status !== 'active') {
+          curVid.status = 'active';
+          renderVidQueue();
+          document.getElementById('vid-active-name').innerText = curVid.name;
+          document.getElementById('vid-active-avatar').innerText = curVid.name.charAt(0);
+          vidSecs = 0; isVidHold = false;
+          clearInterval(vidTimer);
+          vidTimer = setInterval(tickVid, 1000);
+          setTalkingState(true);
+          setVidState('active');
+        }
+
         const remoteVideoEl = document.getElementById('remote-video-el');
 
         if (event.streams && event.streams[0]) {
@@ -2617,9 +2631,9 @@ function renderMsg(msg) {
 
       try {
         if (signal.type === 'offer') {
-          // Guard: ignore duplicate offers when already stable/connected
-          if (pc && remoteDescSet && pc.signalingState === 'stable') {
-            console.warn('[WebRTC] Ignoring duplicate offer — already connected');
+          // Guard: ignore duplicate offers when already answered
+          if (pc && remoteDescSet) {
+            console.warn('[WebRTC] Ignoring duplicate offer — already answered (state: ' + pc.signalingState + ')');
             return;
           }
           // Mobile app sent an offer — we answer
