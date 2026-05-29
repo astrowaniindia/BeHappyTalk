@@ -2459,9 +2459,11 @@ function renderMsg(msg) {
         videoEl.srcObject = stream;
         videoEl.autoplay = true;
         videoEl.playsInline = true;
+        videoEl.style.width = '100%';
+        videoEl.style.height = '100%';
+        videoEl.style.objectFit = 'cover';
         
         remoteVideo.appendChild(videoEl);
-        document.getElementById('media-desc').innerText = 'Connected';
       };
 
       pc.oniceconnectionstatechange = () => {
