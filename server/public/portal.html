@@ -2676,6 +2676,8 @@ function renderMsg(msg) {
       }
     }
 
+    let isProcessingOffer = false;
+
     // ── handleWebRTCSignal — processes offer/answer/candidates ───────────────
     async function handleWebRTCSignal(signal) {
       if (!signal) return;
@@ -2683,13 +2685,16 @@ function renderMsg(msg) {
 
       try {
         if (signal.type === 'offer') {
-          // Guard: ignore duplicate offers when already answered
-          if (pc && remoteDescSet) {
-            console.warn('[WebRTC] Ignoring duplicate offer — already answered (state: ' + pc.signalingState + ')');
+          // Guard: ignore duplicate offers when already answered or currently processing one
+          if ((pc && remoteDescSet) || isProcessingOffer) {
+            console.warn('[WebRTC] Ignoring duplicate offer — already answered or processing');
             return;
           }
-          // Mobile app sent an offer — we answer
-          if (!pc) {
+          isProcessingOffer = true;
+          
+          try {
+            // Mobile app sent an offer — we answer
+            if (!pc) {
             console.warn('[WebRTC] Offer received but PC not ready, creating PC now...');
             isVideoCall = signal.sdp && signal.sdp.includes('m=video');
             pc = await createPeerConnection();
@@ -2726,6 +2731,9 @@ function renderMsg(msg) {
               signal: { type: 'answer', sdp: answer.sdp }
             });
             console.log('[WebRTC] Answer sent to room:', room);
+          }
+          } finally {
+            isProcessingOffer = false;
           }
         }
 

@@ -160,10 +160,16 @@ export default function DedicatedCallScreen() {
       if (!callStartedRef.current) {
         callStartedRef.current = true;
         console.log('[Call] Initiating WebRTC call...');
-        setTimeout(async () => {
+        const timeoutId = setTimeout(async () => {
           await stopRingback();
           startCall(type === 'Video');
         }, 500);
+        
+        // Store timeout ID to clear on unmount
+        if (!(socketRef.current as any)._timeouts) {
+           (socketRef.current as any)._timeouts = [];
+        }
+        (socketRef.current as any)._timeouts.push(timeoutId);
       }
     });
 
@@ -189,6 +195,10 @@ export default function DedicatedCallScreen() {
       backHandler.remove();
       stopRingback();
       if (socketRef.current) {
+        const timeouts = (socketRef.current as any)._timeouts;
+        if (timeouts) {
+           timeouts.forEach(clearTimeout);
+        }
         socketRef.current.disconnect();
         socketRef.current = null;
       }

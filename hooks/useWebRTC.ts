@@ -302,6 +302,10 @@ export function useWebRTC(socketRef: any, roomId: string): UseWebRTCReturn {
         else if (signal.type === 'answer') {
           const pc = pcRef.current;
           if (!pc) return;
+          if (pc.signalingState === 'stable') {
+            console.log('[WebRTC] Ignoring duplicate answer (state is already stable)');
+            return;
+          }
           await pc.setRemoteDescription(
             new RTCSessionDescription({ type: 'answer', sdp: signal.sdp })
           );
