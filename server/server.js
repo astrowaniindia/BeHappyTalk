@@ -934,20 +934,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('webrtc_signal', ({ to, signal }) => {
-    // BUG 5 FIX: Log signal routing so we can verify room IDs match between mobile and portal
+    // Log signal routing so we can verify room IDs match between mobile and portal
     console.log(`[WebRTC Signal] socket=${socket.id} → room="${to}" type=${signal?.type || 'candidate'}`);
     socket.to(to).emit('webrtc_signal', { signal });
-    // Failsafe routing: if the room is a chat room, also broadcast to the explicit user/provider rooms
-    // to prevent signal loss during socket reconnections or navigation transitions.
-    if (to && to.startsWith('chat_')) {
-       const parts = to.split('_');
-       if (parts.length === 3) {
-          const uId = parts[1];
-          const pId = parts[2];
-          socket.to(`user_room_${uId}`).emit('webrtc_signal', { signal });
-          socket.to(`provider_room_${pId}`).emit('webrtc_signal', { signal });
-       }
-    }
   });
 
   socket.on('typing', ({ to, from }) => {
