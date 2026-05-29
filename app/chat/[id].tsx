@@ -61,8 +61,10 @@ export default function ChatScreen() {
   const socketRef = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
-  // FIX: Guard to ensure startCall is called exactly once
+  // Guard to ensure startCall is called exactly once
   const callStartedRef = useRef(false);
+  // Stable ref for handleSignal — prevents stale closures when socket reconnects
+  const handleSignalRef = useRef<((payload: any) => void) | null>(null);
 
   const userId = user?.id;
   const roomId = userId && providerId ? `chat_${userId}_${providerId}` : '';
@@ -229,7 +231,10 @@ export default function ChatScreen() {
       }
     });
 
-    socketRef.current.on('webrtc_signal', handleSignal);
+    socketRef.current.on('webrtc_signal', (payload: any) => {
+      // Use latest handleSignal via ref to avoid stale closure issues
+      if (handleSignalRef.current) handleSignalRef.current(payload);
+    });
 
     socketRef.current.on('receive_message', (newMsg: any) => {
       if (newMsg.senderId === providerId) {
@@ -290,21 +295,19 @@ export default function ChatScreen() {
       backHandler.remove();
       stopRingback();
       if (socketRef.current) {
-        socketRef.current.off('webrtc_signal', handleSignal);
         socketRef.current.disconnect();
         socketRef.current = null;
       }
-      endCall();
+      // NOTE: endCall is intentionally NOT called here — socket reconnects
+      // trigger this cleanup and would kill an active call. endCall is only
+      // called explicitly from endSession() or session_ended event.
     };
   }, [userId, providerId]);
 
-  // FIX: handleSignal and startCall are stable refs from useWebRTC,
-  // so we only need to re-attach if they change. Add them as listeners
-  // separately to avoid re-running the whole effect.
+  // Keep handleSignalRef in sync with the latest handleSignal closure
+  // This lets the socket listener always call the freshest version without re-attaching
   useEffect(() => {
-    if (!socketRef.current) return;
-    socketRef.current.off('webrtc_signal');
-    socketRef.current.on('webrtc_signal', handleSignal);
+    handleSignalRef.current = handleSignal;
   }, [handleSignal]);
 
   const endSession = useCallback(() => {
