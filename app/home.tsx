@@ -157,7 +157,11 @@ export default function Home() {
         setConnectingModal(false);
         setSelectedProvider(null);
         setDurationModal(false);
-        router.push(`/chat/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
+        if (type === 'Call' || type === 'Video' || type === 'Audio') {
+          router.push(`/call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
+        } else {
+          router.push(`/chat/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
+        }
       });
 
       socketRef.current.on('session_rejected', () => {

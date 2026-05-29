@@ -37,6 +37,7 @@ interface CallViewProps {
   callerName: string;
   timeLeft?: number | null;
   isUnlimited?: boolean;
+  walletBalance?: number | null;
 }
 
 export default function CallView({
@@ -48,6 +49,7 @@ export default function CallView({
   callerName,
   timeLeft,
   isUnlimited,
+  walletBalance,
 }: CallViewProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
@@ -142,6 +144,14 @@ export default function CallView({
               <Text style={styles.timerText}>{formatTime(timeLeft!)}</Text>
             </View>
           )}
+        </View>
+      )}
+
+      {/* ── Wallet Balance overlay badge ───────────────────────────────── */}
+      {walletBalance !== undefined && walletBalance !== null && (
+        <View style={styles.walletBadge}>
+          <Ionicons name="wallet-outline" size={14} color="#FACC15" style={{ marginRight: 4 }} />
+          <Text style={styles.walletText}>₹{walletBalance}</Text>
         </View>
       )}
 
@@ -372,5 +382,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#e53935',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  walletBadge: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 40,
+    left: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(250, 204, 21, 0.3)',
+    zIndex: 10,
+  },
+  walletText: {
+    color: '#FACC15',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
