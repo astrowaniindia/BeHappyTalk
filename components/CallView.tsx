@@ -59,7 +59,7 @@ export default function CallView({ localStream, remoteStream, isVideo, isConnect
       {/* Remote stream — full screen, only if it's a Video call */}
       {remoteStream && isVideo ? (
         <RTCView
-          streamURL={remoteStream.toURL()}
+          stream={remoteStream}
           style={styles.remoteVideo}
           objectFit="cover"
           zOrder={0}
@@ -91,7 +91,7 @@ export default function CallView({ localStream, remoteStream, isVideo, isConnect
       {/* Local stream — picture in picture, bottom right, only for video */}
       {isVideo && localStream && !isVideoOff && (
         <RTCView
-          streamURL={localStream.toURL()}
+          stream={localStream}
           style={styles.localVideo}
           objectFit="cover"
           zOrder={1}
@@ -102,7 +102,7 @@ export default function CallView({ localStream, remoteStream, isVideo, isConnect
       {/* For audio calls — hidden RTCView still needed to play audio */}
       {!isVideo && localStream && (
         <RTCView
-          streamURL={localStream.toURL()}
+          stream={localStream}
           style={styles.hiddenAudio}
           zOrder={0}
         />
