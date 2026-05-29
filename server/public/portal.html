@@ -1251,6 +1251,7 @@
 
       // Session UI Logic
       socket.on('incoming_request', (req) => {
+        currentIncomingReq = req;
         const modal = document.getElementById('incoming-modal');
         document.getElementById('incoming-msg-text').innerText = `${req.userName} is requesting a ${req.type} session for ${req.duration} minutes. Accept to begin.`;
         let displayType = req.type.toUpperCase();
@@ -2537,10 +2538,13 @@ function renderMsg(msg) {
          }
 
          try {
-             localStream = await navigator.mediaDevices.getUserMedia({
-                audio: true,
-                video: type === 'Video'
-             });
+             localStream = await Promise.race([
+               navigator.mediaDevices.getUserMedia({
+                  audio: true,
+                  video: type === 'Video'
+               }),
+               new Promise((_, reject) => setTimeout(() => reject(new Error('Camera/Microphone permission timeout. Please check your browser settings and allow access.')), 15000))
+             ]);
 
              if (type === 'Video') {
                 let localVideo = document.getElementById('local-video');
