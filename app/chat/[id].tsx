@@ -69,18 +69,31 @@ export default function ChatScreen() {
 
   const { localStream, remoteStream, isConnected, startCall, handleSignal, endCall } = useWebRTC(socketRef, roomId);
 
-  // ─── Timer countdown ────────────────────────────────────────────────────────
+  // ─── Timer logic ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (duration) setTimeLeft(parseInt(duration, 10) * 60);
+    if (duration === 'unlimited') {
+      setTimeLeft(0);
+    } else if (duration) {
+      setTimeLeft(parseInt(duration, 10) * 60);
+    }
   }, [duration]);
 
   useEffect(() => {
-    if (timeLeft === null || timeLeft <= 0) return;
+    if (!isConnected || timeLeft === null) return;
+    
     const timer = setInterval(() => {
-      setTimeLeft(prev => prev !== null ? prev - 1 : null);
+      setTimeLeft(prev => {
+        if (prev === null) return null;
+        if (duration === 'unlimited') {
+          return prev + 1; // Count up for Pay As You Go
+        } else {
+          return prev > 0 ? prev - 1 : 0; // Count down
+        }
+      });
     }, 1000);
+    
     return () => clearInterval(timer);
-  }, [timeLeft]);
+  }, [isConnected, timeLeft, duration]);
 
   // ─── Ringback sound ─────────────────────────────────────────────────────────
   const stopRingback = async () => {
@@ -417,6 +430,8 @@ export default function ChatScreen() {
               isConnected={isConnected}
               onEnd={endSession}
               callerName={contact.name}
+              timeLeft={timeLeft}
+              isUnlimited={duration === 'unlimited'}
             />
             {isConnecting && !isConnected && (
               <View style={styles.connectingOverlay}>

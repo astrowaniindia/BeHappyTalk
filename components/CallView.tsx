@@ -12,9 +12,11 @@ interface CallViewProps {
   isConnected: boolean;
   onEnd: () => void;
   callerName: string;
+  timeLeft?: number | null;
+  isUnlimited?: boolean;
 }
 
-export default function CallView({ localStream, remoteStream, isVideo, isConnected, onEnd, callerName }: CallViewProps) {
+export default function CallView({ localStream, remoteStream, isVideo, isConnected, onEnd, callerName, timeLeft, isUnlimited }: CallViewProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
 
@@ -46,10 +48,16 @@ export default function CallView({ localStream, remoteStream, isVideo, isConnect
     }
   };
 
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
   return (
     <View style={styles.container}>
-      {/* Remote stream — full screen */}
-      {remoteStream ? (
+      {/* Remote stream — full screen, only if it's a Video call */}
+      {remoteStream && isVideo ? (
         <RTCView
           streamURL={remoteStream.toURL()}
           style={styles.remoteVideo}
@@ -58,13 +66,25 @@ export default function CallView({ localStream, remoteStream, isVideo, isConnect
         />
       ) : (
         <View style={styles.waitingScreen}>
+          {isConnected && (timeLeft !== undefined && timeLeft !== null) && (
+            <View style={styles.timerContainer}>
+              <Text style={styles.timerText}>{formatTime(timeLeft)}</Text>
+            </View>
+          )}
           <View style={styles.avatarCircle}>
             <Text style={styles.avatarText}>{callerName?.charAt(0)?.toUpperCase()}</Text>
           </View>
           <Text style={styles.callerName}>{callerName}</Text>
           <Text style={styles.connectingText}>
-            {isConnected ? 'Connected' : 'Connecting...'}
+            {isConnected ? (isVideo ? 'Video Call' : 'Audio Call') : 'Connecting...'}
           </Text>
+        </View>
+      )}
+
+      {/* Floating Timer for Video Calls */}
+      {remoteStream && isVideo && isConnected && (timeLeft !== undefined && timeLeft !== null) && (
+        <View style={[styles.timerContainer, { position: 'absolute', top: 50, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+          <Text style={styles.timerText}>{formatTime(timeLeft)}</Text>
         </View>
       )}
 
@@ -127,7 +147,22 @@ const styles = StyleSheet.create({
   },
   hiddenAudio: { width: 0, height: 0 },
   waitingScreen: {
-    flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a2e',
+    flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000',
+  },
+  timerContainer: {
+    marginBottom: 40,
+    backgroundColor: 'rgba(250, 204, 21, 0.2)',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FACC15',
+  },
+  timerText: {
+    color: '#FACC15',
+    fontSize: 24,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   avatarCircle: {
     width: 100, height: 100, borderRadius: 50,
