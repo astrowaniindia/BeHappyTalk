@@ -2479,24 +2479,26 @@ function renderMsg(msg) {
       };
 
       pc.ontrack = (event) => {
-        const stream = event.streams[0] || new MediaStream([event.track]);
         const track = event.track;
+        console.log('[WebRTC] ontrack:', track.kind, 'readyState:', track.readyState, 'streams:', event.streams.length);
 
-        // For audio-only calls, use a dedicated hidden <audio> element so
-        // audio plays regardless of which UI panel is currently visible.
-        if (track.kind === 'audio' && currentIncomingReq && currentIncomingReq.type !== 'Video') {
+        const isVideoCall = currentIncomingReq && currentIncomingReq.type === 'Video';
+
+        // Audio-only call path
+        if (!isVideoCall && track.kind === 'audio') {
           if (!remoteAudioEl) {
             remoteAudioEl = document.createElement('audio');
             remoteAudioEl.autoplay = true;
             remoteAudioEl.style.display = 'none';
             document.body.appendChild(remoteAudioEl);
           }
-          if (remoteAudioEl.srcObject !== stream) remoteAudioEl.srcObject = stream;
+          const s = event.streams[0] || new MediaStream([track]);
+          if (remoteAudioEl.srcObject !== s) remoteAudioEl.srcObject = s;
           remoteAudioEl.play().catch(e => console.warn('[WebRTC] Remote audio play blocked:', e));
           return;
         }
 
-        // Video call: reuse existing <video> element to avoid flicker
+        // Video call path — handle tracks that may arrive separately
         const remoteVideo = document.getElementById('remote-video');
         let videoEl = remoteVideo.querySelector('video');
         if (!videoEl) {
@@ -2506,9 +2508,21 @@ function renderMsg(msg) {
           videoEl.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
           remoteVideo.appendChild(videoEl);
         }
-        if (videoEl.srcObject !== stream) videoEl.srcObject = stream;
 
-        // Manually trigger play — handles browsers that block autoplay
+        if (event.streams && event.streams[0]) {
+          // Standard path: use the stream from the event
+          if (videoEl.srcObject !== event.streams[0]) videoEl.srcObject = event.streams[0];
+        } else {
+          // Tracks arriving without a stream: build/extend our own MediaStream
+          if (!videoEl.srcObject) {
+            videoEl.srcObject = new MediaStream();
+          }
+          // Add track only if not already present
+          const existing = videoEl.srcObject.getTracks().find(t => t.id === track.id);
+          if (!existing) videoEl.srcObject.addTrack(track);
+        }
+
+        console.log('[WebRTC] Remote stream tracks:', videoEl.srcObject.getTracks().map(t => t.kind));
         videoEl.play().catch(err => {
           console.warn('[WebRTC] Remote video autoplay blocked:', err);
           showPlayOverlay(remoteVideo, videoEl);
@@ -2529,7 +2543,20 @@ function renderMsg(msg) {
            
            vidSecs = 0; isVidHold = false; clearInterval(vidTimer);
            vidTimer = setInterval(tickVid, 1000);
+           setTalkingState(true);
            setVidState('active');
+
+           // Re-trigger play after UI transition — ontrack may have fired while the
+           // vid-state-active panel was still display:none, preventing rendering.
+           setTimeout(() => {
+             const videoEl = document.querySelector('#remote-video video');
+             if (videoEl) {
+               console.log('[WebRTC] Re-triggering video play after UI transition, paused:', videoEl.paused);
+               videoEl.play().catch(err => showPlayOverlay(document.getElementById('remote-video'), videoEl));
+             } else {
+               console.warn('[WebRTC] No video element found in #remote-video after ICE connected');
+             }
+           }, 300);
         }
         if (['disconnected', 'failed', 'closed'].includes(pc.iceConnectionState)) {
            stopMedia();
