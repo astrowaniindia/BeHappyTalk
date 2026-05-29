@@ -286,8 +286,8 @@
 
   
     /* Video Calling Styles */
-    .vid-state { display: none; text-align: center; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; position: absolute; inset: 0; opacity: 0; transition: opacity 0.3s; z-index: 1; }
-    .vid-state.active { display: flex; opacity: 1; z-index: 10; }
+    .vid-state { display: flex; visibility: hidden; opacity: 0; pointer-events: none; text-align: center; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; position: absolute; inset: 0; transition: opacity 0.3s, visibility 0.3s; z-index: 1; }
+    .vid-state.active { display: flex; visibility: visible; opacity: 1; pointer-events: auto; z-index: 10; }
     
     .idle-dev-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--primary); color: var(--bg-darker); cursor: pointer; transition: 0.2s; font-size: 16px; }
     .idle-dev-btn.off { background: var(--danger); color: white; }
@@ -1775,19 +1775,12 @@
       document.querySelectorAll('.vid-state').forEach(el => {
         if (el.id !== 'vid-state-' + state) {
           el.classList.remove('active');
-          setTimeout(() => {
-            if (!el.classList.contains('active')) el.style.display = 'none';
-          }, 300);
         }
       });
-      setTimeout(() => {
-        const t = document.getElementById('vid-state-' + state);
-        if (t) {
-          t.style.display = 'flex'; 
-          void t.offsetWidth; 
-          t.classList.add('active');
-        }
-      }, 50);
+      const t = document.getElementById('vid-state-' + state);
+      if (t) {
+        t.classList.add('active');
+      }
     }
 
     function acceptWaitlist(userId) {
