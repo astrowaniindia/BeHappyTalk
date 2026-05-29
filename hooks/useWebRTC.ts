@@ -248,8 +248,7 @@ export function useWebRTC(socketRef: any, roomId: string): UseWebRTCReturn {
         // ── ANSWER: We are the callee ──────────────────────────────────────
         if (signal.type === 'offer') {
           // Guard: ignore duplicate offers when already negotiated
-          const pc = pcRef.current;
-          if (pc && remoteDescSet.current && pc.signalingState === 'stable') {
+          if (pcRef.current && remoteDescSet.current && pcRef.current.signalingState === 'stable') {
             console.log('[WebRTC] Ignoring duplicate offer — already connected');
             return;
           }
