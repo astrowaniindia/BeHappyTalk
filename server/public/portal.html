@@ -1255,6 +1255,21 @@
                throw new Error('Provider profile not loaded.');
             }
 
+            // Start media BEFORE accepting to prevent WebRTC race conditions!
+            if (req.type !== 'Chat') {
+              document.querySelector('[data-view="video"]').click();
+              curVid = { id: req.userId, name: req.userName, type: req.type };
+              
+              if (req.type === 'Video') {
+                 document.getElementById('btn-v-cam').classList.remove('off');
+              } else {
+                 document.getElementById('btn-v-cam').classList.add('off');
+              }
+              
+              await startMedia(req.type);
+              joinVideoCall();
+            }
+
             // SIGNAL IMMEDIATELY
             socket.emit('accept_interaction', { 
                userId: req.userId, 
@@ -1273,25 +1288,10 @@
             activeUserId = u.id; 
             openChat(u);
             
-            if (req.type !== 'Chat') {
-              document.querySelector('[data-view="video"]').click();
-              curVid = { id: req.userId, name: req.userName, type: req.type };
-              
-              if (req.type === 'Video') {
-                 document.getElementById('btn-v-cam').classList.remove('off');
-              } else {
-                 document.getElementById('btn-v-cam').classList.add('off');
-              }
-              
-              joinVideoCall();
-            } else {
+            if (req.type === 'Chat') {
               // Enable chat input immediately
               document.getElementById('chat-input-row').style.display = 'flex';
             }
-
-            // NOTE: Do NOT call startMedia here.
-            // The server sends 'session_started' after accept_interaction is processed.
-            // startMedia is called there — calling it here AND there causes double PeerConnection.
           } catch (err) {
             console.error('[Dashboard] Accept Error:', err);
             alert('Handshake Error: ' + err.message);
@@ -1344,11 +1344,8 @@
           if (timeRemaining <= 0) clearInterval(timerInt);
         }, 1000);
 
-        // Start WebRTC Media
-        if (type !== 'Chat') {
-           startMedia(type); 
-        } else {
-           // For Chat, just make sure input is enabled
+        // For Chat, just make sure input is enabled
+        if (type === 'Chat') {
            document.getElementById('chat-input-row').style.display = 'flex';
            document.getElementById('msg-input').disabled = false;
         }
@@ -2435,14 +2432,8 @@ function renderMsg(msg) {
     };
 
     function createPeerConnection() {
-      // Always clean up any old connection first — never reuse a closed/broken pc
-      if (pc) {
-        pc.onicecandidate = null;
-        pc.ontrack = null;
-        pc.oniceconnectionstatechange = null;
-        pc.close();
-        pc = null;
-      }
+      // Return existing PC if it exists (so we don't destroy it during a race condition)
+      if (pc) return pc;
       pendingCandidates = [];
       pc = new RTCPeerConnection(ICE_CONFIG);
 
@@ -2534,14 +2525,11 @@ function renderMsg(msg) {
          console.log('[WebRTC] startMedia called but stream already exists — skipping duplicate');
          return;
        }
-       
-       if (type === 'Chat') {
-          // Chat doesn't use the video dashboard
-          return;
-       }
+       if (type === 'Chat') return;
+
        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
            console.error('FATAL: Camera/Microphone API blocked.');
-           return;
+           return Promise.reject('Camera API blocked');
        }
 
        try {
@@ -2568,10 +2556,12 @@ function renderMsg(msg) {
               localVideo.appendChild(videoEl);
            }
 
-           createPeerConnection();
+           if (!pc) createPeerConnection();
            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+           return localStream;
        } catch (err) {
            console.error('[WebRTC] Media Error:', err);
+           throw err;
        }
     }
 
