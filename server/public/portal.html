@@ -777,11 +777,11 @@
                     <div id="vid-pip" style="position:absolute; bottom:20px; right:20px; width:160px; height:120px; background:var(--surface); border:2px solid var(--border); border-radius:16px; z-index:20; cursor:move; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.8);">
                        <div id="local-video" style="position:absolute; inset:0; z-index:5;"></div>
                        
-                       <div id="vid-pip-cam" style="display:flex; flex-direction:column; align-items:center; color:var(--text-dim); z-index:2;">
+                       <div id="vid-pip-cam" style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--text-dim); z-index:2;">
                          <i class="fas fa-video" style="font-size:24px; margin-bottom:8px;"></i>
                          <span style="font-size:10px; font-weight:800; text-transform:uppercase;">You</span>
                        </div>
-                       <div id="vid-pip-off" style="display:none; flex-direction:column; align-items:center; background:var(--bg-darker); width:100%; height:100%; justify-content:center; z-index:2;">
+                       <div id="vid-pip-off" style="position:absolute; inset:0; display:none; flex-direction:column; align-items:center; background:var(--bg-darker); justify-content:center; z-index:20;">
                          <div class="u-avatar" style="width:48px; height:48px; font-size:20px; background:var(--primary-dim); color:var(--primary);">P</div>
                        </div>
                     </div>
@@ -1109,10 +1109,7 @@
     const ICE_CONFIG = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'stun:stun1.l.google.com:19302' }
       ],
       iceCandidatePoolSize: 10,
     };
@@ -1745,15 +1742,19 @@
       socket.emit('accept_waitlist_user', { providerId: provider.id, userId });
     }
 
-    function acceptVideoCall() {
+    async function acceptVideoCall() {
       clearTimeout(vidMissTimeout);
-      document.getElementById('vid-waiting-name').innerText = curVid.name;
-      vidWaitSecs = 0; clearInterval(vidWaitTimer);
-      vidWaitTimer = setInterval(() => {
-         vidWaitSecs++;
-         document.getElementById('vid-waiting-time').innerText = Math.floor(vidWaitSecs/60).toString().padStart(2,'0') + ':' + (vidWaitSecs%60).toString().padStart(2,'0');
-      }, 1000);
-      setVidState('waiting');
+      if (!currentIncomingReq) return;
+      const req = currentIncomingReq;
+      await startMedia(req.type);
+      socket.emit('accept_interaction', {
+        userId: req.userId,
+        providerId: provider.id,
+        type: req.type,
+        rate: req.rate,
+        duration: req.duration
+      });
+      joinVideoCall();
     }
 
     function declineVideoCall() {
@@ -1767,36 +1768,6 @@
       clearInterval(vidWaitTimer);
       setVidState('connecting');
       document.getElementById('vid-connecting-name').innerText = curVid.name;
-      
-      setTimeout(() => {
-        curVid.status = 'active'; renderVidQueue();
-        document.getElementById('vid-active-name').innerText = curVid.name;
-        document.getElementById('vid-active-avatar').innerText = curVid.name.charAt(0);
-        
-        const saved = localStorage.getItem('vnotes_' + curVid.id);
-        document.getElementById('vid-notes-input').value = saved || '';
-        document.getElementById('vid-chat-list').innerHTML = ''; // clear chat
-        
-        vidSecs = 0; isVidHold = false; clearInterval(vidTimer);
-        vidTimer = setInterval(tickVid, 1000);
-        setVidState('active');
-        
-        // Demo Network Warning
-        setTimeout(() => {
-          const w = document.getElementById('vid-network-warning');
-          w.style.display = 'block';
-          document.getElementById('vid-quality-lbl').innerText = 'Unstable';
-          document.getElementById('vid-quality-lbl').parentElement.style.color = 'var(--danger)';
-          document.getElementById('vid-quality-lbl').parentElement.style.borderColor = 'var(--danger)';
-          setTimeout(() => { 
-             w.style.display = 'none'; 
-             document.getElementById('vid-quality-lbl').innerText = 'Good'; 
-             document.getElementById('vid-quality-lbl').parentElement.style.color = 'var(--success)';
-             document.getElementById('vid-quality-lbl').parentElement.style.borderColor = 'var(--success)';
-          }, 5000);
-        }, 3000);
-        
-      }, 2000);
     }
 
     function tickVid() {
@@ -1815,8 +1786,8 @@
       
       // REAL WEBRTC LOGIC
       stopMedia();
-      if (currentSessionId && activeUserId && provider) {
-         socket.emit('reject_interaction', { userId: activeUserId, providerId: provider.id });
+      if (currentSessionId) {
+         socket.emit('end_interaction', { sessionId: currentSessionId });
       }
     }
 
@@ -1824,8 +1795,16 @@
     function toggleVidCam() {
       isVidCamOff = !isVidCamOff;
       const b = document.getElementById('btn-v-cam');
-      if(isVidCamOff) { b.classList.add('active-mode'); b.innerHTML = '<i class="fas fa-video-slash"></i>'; document.getElementById('vid-pip-cam').style.display = 'none'; document.getElementById('vid-pip-off').style.display = 'flex'; }
-      else { b.classList.remove('active-mode'); b.innerHTML = '<i class="fas fa-video"></i>'; document.getElementById('vid-pip-cam').style.display = 'flex'; document.getElementById('vid-pip-off').style.display = 'none'; }
+      if(isVidCamOff) { 
+        b.classList.add('active-mode'); 
+        b.innerHTML = '<i class="fas fa-video-slash"></i>'; 
+        document.getElementById('vid-pip-off').style.display = 'flex'; 
+      }
+      else { 
+        b.classList.remove('active-mode'); 
+        b.innerHTML = '<i class="fas fa-video"></i>'; 
+        document.getElementById('vid-pip-off').style.display = 'none'; 
+      }
       
       // REAL WEBRTC LOGIC
       if (localStream) {
@@ -2468,7 +2447,20 @@ function renderMsg(msg) {
 
       pc.oniceconnectionstatechange = () => {
         console.log('[WebRTC] ICE state:', pc.iceConnectionState);
-        if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+           curVid.status = 'active';
+           renderVidQueue();
+           document.getElementById('vid-active-name').innerText = curVid.name;
+           document.getElementById('vid-active-avatar').innerText = curVid.name.charAt(0);
+           const saved = localStorage.getItem('vnotes_' + curVid.id);
+           document.getElementById('vid-notes-input').value = saved || '';
+           document.getElementById('vid-chat-list').innerHTML = '';
+           
+           vidSecs = 0; isVidHold = false; clearInterval(vidTimer);
+           vidTimer = setInterval(tickVid, 1000);
+           setVidState('active');
+        }
+        if (['disconnected', 'failed', 'closed'].includes(pc.iceConnectionState)) {
            stopMedia();
         }
       };
@@ -2550,10 +2542,6 @@ function renderMsg(msg) {
 
              if (type === 'Video') {
                 let localVideo = document.getElementById('local-video');
-                if (currentIncomingReq && currentIncomingReq.type === 'Video') {
-                    document.getElementById('vid-pip-cam').style.display = 'none';
-                    document.getElementById('vid-pip-off').style.display = 'none';
-                }
                 localVideo.innerHTML = '';
                 const videoEl = document.createElement('video');
                 videoEl.srcObject = localStream;
@@ -2564,6 +2552,8 @@ function renderMsg(msg) {
                    videoEl.style.width = '100%'; videoEl.style.height = '100%'; videoEl.style.objectFit = 'cover';
                 }
                 localVideo.appendChild(videoEl);
+                localVideo.style.display = 'block';
+                localVideo.style.zIndex = '10';
              }
 
              if (!pc) createPeerConnection();
