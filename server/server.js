@@ -449,6 +449,8 @@ app.post('/api/agora/token', authenticateToken, (req, res) => {
 });
 
 app.get('/api/turn-credentials', authenticateToken, async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.set('Pragma', 'no-cache');
   try {
     const response = await fetch(
       `https://${process.env.METERED_APP_SUBDOMAIN}.metered.live/api/v1/turn/credentials?apiKey=${process.env.METERED_API_KEY}`

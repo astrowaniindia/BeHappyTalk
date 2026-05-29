@@ -1099,6 +1099,8 @@
     let isVidMicOff = false;
     let isVidShare = false;
     let activeVidPanel = null;
+    let vidCalls = [];
+    let isTalking = false;
 
     // WebRTC State Variables
     let pc = null;
@@ -1136,7 +1138,6 @@
     
     let isMasterOnline = true;
     let providerSettings = { chat: true, audio: true, video: true };
-    let isTalking = false;
 
     function emitProviderStatus() {
        if(!socket || !provider) return;
@@ -1649,7 +1650,6 @@
 
 
     // --- VIDEO CALLING PROTOTYPE LOGIC ---
-    let vidCalls = [];
     
     function renderVidQueue() {
       const target = document.getElementById('video-queue-target');
@@ -2458,6 +2458,7 @@ function renderMsg(msg) {
       };
 
       pc.oniceconnectionstatechange = () => {
+        if (!pc) return;
         console.log('[WebRTC] ICE state:', pc.iceConnectionState);
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
            curVid.status = 'active';
