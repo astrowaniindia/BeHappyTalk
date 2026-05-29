@@ -1106,6 +1106,17 @@
     let pendingCandidates = [];
     let mediaPromise = null;
 
+    const ICE_CONFIG = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+      ],
+      iceCandidatePoolSize: 10,
+    };
+
     // Local Persistence
     const saved = localStorage.getItem('bt_provider');
     if (saved) {
@@ -2421,18 +2432,6 @@ function renderMsg(msg) {
     }
 
     // WebRTC Implementation
-    const ICE_CONFIG = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        // TURN servers — required when user and provider are on different networks (mobile data vs WiFi)
-        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-      ],
-      iceCandidatePoolSize: 10,
-    };
-
     function createPeerConnection() {
       // Return existing PC if it exists (so we don't destroy it during a race condition)
       if (pc) return pc;
