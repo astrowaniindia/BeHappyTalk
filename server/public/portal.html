@@ -1101,6 +1101,12 @@
     let activeVidPanel = null;
     let vidCalls = [];
     let isTalking = false;
+    let isMasterOnline = true;
+    let providerSettings = { chat: true, audio: true, video: true };
+    let allProvSessions = [];
+    let unreadCounts = {};
+    let lastMessages = {};
+    const notifSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
     // WebRTC State Variables
     let pc = null;
@@ -1423,7 +1429,7 @@
           handleWebRTCSignal(signal);
       });
 
-      document.getElementById('call-end').onclick = () => socket.emit('end_interaction', { sessionId: currentSessionId });
+
       
       document.getElementById('msg-send').onclick = () => {
          const input = document.getElementById('msg-input');
@@ -2197,13 +2203,6 @@
       if (wAvail) wAvail.innerText = `₹${(data.walletBalance / 2).toFixed(2)}`;
     }
 
-    
-    let unreadCounts = {};
-    let lastMessages = {};
-    const notifSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-
-    let allProvSessions = [];
-
     async function fetchHistory() {
       const res = await fetch(`/api/provider/history/${provider.id}`);
       allProvSessions = await res.json();
@@ -2481,6 +2480,7 @@ function renderMsg(msg) {
       return pc;
     }
 
+    let isProcessingOffer = false;
     async function handleWebRTCSignal(signal) {
       // Only create PC automatically when an offer arrives (mobile sends the offer)
       // For candidates, if there's no PC yet, queue them — don't create a PC with no media tracks
@@ -2494,20 +2494,27 @@ function renderMsg(msg) {
       try {
         if (signal.type === 'offer') {
           if (pc.signalingState !== 'stable') return;
-          await pc.setRemoteDescription(new RTCSessionDescription(signal));
+          if (isProcessingOffer) return;
+          isProcessingOffer = true;
           
-          for (const c of pendingCandidates) {
-            await pc.addIceCandidate(new RTCIceCandidate(c));
-          }
-          pendingCandidates = [];
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(signal));
+            
+            for (const c of pendingCandidates) {
+              await pc.addIceCandidate(new RTCIceCandidate(c));
+            }
+            pendingCandidates = [];
 
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          
-          socket.emit('webrtc_signal', {
-            to: `chat_${activeUserId}_${provider.id}`,
-            signal: pc.localDescription
-          });
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            
+            socket.emit('webrtc_signal', {
+              to: `chat_${activeUserId}_${provider.id}`,
+              signal: pc.localDescription
+            });
+          } finally {
+            isProcessingOffer = false;
+          }
           
         } else if (signal.type === 'answer') {
            // Portal does not send offers, so shouldn't receive answers, but just in case
