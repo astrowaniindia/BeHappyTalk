@@ -741,6 +741,9 @@
                  <!-- Main Video Area -->
                  <div id="main-video-area" style="flex:1; background:#111; border-radius:24px; position:relative; overflow:hidden; border:1px solid var(--border); box-shadow:0 20px 60px rgba(0,0,0,0.8); display:flex; align-items:center; justify-content:center;">
                     
+                    <!-- WebRTC Remote Video Target -->
+                    <div id="remote-video" style="position:absolute; inset:0; z-index:1;"></div>
+                    
                     <!-- Customer Avatar Fallback (Camera Off) -->
                     <div id="vid-cust-cam-off" style="display:none; flex-direction:column; align-items:center;">
                        <div class="u-avatar" id="vid-active-avatar" style="width:140px; height:140px; font-size:64px; margin-bottom:16px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">?</div>
@@ -770,13 +773,15 @@
                        <p style="color:white; margin:0; font-size:16px;" id="vid-reconnect-text">Reconnecting... (attempt 1 of 3)</p>
                     </div>
 
-                    <!-- Draggable PiP -->
+                    <!-- Draggable PiP (Local Video Target) -->
                     <div id="vid-pip" style="position:absolute; bottom:20px; right:20px; width:160px; height:120px; background:var(--surface); border:2px solid var(--border); border-radius:16px; z-index:20; cursor:move; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; box-shadow:0 10px 30px rgba(0,0,0,0.8);">
-                       <div id="vid-pip-cam" style="display:flex; flex-direction:column; align-items:center; color:var(--text-dim);">
+                       <div id="local-video" style="position:absolute; inset:0; z-index:5;"></div>
+                       
+                       <div id="vid-pip-cam" style="display:flex; flex-direction:column; align-items:center; color:var(--text-dim); z-index:2;">
                          <i class="fas fa-video" style="font-size:24px; margin-bottom:8px;"></i>
                          <span style="font-size:10px; font-weight:800; text-transform:uppercase;">You</span>
                        </div>
-                       <div id="vid-pip-off" style="display:none; flex-direction:column; align-items:center; background:var(--bg-darker); width:100%; height:100%; justify-content:center;">
+                       <div id="vid-pip-off" style="display:none; flex-direction:column; align-items:center; background:var(--bg-darker); width:100%; height:100%; justify-content:center; z-index:2;">
                          <div class="u-avatar" style="width:48px; height:48px; font-size:20px; background:var(--primary-dim); color:var(--primary);">P</div>
                        </div>
                     </div>
@@ -1056,23 +1061,7 @@
     </div>
   </div>
 
-  <!-- Call Overlay -->
-  <div id="media-overlay">
-    <div class="media-info">
-      <h2 id="media-name">User Connect</h2>
-      <span id="media-desc">Incoming Voice Connection...</span>
-    </div>
-    <div class="video-viewport">
-       <div id="remote-video"></div>
-       <div id="local-video" style="display: none;"></div>
-    </div>
-    <div class="call-controls">
-       <div class="c-btn" id="call-mic" onclick="toggleOverlayMic()"><i class="fas fa-microphone"></i></div>
-       <div class="c-btn" id="call-cam" style="display: none;" onclick="toggleOverlayCam()"><i class="fas fa-video"></i></div>
-       <div class="c-btn hangup" id="call-end" onclick="endOverlayCall()"><i class="fas fa-phone-hangup"></i></div>
-    </div>
-  </div>
-
+  <!-- media-overlay removed in favor of Video State Machine UI -->
   <!-- Incoming Modal -->
   <div id="incoming-modal">
     <div class="modal-box">
@@ -1271,18 +1260,16 @@
             openChat(u);
             
             if (req.type !== 'Chat') {
-              const overlay = document.getElementById('media-overlay');
-              overlay.style.display = 'flex';
-              document.getElementById('media-name').innerText = req.userName;
-              document.getElementById('media-desc').innerText = `Establishing ${req.type} session...`;
+              document.querySelector('[data-view="video"]').click();
+              curVid = { id: req.userId, name: req.userName, type: req.type };
               
               if (req.type === 'Video') {
-                 document.getElementById('local-video').style.display = 'block';
-                 document.getElementById('call-cam').style.display = 'flex';
+                 document.getElementById('btn-v-cam').classList.remove('off');
               } else {
-                 document.getElementById('local-video').style.display = 'none';
-                 document.getElementById('call-cam').style.display = 'none';
+                 document.getElementById('btn-v-cam').classList.add('off');
               }
+              
+              joinVideoCall();
             } else {
               // Enable chat input immediately
               document.getElementById('chat-input-row').style.display = 'flex';
@@ -1806,9 +1793,15 @@
       clearInterval(vidTimer); curVid.status = 'ended'; curVid.duration = vidSecs; renderVidQueue();
       document.getElementById('v-ended-name').innerText = curVid.name;
       document.getElementById('v-ended-duration').innerText = document.getElementById('vid-active-timer').innerText;
-      document.getElementById('v-ended-earnings').innerText = '₹' + ((vidSecs/60)*15).toFixed(2);
+      document.getElementById('v-ended-earnings').innerText = '₹' + ((vidSecs/60)*(provider.priceVideo || 15)).toFixed(2);
       setVidState('ended');
       toggleVidPanel(null); // close panels
+      
+      // REAL WEBRTC LOGIC
+      stopMedia();
+      if (currentSessionId && activeUserId && provider) {
+         socket.emit('reject_interaction', { userId: activeUserId, providerId: provider.id });
+      }
     }
 
     // Controls
@@ -1817,10 +1810,20 @@
       const b = document.getElementById('btn-v-cam');
       if(isVidCamOff) { b.classList.add('active-mode'); b.innerHTML = '<i class="fas fa-video-slash"></i>'; document.getElementById('vid-pip-cam').style.display = 'none'; document.getElementById('vid-pip-off').style.display = 'flex'; }
       else { b.classList.remove('active-mode'); b.innerHTML = '<i class="fas fa-video"></i>'; document.getElementById('vid-pip-cam').style.display = 'flex'; document.getElementById('vid-pip-off').style.display = 'none'; }
+      
+      // REAL WEBRTC LOGIC
+      if (localStream) {
+        localStream.getVideoTracks().forEach(track => { track.enabled = !isVidCamOff; });
+      }
     }
     function toggleVidMic() {
       isVidMicOff = !isVidMicOff; const b = document.getElementById('btn-v-mic');
       if(isVidMicOff) { b.classList.add('active-mode'); b.innerHTML = '<i class="fas fa-microphone-slash"></i>'; } else { b.classList.remove('active-mode'); b.innerHTML = '<i class="fas fa-microphone"></i>'; }
+      
+      // REAL WEBRTC LOGIC
+      if (localStream) {
+        localStream.getAudioTracks().forEach(track => { track.enabled = !isVidMicOff; });
+      }
     }
     function toggleVidShare() {
       isVidShare = !isVidShare; const b = document.getElementById('btn-v-share');
@@ -2532,15 +2535,11 @@ function renderMsg(msg) {
        }
        
        if (type === 'Chat') {
-         document.getElementById('media-overlay').style.display = 'flex';
+          // Chat doesn't use the video dashboard
+          return;
        }
-       document.getElementById('media-name').innerText = document.getElementById('active-chat-name').innerText;
-       document.getElementById('media-desc').innerText = `Connecting...`;
-       document.getElementById('call-cam').style.display = type === 'Video' ? 'flex' : 'none';
-       document.getElementById('local-video').style.display = type === 'Video' ? 'block' : 'none';
-
        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-           document.getElementById('media-desc').innerText = 'FATAL: Camera/Microphone API blocked.';
+           console.error('FATAL: Camera/Microphone API blocked.');
            return;
        }
 
@@ -2553,7 +2552,6 @@ function renderMsg(msg) {
            if (type === 'Video') {
               let localVideo = document.getElementById('local-video');
               if (currentIncomingReq && currentIncomingReq.type === 'Video') {
-                  localVideo = document.getElementById('vid-pip');
                   document.getElementById('vid-pip-cam').style.display = 'none';
                   document.getElementById('vid-pip-off').style.display = 'none';
               }
@@ -2571,10 +2569,8 @@ function renderMsg(msg) {
 
            createPeerConnection();
            localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-           document.getElementById('media-desc').innerText = 'Waiting for connection...';
        } catch (err) {
            console.error('[WebRTC] Media Error:', err);
-           document.getElementById('media-desc').innerText = 'ERROR: ' + err.message;
        }
     }
 
@@ -2588,9 +2584,8 @@ function renderMsg(msg) {
          pc = null;
        }
        pendingCandidates = [];
-       document.getElementById('remote-video').innerHTML = '';
-       document.getElementById('local-video').innerHTML = '';
-       document.getElementById('media-overlay').style.display = 'none';
+       if (document.getElementById('remote-video')) document.getElementById('remote-video').innerHTML = '';
+       if (document.getElementById('local-video')) document.getElementById('local-video').innerHTML = '';
     }
 
     function toggleOverlayMic() {
