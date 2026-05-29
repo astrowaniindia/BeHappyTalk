@@ -2450,69 +2450,309 @@ function renderMsg(msg) {
       document.getElementById('stat-time').innerText = `${m}:${s}`;
     }
 
-    // WebRTC Implementation (Stubbed)
+    // ── WebRTC Implementation (REAL — Metered.ca TURN) ──────────────────────
+    //
+    // Variables already declared above: pc, localStream, pendingCandidates, remoteAudioEl
+    // New ones:
+    let remoteDescSet = false;
+    let isVideoCall = false;
+
+    // Build the room ID the same way the server and mobile app do
+    function getRoomId() {
+      // curVid.id = userId, provider.id = providerId
+      return curVid && provider ? `chat_${curVid.id}_${provider.id}` : null;
+    }
+
+    // ── Fetch TURN credentials ────────────────────────────────────────────────
+    // getIceConfig() is already defined above — reuses it here.
+
+    // ── Create PeerConnection ─────────────────────────────────────────────────
     async function createPeerConnection() {
-      console.log('[WebRTC Stub] createPeerConnection called');
-      return null;
-    }
+      const config = await getIceConfig();
+      const newPc = new RTCPeerConnection(config);
 
-    async function handleWebRTCSignal(signal) {
-      console.log('[WebRTC Stub] handleWebRTCSignal received:', signal?.type);
-    }
-
-    async function startMedia(type) {
-       console.log('[WebRTC Stub] startMedia requested for:', type);
-       if (type === 'Video') {
-         let localVideo = document.getElementById('local-video');
-         if (localVideo) {
-           localVideo.innerHTML = '<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#222; color:#fff;">Local Video Preview</div>';
-           localVideo.style.display = 'block';
-           localVideo.style.zIndex = '10';
-         }
-       }
-       // Automatically transition the portal UI state to simulated active after 1 second
-       setTimeout(() => {
-          if (pc === null) {
-            console.log('[WebRTC Stub] Simulating ICE connect...');
-            curVid.status = 'active';
-            renderVidQueue();
-            document.getElementById('vid-active-name').innerText = curVid.name;
-            document.getElementById('vid-active-avatar').innerText = curVid.name.charAt(0);
-            
-            vidSecs = 0; isVidHold = false; clearInterval(vidTimer);
-            vidTimer = setInterval(tickVid, 1000);
-            setTalkingState(true);
-            setVidState('active');
+      newPc.onicecandidate = ({ candidate }) => {
+        if (candidate) {
+          const room = getRoomId();
+          if (room && socket) {
+            console.log('[WebRTC] Sending ICE candidate to room:', room);
+            socket.emit('webrtc_signal', {
+              to: room,
+              signal: { type: 'candidate', candidate }
+            });
           }
-       }, 1000);
-       
-       return null;
+        }
+      };
+
+      newPc.oniceconnectionstatechange = () => {
+        console.log('[WebRTC] ICE state:', newPc.iceConnectionState);
+        if (newPc.iceConnectionState === 'connected' || newPc.iceConnectionState === 'completed') {
+          // ICE connected — activate the call UI
+          curVid.status = 'active';
+          renderVidQueue();
+          document.getElementById('vid-active-name').innerText = curVid.name;
+          document.getElementById('vid-active-avatar').innerText = curVid.name.charAt(0);
+          vidSecs = 0; isVidHold = false;
+          clearInterval(vidTimer);
+          vidTimer = setInterval(tickVid, 1000);
+          setTalkingState(true);
+          setVidState('active');
+          document.getElementById('vid-network-warning').style.display = 'none';
+        } else if (newPc.iceConnectionState === 'failed') {
+          document.getElementById('vid-network-warning').style.display = 'block';
+          console.warn('[WebRTC] ICE failed — trying restart');
+          newPc.restartIce();
+        } else if (newPc.iceConnectionState === 'disconnected') {
+          document.getElementById('vid-network-warning').style.display = 'block';
+        }
+      };
+
+      // ── Remote track handler — THE key fix for black screen ──────────────
+      newPc.ontrack = (event) => {
+        console.log('[WebRTC] ontrack:', event.track.kind);
+        const remoteVideoEl = document.getElementById('remote-video-el');
+
+        if (event.streams && event.streams[0]) {
+          // Attach stream directly — most reliable path
+          if (remoteVideoEl && remoteVideoEl.srcObject !== event.streams[0]) {
+            remoteVideoEl.srcObject = event.streams[0];
+            remoteVideoEl.play().catch(e => {
+              console.warn('[WebRTC] Remote video autoplay blocked:', e);
+              showPlayOverlay(document.getElementById('remote-video'), remoteVideoEl);
+            });
+          }
+
+          // For audio-only: also attach to a dedicated audio element
+          if (!isVideoCall) {
+            if (!remoteAudioEl) {
+              remoteAudioEl = document.createElement('audio');
+              remoteAudioEl.autoplay = true;
+              remoteAudioEl.style.display = 'none';
+              document.body.appendChild(remoteAudioEl);
+            }
+            remoteAudioEl.srcObject = event.streams[0];
+          }
+        } else {
+          // Fallback: build stream from individual tracks
+          if (!remoteVideoEl._rtcStream) {
+            remoteVideoEl._rtcStream = new MediaStream();
+          }
+          if (!remoteVideoEl._rtcStream.getTracks().some(t => t.id === event.track.id)) {
+            remoteVideoEl._rtcStream.addTrack(event.track);
+          }
+          remoteVideoEl.srcObject = remoteVideoEl._rtcStream;
+          remoteVideoEl.play().catch(() => {});
+        }
+      };
+
+      return newPc;
     }
 
+    // ── Drain queued ICE candidates ───────────────────────────────────────────
+    async function drainCandidateQueue() {
+      if (!pc) return;
+      console.log('[WebRTC] Draining', pendingCandidates.length, 'queued candidates');
+      for (const c of pendingCandidates) {
+        try { await pc.addIceCandidate(c); } catch (e) { console.warn('[WebRTC] queued addIceCandidate failed:', e); }
+      }
+      pendingCandidates = [];
+    }
+
+    // ── startMedia — called when provider accepts a call ─────────────────────
+    async function startMedia(type) {
+      console.log('[WebRTC] startMedia, type:', type);
+      isVideoCall = (type === 'Video');
+
+      try {
+        // 1. Get local camera/mic FIRST
+        const constraints = {
+          audio: true,
+          video: isVideoCall ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } : false
+        };
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('[WebRTC] Got local stream, tracks:', localStream.getTracks().length);
+
+        // 2. Show local preview in PiP
+        if (isVideoCall) {
+          const localContainer = document.getElementById('local-video');
+          if (localContainer) {
+            let localVidEl = localContainer.querySelector('video');
+            if (!localVidEl) {
+              localVidEl = document.createElement('video');
+              localVidEl.autoplay = true;
+              localVidEl.muted = true;        // mute local preview — prevents echo
+              localVidEl.playsInline = true;
+              localVidEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
+              localContainer.appendChild(localVidEl);
+            }
+            localVidEl.srcObject = localStream;
+            document.getElementById('vid-pip-cam').style.display = 'none'; // hide camera icon
+          }
+        }
+
+        // 3. Create PeerConnection and add tracks
+        pc = await createPeerConnection();
+        remoteDescSet = false;
+        pendingCandidates = [];
+
+        localStream.getTracks().forEach(track => {
+          pc.addTrack(track, localStream);
+          console.log('[WebRTC] Added local track:', track.kind);
+        });
+
+        // 4. The PROVIDER is the answerer — we wait for the offer from the mobile app.
+        //    The mobile app's startCall() sends the offer; we respond in handleWebRTCSignal.
+        console.log('[WebRTC] Ready — waiting for offer from mobile app...');
+
+      } catch (err) {
+        console.error('[WebRTC] startMedia error:', err);
+        alert('Could not access camera/microphone. Please allow permissions and try again.\n\n' + err.message);
+      }
+    }
+
+    // ── handleWebRTCSignal — processes offer/answer/candidates ───────────────
+    async function handleWebRTCSignal(signal) {
+      if (!signal) return;
+      console.log('[WebRTC] Signal received:', signal.type || 'candidate');
+
+      try {
+        if (signal.type === 'offer') {
+          // Mobile app sent an offer — we answer
+          if (!pc) {
+            console.warn('[WebRTC] Offer received but PC not ready, creating PC now...');
+            isVideoCall = signal.sdp && signal.sdp.includes('m=video');
+            pc = await createPeerConnection();
+            remoteDescSet = false;
+            pendingCandidates = [];
+
+            // We need a local stream to send tracks back
+            if (!localStream) {
+              try {
+                localStream = await navigator.mediaDevices.getUserMedia({
+                  audio: true,
+                  video: isVideoCall ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false
+                });
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+              } catch(e) {
+                console.error('[WebRTC] Could not get media for answer:', e);
+              }
+            } else {
+              localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            }
+          }
+
+          await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
+          remoteDescSet = true;
+          await drainCandidateQueue();
+
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+
+          const room = getRoomId();
+          if (room && socket) {
+            socket.emit('webrtc_signal', {
+              to: room,
+              signal: { type: 'answer', sdp: answer.sdp }
+            });
+            console.log('[WebRTC] Answer sent to room:', room);
+          }
+        }
+
+        else if (signal.type === 'answer') {
+          // We sent an offer and got an answer back (not typical for portal but handle it)
+          if (!pc) return;
+          await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
+          remoteDescSet = true;
+          await drainCandidateQueue();
+          console.log('[WebRTC] Remote description set from answer');
+        }
+
+        else if (signal.type === 'candidate' && signal.candidate) {
+          if (!pc) return;
+          const candidate = new RTCIceCandidate(signal.candidate);
+          if (!remoteDescSet) {
+            pendingCandidates.push(candidate);
+            console.log('[WebRTC] Queued candidate (remoteDesc not set yet)');
+          } else {
+            try { await pc.addIceCandidate(candidate); }
+            catch (e) { console.warn('[WebRTC] addIceCandidate failed:', e); }
+          }
+        }
+      } catch (err) {
+        console.error('[WebRTC] handleWebRTCSignal error:', err);
+      }
+    }
+
+    // ── stopMedia — tears down everything cleanly ─────────────────────────────
     function stopMedia() {
-       console.log('[WebRTC Stub] stopMedia called');
-       clearInterval(vidTimer);
-       if (document.getElementById('remote-video')) document.getElementById('remote-video').innerHTML = '';
-       if (document.getElementById('local-video')) document.getElementById('local-video').innerHTML = '';
+      console.log('[WebRTC] stopMedia called');
+
+      // Stop all local tracks
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+        localStream = null;
+      }
+
+      // Close peer connection
+      if (pc) {
+        pc.close();
+        pc = null;
+      }
+
+      // Clear remote audio element
+      if (remoteAudioEl) {
+        remoteAudioEl.srcObject = null;
+        remoteAudioEl.remove();
+        remoteAudioEl = null;
+      }
+
+      // Reset flags
+      remoteDescSet = false;
+      pendingCandidates = [];
+
+      // Clear video elements
+      const remoteVideoEl = document.getElementById('remote-video-el');
+      if (remoteVideoEl) { remoteVideoEl.srcObject = null; remoteVideoEl._rtcStream = null; }
+
+      const localContainer = document.getElementById('local-video');
+      if (localContainer) {
+        const lv = localContainer.querySelector('video');
+        if (lv) { lv.srcObject = null; lv.remove(); }
+        document.getElementById('vid-pip-cam').style.display = 'flex';
+      }
+
+      clearInterval(vidTimer);
     }
 
+    // ── showPlayOverlay — shown when autoplay is blocked by browser ───────────
     function showPlayOverlay(container, videoEl) {
-      console.log('[WebRTC Stub] showPlayOverlay');
+      if (!container || container.querySelector('.play-overlay')) return;
+      const btn = document.createElement('button');
+      btn.className = 'play-overlay';
+      btn.innerHTML = '<i class="fas fa-play-circle" style="font-size:48px;"></i><br>Tap to play video';
+      btn.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;background:rgba(0,0,0,0.7);color:white;border:none;cursor:pointer;z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:14px;gap:8px;font-weight:700;';
+      btn.onclick = () => { videoEl.play().catch(()=>{}); btn.remove(); };
+      container.appendChild(btn);
     }
 
     function toggleOverlayMic() {
-      console.log('[WebRTC Stub] toggleOverlayMic');
+      isVidMicOff = !isVidMicOff;
+      if (localStream) {
+        localStream.getAudioTracks().forEach(t => { t.enabled = !isVidMicOff; });
+      }
     }
-    
+
     function toggleOverlayCam() {
-      console.log('[WebRTC Stub] toggleOverlayCam');
+      isVidCamOff = !isVidCamOff;
+      if (localStream) {
+        localStream.getVideoTracks().forEach(t => { t.enabled = !isVidCamOff; });
+      }
     }
-    
+
     function endOverlayCall() {
-      if (currentSessionId) {
-        socket.emit('end_session', { sessionId: currentSessionId });
-      } else {
-        stopMedia();
+      stopMedia();
+      if (currentSessionId && socket) {
+        socket.emit('end_interaction', { sessionId: currentSessionId });
       }
     }
 
