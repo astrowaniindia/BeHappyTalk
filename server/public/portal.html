@@ -1743,12 +1743,20 @@
 
     function setVidState(state) {
       document.querySelectorAll('.vid-state').forEach(el => {
-        el.classList.remove('active');
-        setTimeout(() => el.style.display = 'none', 300);
+        if (el.id !== 'vid-state-' + state) {
+          el.classList.remove('active');
+          setTimeout(() => {
+            if (!el.classList.contains('active')) el.style.display = 'none';
+          }, 300);
+        }
       });
       setTimeout(() => {
         const t = document.getElementById('vid-state-' + state);
-        t.style.display = 'flex'; void t.offsetWidth; t.classList.add('active');
+        if (t) {
+          t.style.display = 'flex'; 
+          void t.offsetWidth; 
+          t.classList.add('active');
+        }
       }, 50);
     }
 
