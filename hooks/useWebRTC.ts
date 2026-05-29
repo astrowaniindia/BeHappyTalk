@@ -189,13 +189,7 @@ export function useWebRTC(socketRef: any, roomId: string): UseWebRTCReturn {
         // 1. Get local media FIRST
         const constraints = {
           audio: true,
-          video: isVideo
-            ? {
-                facingMode: 'user',
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-              }
-            : false,
+          video: isVideo ? { facingMode: 'user' } : false,
         };
 
         const stream = await mediaDevices.getUserMedia(constraints);
@@ -263,9 +257,7 @@ export function useWebRTC(socketRef: any, roomId: string): UseWebRTCReturn {
 
             const constraints = {
               audio: true,
-              video: isVideo
-                ? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
-                : false,
+              video: isVideo ? { facingMode: 'user' } : false,
             };
             stream = await mediaDevices.getUserMedia(constraints);
             setLocalStream(stream);
