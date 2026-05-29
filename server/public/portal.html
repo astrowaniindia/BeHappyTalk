@@ -1300,11 +1300,12 @@
             console.log('[Dashboard] Signal SENT to server');
             modal.style.display = 'none';
             
+            const u = { id: req.userId, name: req.userName };
+            if (!users.find(x => x.id === u.id)) users.unshift(u);
+            activeUserId = u.id; 
+            
             if (req.type === 'Chat') {
               document.querySelector('[data-view="inbox"]').click(); 
-              const u = { id: req.userId, name: req.userName };
-              if (!users.find(x => x.id === u.id)) users.unshift(u);
-              activeUserId = u.id; 
               openChat(u);
               // Enable chat input immediately
               document.getElementById('chat-input-row').style.display = 'flex';
