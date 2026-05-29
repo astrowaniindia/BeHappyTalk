@@ -2617,6 +2617,11 @@ function renderMsg(msg) {
 
       try {
         if (signal.type === 'offer') {
+          // Guard: ignore duplicate offers when already stable/connected
+          if (pc && remoteDescSet && pc.signalingState === 'stable') {
+            console.warn('[WebRTC] Ignoring duplicate offer — already connected');
+            return;
+          }
           // Mobile app sent an offer — we answer
           if (!pc) {
             console.warn('[WebRTC] Offer received but PC not ready, creating PC now...');
