@@ -2505,6 +2505,13 @@ function renderMsg(msg) {
           return s;
         })();
 
+        // Add event listeners on the video element for detailed debugging
+        videoEl.onplay = () => console.log('[VideoEl] play event fired');
+        videoEl.onplaying = () => console.log('[VideoEl] playing event fired, dimensions:', videoEl.videoWidth, 'x', videoEl.videoHeight);
+        videoEl.onpause = () => console.log('[VideoEl] pause event fired');
+        videoEl.onresize = () => console.log('[VideoEl] resize event fired, new dimensions:', videoEl.videoWidth, 'x', videoEl.videoHeight);
+        videoEl.onerror = () => console.error('[VideoEl] error event fired:', videoEl.error);
+
         if (videoEl.srcObject !== stream) {
           console.log('[WebRTC] Setting srcObject, tracks:', stream.getTracks().map(t => t.kind));
           videoEl.srcObject = stream;
@@ -2514,6 +2521,10 @@ function renderMsg(msg) {
         // This is more reliable than a fixed timer — we play() exactly when data flows.
         track.onunmute = () => {
           console.log('[WebRTC] Track UNMUTED (RTP flowing):', track.kind);
+          if (track.kind === 'video') {
+            console.log('[WebRTC] Video track unmuted, refreshing srcObject...');
+            videoEl.srcObject = stream; // Re-assign to force renderer refresh
+          }
           videoEl.play().catch(err => {
             console.warn('[WebRTC] play() after unmute blocked:', err);
             showPlayOverlay(document.getElementById('remote-video'), videoEl);
