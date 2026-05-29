@@ -1086,6 +1086,20 @@
     let timeRemaining = 0;
     let timerInt = null;
 
+    // Video State Variables
+    let curVid = null;
+    let vidTimer = null;
+    let vidWaitTimer = null;
+    let vidSecs = 0;
+    let vidWaitSecs = 0;
+    let vidMissTimeout = null;
+    let isVidHold = false;
+    let isVidDND = false;
+    let isVidCamOff = false;
+    let isVidMicOff = false;
+    let isVidShare = false;
+    let activeVidPanel = null;
+
     // Local Persistence
     const saved = localStorage.getItem('bt_provider');
     if (saved) {
@@ -1613,19 +1627,6 @@
 
     // --- VIDEO CALLING PROTOTYPE LOGIC ---
     let vidCalls = [];
-    
-    let curVid = null;
-    let vidTimer = null;
-    let vidWaitTimer = null;
-    let vidSecs = 0;
-    let vidWaitSecs = 0;
-    let vidMissTimeout = null;
-    let isVidHold = false;
-    let isVidDND = false;
-    let isVidCamOff = false;
-    let isVidMicOff = false;
-    let isVidShare = false;
-    let activeVidPanel = null;
     
     function renderVidQueue() {
       const target = document.getElementById('video-queue-target');
