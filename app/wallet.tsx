@@ -34,7 +34,10 @@ export default function Wallet() {
       if (isRefresh) setRefreshing(true);
       secureFetch(`${API_URL}/user/${user.id}`)
         .then(r => r.json())
-        .then(data => setWalletBalance(data.walletBalance || Math.floor(data.walletbalance) || 5000))
+      .then(data => {
+        const balance = data.walletBalance ?? data.walletbalance ?? 5000;
+        setWalletBalance(Number(balance));
+      })
         .catch(console.error)
         .finally(() => {
           if (isRefresh) setRefreshing(false);

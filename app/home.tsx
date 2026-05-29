@@ -90,7 +90,8 @@ export default function Home() {
 
         setProviders(prov.map((p: any) => ({ ...p, image: p.imagePath ? { uri: p.imagePath } : PROVIDER_IMAGE })));
         setRecentContacts(recents.map((r: any) => ({ ...r, image: r.imagePath ? { uri: r.imagePath } : PROVIDER_IMAGE })));
-        setWalletBalance(userData.walletBalance || Math.floor(userData.walletbalance) || 5000);
+        const balance = userData.walletBalance ?? userData.walletbalance ?? 5000;
+        setWalletBalance(Number(balance));
       })
       .catch(err => console.log('Fetch error:', err))
       .finally(() => {

@@ -49,7 +49,7 @@ export default function ProviderProfile() {
           if (userRes.ok) {
             const userData = await userRes.json();
             if (userData && !userData.error) {
-              const balance = userData.walletBalance || Math.floor(userData.walletbalance) || 5000;
+              const balance = userData.walletBalance ?? userData.walletbalance ?? 5000;
               setWalletBalance(Number(balance));
             } else if (userData && userData.error === 'User not found.') {
               clearUser().then(() => router.replace('/login'));
