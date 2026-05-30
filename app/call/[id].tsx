@@ -217,14 +217,7 @@ export default function DedicatedCallScreen() {
     handleSignalRef.current = handleSignal;
   }, [handleSignal]);
 
-  const endSession = useCallback(() => {
-    stopRingback();
-    endCall();
-    if (sessionId && socketRef.current) {
-      socketRef.current.emit('end_interaction', { sessionId });
-    }
-    router.replace(`/post-call?providerId=${providerId}&type=${type}&reason=user_ended`);
-  }, [endCall, sessionId, providerId, type]);
+
 
   return (
     <SafeAreaView style={styles.safeArea}>
