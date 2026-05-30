@@ -2458,6 +2458,8 @@ function renderMsg(msg) {
       } else {
         document.getElementById('scroll-bottom-btn').style.display = 'block';
       }
+    }
+
     function updateTimer() {
       const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
       const s = (timeRemaining % 60).toString().padStart(2, '0');
