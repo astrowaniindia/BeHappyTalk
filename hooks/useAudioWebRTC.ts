@@ -88,70 +88,80 @@ export function useAudioWebRTC(socketRef: any, roomId: string): UseWebRTCReturn 
 
   // ─── Build PeerConnection ─────────────────────────────────────────────────
 
+  const disconnectTimerRef = useRef<any>(null);
+
   const createPeerConnection = useCallback(
     (iceServers: RTCIceServer[]): RTCPeerConnection => {
       const pc = new RTCPeerConnection({
         iceServers,
-        iceTransportPolicy: 'all', // switch to 'relay' if you want TURN-only
+        iceTransportPolicy: 'all',
         bundlePolicy: 'max-bundle',
         rtcpMuxPolicy: 'require',
-        sdpSemantics: 'unified-plan',
-      });
+      } as any);
 
       // ICE candidate → send to peer via socket
-      pc.onicecandidate = ({ candidate }) => {
-        if (candidate && socketRef.current) {
+      pc.addEventListener('icecandidate', (event: any) => {
+        if (event.candidate && socketRef.current) {
           console.log('[WebRTC] Sending ICE candidate');
           socketRef.current.emit('webrtc_signal', {
             to: roomId,
-            signal: { type: 'candidate', candidate },
+            signal: { type: 'candidate', candidate: event.candidate },
           });
         }
-      };
+      });
 
-      pc.oniceconnectionstatechange = () => {
+      pc.addEventListener('iceconnectionstatechange', () => {
         console.log('[WebRTC] ICE state:', pc.iceConnectionState);
         if (
           pc.iceConnectionState === 'connected' ||
           pc.iceConnectionState === 'completed'
         ) {
+          // Clear any pending disconnect timer — connection recovered
+          if (disconnectTimerRef.current) {
+            clearTimeout(disconnectTimerRef.current);
+            disconnectTimerRef.current = null;
+          }
           setIsConnected(true);
+        } else if (pc.iceConnectionState === 'disconnected') {
+          // Transient — wait 8 seconds before giving up
+          console.log('[WebRTC] ICE disconnected (transient) — waiting 8s...');
+          disconnectTimerRef.current = setTimeout(() => {
+            if (pcRef.current?.iceConnectionState === 'disconnected') {
+              console.log('[WebRTC] ICE still disconnected after 8s — ending call');
+              setIsConnected(false);
+            }
+          }, 8000);
         } else if (
           pc.iceConnectionState === 'failed' ||
-          pc.iceConnectionState === 'disconnected' ||
           pc.iceConnectionState === 'closed'
         ) {
+          if (disconnectTimerRef.current) {
+            clearTimeout(disconnectTimerRef.current);
+            disconnectTimerRef.current = null;
+          }
           setIsConnected(false);
         }
-      };
+      });
 
-      // ── KEY FIX: Use native stream from event.streams[0] ──────────────────
-      pc.ontrack = (event) => {
+      pc.addEventListener('track', (event: any) => {
         console.log('[WebRTC] ontrack fired, kind:', event.track.kind);
-
         if (event.streams && event.streams[0]) {
           console.log('[WebRTC] Remote stream obtained from event:', event.streams[0].id);
           remoteStreamRef.current = event.streams[0];
           setRemoteStream(event.streams[0]);
         } else {
-          // Fallback: build stream from individual tracks if streams is empty
           let stream = remoteStreamRef.current;
           if (!stream) {
             stream = new MediaStream([]);
             remoteStreamRef.current = stream;
           }
-
-          const alreadyHas = stream
-            .getTracks()
-            .some((t) => t.id === event.track.id);
+          const alreadyHas = stream.getTracks().some((t: any) => t.id === event.track.id);
           if (!alreadyHas) {
             stream.addTrack(event.track);
-            console.log('[WebRTC] Added remote track to fallback stream:', event.track.kind);
           }
-
           setRemoteStream(stream);
         }
-      };
+      });
 
       return pc;
     },
@@ -301,23 +311,22 @@ export function useAudioWebRTC(socketRef: any, roomId: string): UseWebRTCReturn 
   const endCall = useCallback(() => {
     console.log('[WebRTC] endCall');
 
-    // Stop all local tracks
+    if (disconnectTimerRef.current) {
+      clearTimeout(disconnectTimerRef.current);
+      disconnectTimerRef.current = null;
+    }
+
     if (localStream) {
       localStream.getTracks().forEach((t) => t.stop());
     }
 
-    // Close and null out the peer connection
     if (pcRef.current) {
       pcRef.current.close();
       pcRef.current = null;
     }
 
-    // Stop InCallManager
-    try {
-      InCallManager.stop();
-    } catch {}
+    try { InCallManager.stop(); } catch {}
 
-    // Reset all state
     setLocalStream(null);
     setRemoteStream(null);
     setIsConnected(false);

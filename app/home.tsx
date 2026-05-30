@@ -53,6 +53,7 @@ export default function Home() {
   const [offlineMessage, setOfflineMessage] = useState('');
   const [selectedInteraction, setSelectedInteraction] = useState<{ type: string, rate: number, duration?: number } | null>(null);
   const socketRef = useRef<any>(null);
+  const hasNavigatedRef = useRef(false); // prevent duplicate session_accepted navigation
 
   const [providers, setProviders] = useState<any[]>([]);
   const [recentContacts, setRecentContacts] = useState<any[]>([]);
@@ -154,6 +155,12 @@ export default function Home() {
 
       socketRef.current.on('session_accepted', ({ providerId, sessionId, type, duration, agoraChannel }: any) => {
         console.log('[Socket] Session Accepted received! Channel:', agoraChannel);
+        // Guard: only navigate once per session request
+        if (hasNavigatedRef.current) {
+          console.log('[Socket] Ignoring duplicate session_accepted');
+          return;
+        }
+        hasNavigatedRef.current = true;
         setConnectingModal(false);
         setSelectedProvider(null);
         setDurationModal(false);
@@ -177,6 +184,7 @@ export default function Home() {
       });
 
       return () => {
+        hasNavigatedRef.current = false; // reset on cleanup so next session works
         if (socketRef.current) {
           socketRef.current.disconnect();
           socketRef.current = null;

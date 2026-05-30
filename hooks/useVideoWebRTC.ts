@@ -20,6 +20,7 @@ export function useVideoWebRTC(socketRef: any, roomId: string) {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const pendingCandidates = useRef<RTCIceCandidate[]>([]);
   const remoteDescSet = useRef(false);
+  const disconnectTimerRef = useRef<any>(null);
 
   const fetchIceServers = async () => {
     try {
@@ -41,7 +42,12 @@ export function useVideoWebRTC(socketRef: any, roomId: string) {
   const endCall = useCallback(() => {
     console.log('[VideoWebRTC] endCall');
     setIsConnected(false);
-    
+
+    if (disconnectTimerRef.current) {
+      clearTimeout(disconnectTimerRef.current);
+      disconnectTimerRef.current = null;
+    }
+
     InCallManager.stop();
 
     if (pcRef.current) {
@@ -97,8 +103,26 @@ export function useVideoWebRTC(socketRef: any, roomId: string) {
       pc.addEventListener('iceconnectionstatechange', () => {
         console.log('[VideoWebRTC] ICE state:', pc.iceConnectionState);
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          if (disconnectTimerRef.current) {
+            clearTimeout(disconnectTimerRef.current);
+            disconnectTimerRef.current = null;
+          }
           setIsConnected(true);
-        } else if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+        } else if (pc.iceConnectionState === 'disconnected') {
+          // Transient state — wait 8s before giving up
+          console.log('[VideoWebRTC] ICE disconnected (transient) — waiting 8s...');
+          disconnectTimerRef.current = setTimeout(() => {
+            if (pcRef.current?.iceConnectionState === 'disconnected') {
+              console.log('[VideoWebRTC] ICE still disconnected after 8s — ending call');
+              setIsConnected(false);
+              endCall();
+            }
+          }, 8000);
+        } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+          if (disconnectTimerRef.current) {
+            clearTimeout(disconnectTimerRef.current);
+            disconnectTimerRef.current = null;
+          }
           setIsConnected(false);
           endCall();
         }
