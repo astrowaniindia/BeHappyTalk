@@ -198,7 +198,7 @@ export function useAudioWebRTC(socketRef: any, roomId: string): UseWebRTCReturn 
 
         // 2. Start InCallManager AFTER getting media
         InCallManager.start({ media: 'audio' });
-        InCallManager.setForceSpeakerphoneOn(true); // earpiece for audio calls
+        InCallManager.setForceSpeakerphoneOn(false); // earpiece for audio calls
 
         // 3. Fetch TURN credentials
         const iceServers = await fetchIceServers();

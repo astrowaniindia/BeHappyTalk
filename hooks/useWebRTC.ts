@@ -198,7 +198,7 @@ export function useWebRTC(socketRef: any, roomId: string): UseWebRTCReturn {
 
         // 2. Start InCallManager AFTER getting media
         InCallManager.start({ media: isVideo ? 'video' : 'audio' });
-        InCallManager.setForceSpeakerphoneOn(!isVideo); // earpiece for audio calls
+        InCallManager.setForceSpeakerphoneOn(isVideo); // earpiece for audio calls
 
         // 3. Fetch TURN credentials
         const iceServers = await fetchIceServers();
@@ -244,62 +244,12 @@ export function useWebRTC(socketRef: any, roomId: string): UseWebRTCReturn {
       try {
         // ── ANSWER: We are the callee ──────────────────────────────────────
         if (signal.type === 'offer') {
-          // Guard: ignore duplicate offers when already negotiated
-          if (pcRef.current && remoteDescSet.current && pcRef.current.signalingState === 'stable') {
-            console.log('[WebRTC] Ignoring duplicate offer — already connected');
-            return;
-          }
-          // Get local media if not already obtained
-          let stream = localStream;
-          if (!stream) {
-            const isVideo = signal.sdp?.includes('m=video') ?? false;
-            isVideoCallRef.current = isVideo;
-
-            const constraints = {
-              audio: true,
-              video: isVideo ? { facingMode: 'user' } : false,
-            };
-            stream = await mediaDevices.getUserMedia(constraints);
-            setLocalStream(stream);
-            console.log('[WebRTC] Callee got local stream');
-
-            InCallManager.start({ media: isVideo ? 'video' : 'audio' });
-            InCallManager.setForceSpeakerphoneOn(!isVideo);
-          }
-
-          // Create PC if needed
-          let pc = pcRef.current;
-          if (!pc) {
-            const iceServers = await fetchIceServers();
-            pc = createPeerConnection(iceServers);
-            pcRef.current = pc;
-            remoteDescSet.current = false;
-
-            stream.getTracks().forEach((track) => {
-              pc!.addTrack(track, stream!);
-            });
-          }
-
-          await pc.setRemoteDescription(
-            new RTCSessionDescription({ type: 'offer', sdp: signal.sdp })
-          );
-          remoteDescSet.current = true;
-          await drainCandidateQueue();
-
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-
-          if (socketRef.current) {
-            socketRef.current.emit('webrtc_signal', {
-              to: roomId,
-              signal: { type: 'answer', sdp: answer.sdp },
-            });
-          }
-          console.log('[WebRTC] Answer sent');
+          console.log('[WebRTC] Ignoring incoming offer — Mobile App is always the caller');
+          return;
         }
 
         // ── ANSWER received by caller ──────────────────────────────────────
-        else if (signal.type === 'answer') {
+        if (signal.type === 'answer') {
           const pc = pcRef.current;
           if (!pc) return;
           if (pc.signalingState === 'stable') {
