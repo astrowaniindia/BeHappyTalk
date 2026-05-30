@@ -157,8 +157,10 @@ export default function Home() {
         setConnectingModal(false);
         setSelectedProvider(null);
         setDurationModal(false);
-        if (type === 'Call' || type === 'Video' || type === 'Audio') {
+        if (type === 'Call' || type === 'Video') {
           router.push(`/call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
+        } else if (type === 'Audio') {
+          router.push(`/audio-call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
         } else {
           router.push(`/chat/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
         }

@@ -92,8 +92,10 @@ export default function ProviderProfile() {
     
     socketRef.current.on('session_accepted', ({ providerId, sessionId, type, duration, room }: any) => {
       setConnectingModal(false);
-      if (type === 'Call' || type === 'Video' || type === 'Audio') {
+      if (type === 'Call' || type === 'Video') {
         router.replace(`/call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(room || '')}`);
+      } else if (type === 'Audio') {
+        router.replace(`/audio-call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(room || '')}`);
       } else {
         router.replace(`/chat/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(room || '')}`);
       }
