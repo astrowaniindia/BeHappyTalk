@@ -43,6 +43,7 @@ export default function DedicatedAudioCallScreen() {
 
   const socketRef = useRef<any>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
+  const isRingbackStoppedRef = useRef(false);
   const callStartedRef = useRef(false);
   const handleSignalRef = useRef<((payload: any) => void) | null>(null);
 
@@ -101,6 +102,11 @@ export default function DedicatedAudioCallScreen() {
         { uri: 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3' },
         { shouldPlay: true, isLooping: true, volume: 0.5 }
       );
+      if (isRingbackStoppedRef.current) {
+        await sound.stopAsync();
+        await sound.unloadAsync();
+        return;
+      }
       soundRef.current = sound;
     } catch (e) {
       console.log('Ringback error (non-fatal):', e);
@@ -108,6 +114,7 @@ export default function DedicatedAudioCallScreen() {
   };
 
   const stopRingback = async () => {
+    isRingbackStoppedRef.current = true;
     const sound = soundRef.current;
     if (!sound) return;
     
