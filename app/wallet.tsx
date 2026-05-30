@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar, TouchableOpacity, ScrollView, Animated, ActivityIndicator, Dimensions, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar, TouchableOpacity, ScrollView, Animated, ActivityIndicator, Dimensions, RefreshControl, TextInput } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -24,6 +24,7 @@ export default function Wallet() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'Recharge' | 'History'>('Recharge');
   const [selectedPlan, setSelectedPlan] = useState(RECHARGE_OPTIONS[3]); // Default to 999
+  const [customAmount, setCustomAmount] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -111,12 +112,15 @@ export default function Wallet() {
               {/* Grid Layout */}
               <View style={styles.gridContainer}>
                 {RECHARGE_OPTIONS.map((plan, index) => {
-                  const isSelected = selectedPlan.amount === plan.amount;
+                  const isSelected = selectedPlan.amount === plan.amount && !customAmount;
                   return (
                     <TouchableOpacity 
                       key={index} 
                       style={[styles.gridItem, isSelected && styles.gridItemActive]}
-                      onPress={() => setSelectedPlan(plan)}
+                      onPress={() => {
+                        setSelectedPlan(plan);
+                        setCustomAmount('');
+                      }}
                     >
                       {plan.isPopular && (
                         <View style={styles.popularBadge}>
@@ -132,6 +136,26 @@ export default function Wallet() {
                     </TouchableOpacity>
                   )
                 })}
+              </View>
+
+              {/* Custom Amount Input */}
+              <View style={styles.customInputContainer}>
+                 <Text style={styles.customInputLabel}>Or enter custom amount:</Text>
+                 <TextInput
+                   style={styles.customInput}
+                   placeholder="e.g. 500"
+                   placeholderTextColor="rgba(255, 255, 255, 0.25)"
+                   keyboardType="numeric"
+                   value={customAmount}
+                   onChangeText={(text) => {
+                     setCustomAmount(text);
+                     if (text) {
+                       setSelectedPlan({ amount: text, talktime: text, isPopular: false, label: '' });
+                     } else {
+                       setSelectedPlan(RECHARGE_OPTIONS[3]);
+                     }
+                   }}
+                 />
               </View>
 
               {/* Breakdown Math */}
@@ -229,7 +253,10 @@ const styles = StyleSheet.create({
   popularText: { color: '#000000', fontSize: 10, fontWeight: 'bold' },
   planAmount: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 16, fontWeight: 'bold' },
   planLabel: { color: '#FACC15', fontSize: 10, marginTop: 4 },
-  breakdownContainer: { marginTop: 40, marginBottom: 30, paddingHorizontal: 8 },
+  customInputContainer: { marginTop: 24 },
+  customInputLabel: { color: 'rgba(255, 255, 255, 0.7)', fontSize: 14, marginBottom: 8, fontWeight: '500' },
+  customInput: { borderWidth: 1, borderColor: '#333333', backgroundColor: '#111111', color: 'rgba(255,255,255,0.92)', padding: 16, borderRadius: 12, fontSize: 16 },
+  breakdownContainer: { marginTop: 32, marginBottom: 30, paddingHorizontal: 8 },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   breakdownLabel: { color: 'rgba(255, 255, 255, 0.45)', fontSize: 14 },
   breakdownValue: { color: 'rgba(255, 255, 255, 0.70)', fontSize: 14 },
