@@ -1,17 +1,3 @@
-/**
- * app/chat/[id].tsx — FIXED VERSION
- *
- * Key fixes applied:
- * 1. FIXED: startCall was being called on socket 'connect' event — this fires
- *    every time socket reconnects, causing MULTIPLE offers to be sent.
- *    Now uses a ref guard so startCall is called exactly ONCE.
- * 2. FIXED: Two socket instances were being created (one in home.tsx, one here).
- *    Now properly manages a single socket instance.
- * 3. FIXED: WebRTC signal listener was attached but never cleaned up properly.
- * 4. IMPROVED: Audio routing — InCallManager is now started correctly for both
- *    audio and video calls.
- */
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar,
@@ -24,10 +10,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import io from 'socket.io-client';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../hooks/useAuth';
-import { Audio } from 'expo-av';
 import { API_URL, SOCKET_URL, secureFetch } from '../../constants/ServerConfig';
-import { CallView } from '../../components/CallView';
-import { useWebRTC } from '../../hooks/useWebRTC';
 
 const PROVIDER_IMAGE = require('../../assets/images/girl_smiling_1775250936696.png');
 
@@ -55,21 +38,12 @@ export default function ChatScreen() {
   const [isSending, setIsSending] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [wallet, setWallet] = useState<number | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const socketRef = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
-  // Guard to ensure startCall is called exactly once
-  const callStartedRef = useRef(false);
-  // Stable ref for handleSignal — prevents stale closures when socket reconnects
-  const handleSignalRef = useRef<((payload: any) => void) | null>(null);
 
   const userId = user?.id;
-  const roomId = userId && providerId ? `chat_${userId}_${providerId}` : '';
-
-  const { localStream, remoteStream, isConnected, startCall, handleSignal, endCall } = useWebRTC(socketRef, roomId);
 
   // ─── Timer logic ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -81,7 +55,7 @@ export default function ChatScreen() {
   }, [duration]);
 
   useEffect(() => {
-    if (!isConnected || timeLeft === null) return;
+    if (timeLeft === null) return;
     
     const timer = setInterval(() => {
       setTimeLeft(prev => {
@@ -95,52 +69,8 @@ export default function ChatScreen() {
     }, 1000);
     
     return () => clearInterval(timer);
-  }, [isConnected, timeLeft, duration]);
+  }, [timeLeft, duration]);
 
-  // ─── Ringback sound ─────────────────────────────────────────────────────────
-  const stopRingback = async () => {
-    if (soundRef.current) {
-      try {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-      } catch {}
-    }
-  };
-
-  const playRingback = async () => {
-    await stopRingback();
-    try {
-      // Set audio mode FIRST — this prevents the wrong-thread clash with ExoPlayer
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,      // ← this is the key fix
-        playThroughEarpieceAndroid: false,
-      });
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3' },
-        { shouldPlay: true, isLooping: true, volume: 0.5 }
-      );
-      soundRef.current = sound;
-    } catch (e) {
-      console.log('Ringback error (non-fatal):', e);
-      // Don't crash — ringback is optional, the call should still work
-    }
-  };
-
-  useEffect(() => {
-    if (type && (type === 'Call' || type === 'Video' || type === 'Audio')) {
-      setIsConnecting(true);
-      playRingback();
-    }
-    return () => { stopRingback(); };
-  }, [type]);
-
-  useEffect(() => {
-    if (isConnected) stopRingback();
-  }, [isConnected]);
 
   const fetchMessages = (isRefresh = false) => {
     if (!userId || !providerId) return;
@@ -218,22 +148,6 @@ export default function ChatScreen() {
     socketRef.current.on('connect', () => {
       console.log('[Chat] Socket connected:', socketRef.current.id);
       socketRef.current.emit('join_chat', { userId, providerId });
-
-      // FIX: Only start call ONCE — not on every reconnect
-      if ((type === 'Video' || type === 'Call' || type === 'Audio') && !callStartedRef.current) {
-        callStartedRef.current = true;
-        console.log('[Chat] Starting call, type:', type);
-        // Small delay to ensure the provider has also connected their socket
-        setTimeout(async () => {
-          await stopRingback();   // ← stop ringback BEFORE starting call audio
-          startCall(type === 'Video');
-        }, 500);
-      }
-    });
-
-    socketRef.current.on('webrtc_signal', (payload: any) => {
-      // Use latest handleSignal via ref to avoid stale closure issues
-      if (handleSignalRef.current) handleSignalRef.current(payload);
     });
 
     socketRef.current.on('receive_message', (newMsg: any) => {
@@ -274,7 +188,6 @@ export default function ChatScreen() {
     });
 
     socketRef.current.on('session_ended', ({ reason }: { reason: string }) => {
-      endCall();
       router.replace(`/post-call?providerId=${providerId}&type=${type}&reason=${reason}`);
     });
 
@@ -293,26 +206,14 @@ export default function ChatScreen() {
 
     return () => {
       backHandler.remove();
-      stopRingback();
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
-      // NOTE: endCall is intentionally NOT called here — socket reconnects
-      // trigger this cleanup and would kill an active call. endCall is only
-      // called explicitly from endSession() or session_ended event.
     };
   }, [userId, providerId]);
 
-  // Keep handleSignalRef in sync with the latest handleSignal closure
-  // This lets the socket listener always call the freshest version without re-attaching
-  useEffect(() => {
-    handleSignalRef.current = handleSignal;
-  }, [handleSignal]);
-
   const endSession = useCallback(() => {
-    stopRingback();
-    endCall();
     if (sessionId && socketRef.current) {
       socketRef.current.emit('end_interaction', { sessionId });
     }
@@ -321,7 +222,7 @@ export default function ChatScreen() {
     } else {
       router.replace(`/post-call?providerId=${providerId}&type=${type}&reason=user_ended`);
     }
-  }, [endCall, sessionId, providerId, type]);
+  }, [sessionId, providerId, type]);
 
   const sendMessage = () => {
     const trimmed = message.trim();
@@ -424,169 +325,132 @@ export default function ChatScreen() {
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {type && (type === 'Call' || type === 'Video' || type === 'Audio') ? (
-          <View style={{ flex: 1 }}>
-            <CallView
-              localStream={localStream}
-              remoteStream={remoteStream}
-              isVideo={type === 'Video'}
-              isConnected={isConnected}
-              onEnd={endSession}
-              callerName={contact.name}
-              timeLeft={timeLeft}
-              isUnlimited={duration === 'unlimited'}
-              walletBalance={null}
-            />
-            {isConnecting && !isConnected && (
-              <View style={styles.connectingOverlay}>
-                <ActivityIndicator size="large" color="#FACC15" />
-                <Text style={styles.connectingText}>Connecting to {contact.name}...</Text>
-                <Text style={styles.encryptionText}>
-                  <MaterialCommunityIcons name="shield-check" size={14} color="#34D399" /> End-to-End Encrypted
-                </Text>
-              </View>
-            )}
-          </View>
-        ) : (
-          <>
-            {/* Header */}
-            <View style={styles.header}>
-              <TouchableOpacity onPress={() => {
-                if (sessionId) {
-                  endSession();
-                } else {
-                  router.back();
-                }
-              }} style={styles.backBtn}>
-                <MaterialIcons name="arrow-back" size={24} color="rgba(255,255,255,0.92)" />
-                <View style={styles.avatarCt}>
-                  <Image source={contact.image} style={styles.avatar} />
-                  <View
-                    style={[
-                      styles.statusDot,
-                      { backgroundColor: contact.status === 'online' ? '#34D399' : '#F59E0B' },
-                    ]}
-                  />
-                </View>
-              </TouchableOpacity>
-
-              <View style={styles.headerInfo}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.contactName}>{contact.name}</Text>
-                  {contact.verified && (
-                    <MaterialCommunityIcons name="check-decagram" size={14} color="#00E5FF" />
-                  )}
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  {isTyping ? (
-                    <Text style={styles.typingText}>typing...</Text>
-                  ) : (
-                    <Text style={styles.statusText}>
-                      {contact.status === 'online' ? 'Online' : 'Away'}
-                    </Text>
-                  )}
-                  {timeLeft !== null && (
-                    <View style={{ backgroundColor: '#EF444425', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
-                      <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 12 }}>
-                        {Math.floor(timeLeft / 60).toString().padStart(2, '0')}:{(timeLeft % 60).toString().padStart(2, '0')}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              <View style={[styles.headerActions, { flexDirection: 'column', gap: 6, alignItems: 'flex-end' }]}>
-                {wallet !== null && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E2028', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#FACC1530' }}>
-                    <MaterialCommunityIcons name="wallet-outline" size={14} color="#FACC15" style={{ marginRight: 4 }} />
-                    <Text style={{ color: '#FACC15', fontWeight: 'bold', fontSize: 11 }}>₹{wallet}</Text>
-                  </View>
-                )}
-                <TouchableOpacity style={styles.endBtn} onPress={endSession}>
-                  <Text style={styles.endBtnText}>End {type || 'Session'}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Messages */}
-            <View style={styles.chatBg}>
-              <FlatList
-                ref={flatListRef}
-                data={messages}
-                keyExtractor={item => item.id}
-                renderItem={renderMessage}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
-                refreshControl={
-                  <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#111111" />
-                }
-                ListEmptyComponent={
-                  <View style={styles.emptyCt}>
-                    <MaterialCommunityIcons name="chat-outline" size={48} color="rgba(255,255,255,0.10)" />
-                    <Text style={styles.emptyText}>
-                      Say hello to {contact.name}!{'\n'}They're ready to listen 💛
-                    </Text>
-                  </View>
-                }
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => {
+            if (sessionId) {
+              endSession();
+            } else {
+              router.back();
+            }
+          }} style={styles.backBtn}>
+            <MaterialIcons name="arrow-back" size={24} color="rgba(255,255,255,0.92)" />
+            <View style={styles.avatarCt}>
+              <Image source={contact.image} style={styles.avatar} />
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: contact.status === 'online' ? '#34D399' : '#F59E0B' },
+                ]}
               />
+            </View>
+          </TouchableOpacity>
 
-              {isTyping && (
-                <View style={styles.typingBubbleRow}>
-                  <View style={styles.typingBubble}>
-                    <Text style={styles.typingDots}>● ● ●</Text>
-                  </View>
+          <View style={styles.headerInfo}>
+            <View style={styles.nameRow}>
+              <Text style={styles.contactName}>{contact.name}</Text>
+              {contact.verified && (
+                <MaterialCommunityIcons name="check-decagram" size={14} color="#00E5FF" />
+              )}
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {isTyping ? (
+                <Text style={styles.typingText}>typing...</Text>
+              ) : (
+                <Text style={styles.statusText}>
+                  {contact.status === 'online' ? 'Online' : 'Away'}
+                </Text>
+              )}
+              {timeLeft !== null && (
+                <View style={{ backgroundColor: '#EF444425', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                  <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 12 }}>
+                    {Math.floor(timeLeft / 60).toString().padStart(2, '0')}:{(timeLeft % 60).toString().padStart(2, '0')}
+                  </Text>
                 </View>
               )}
             </View>
+          </View>
 
-            {/* Input */}
-            <View style={[styles.inputContainer, !isSessionActive && { opacity: 0.5 }]}>
-              <TouchableOpacity style={styles.attachBtn} onPress={pickImage} disabled={!isSessionActive || isSending}>
-                <MaterialCommunityIcons name="paperclip" size={24} color="rgba(255,255,255,0.7)" />
-              </TouchableOpacity>
-              <View style={[styles.inputWrapper, !isSessionActive && { backgroundColor: '#12141B' }]}>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder={providerId === 'system' ? 'Cannot reply to system message' : (isSessionActive ? 'Message...' : 'Session ended')}
-                  placeholderTextColor="rgba(255,255,255,0.35)"
-                  value={message}
-                  onChangeText={setMessage}
-                  multiline
-                  editable={isSessionActive}
-                  onSubmitEditing={sendMessage}
-                />
+          <View style={[styles.headerActions, { flexDirection: 'column', gap: 6, alignItems: 'flex-end' }]}>
+            {wallet !== null && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E2028', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#FACC1530' }}>
+                <MaterialCommunityIcons name="wallet-outline" size={14} color="#FACC15" style={{ marginRight: 4 }} />
+                <Text style={{ color: '#FACC15', fontWeight: 'bold', fontSize: 11 }}>₹{wallet}</Text>
               </View>
-              <TouchableOpacity
-                style={[styles.sendButton, (!message.trim() || isSending || !isSessionActive) && styles.sendButtonDisabled]}
-                onPress={sendMessage}
-                disabled={!message.trim() || isSending || !isSessionActive}
-              >
-                {isSending ? (
-                  <ActivityIndicator size="small" color="rgba(255,255,255,0.60)" />
-                ) : (
-                  <MaterialCommunityIcons name="send" size={20} color="rgba(255,255,255,0.92)" />
-                )}
-              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.endBtn} onPress={endSession}>
+              <Text style={styles.endBtnText}>End {type || 'Session'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Messages */}
+        <View style={styles.chatBg}>
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={item => item.id}
+            renderItem={renderMessage}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FACC15" colors={['#FACC15']} progressBackgroundColor="#111111" />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyCt}>
+                <MaterialCommunityIcons name="chat-outline" size={48} color="rgba(255,255,255,0.10)" />
+                <Text style={styles.emptyText}>
+                  Say hello to {contact.name}!{'\n'}They're ready to listen 💛
+                </Text>
+              </View>
+            }
+          />
+
+          {isTyping && (
+            <View style={styles.typingBubbleRow}>
+              <View style={styles.typingBubble}>
+                <Text style={styles.typingDots}>● ● ●</Text>
+              </View>
             </View>
-          </>
-        )}
+          )}
+        </View>
+
+        {/* Input */}
+        <View style={[styles.inputContainer, !isSessionActive && { opacity: 0.5 }]}>
+          <TouchableOpacity style={styles.attachBtn} onPress={pickImage} disabled={!isSessionActive || isSending}>
+            <MaterialCommunityIcons name="paperclip" size={24} color="rgba(255,255,255,0.7)" />
+          </TouchableOpacity>
+          <View style={[styles.inputWrapper, !isSessionActive && { backgroundColor: '#12141B' }]}>
+            <TextInput
+              style={styles.textInput}
+              placeholder={providerId === 'system' ? 'Cannot reply to system message' : (isSessionActive ? 'Message...' : 'Session ended')}
+              placeholderTextColor="rgba(255,255,255,0.35)"
+              value={message}
+              onChangeText={setMessage}
+              multiline
+              editable={isSessionActive}
+              onSubmitEditing={sendMessage}
+            />
+          </View>
+          <TouchableOpacity
+            style={[styles.sendButton, (!message.trim() || isSending || !isSessionActive) && styles.sendButtonDisabled]}
+            onPress={sendMessage}
+            disabled={!message.trim() || isSending || !isSessionActive}
+          >
+            {isSending ? (
+              <ActivityIndicator size="small" color="rgba(255,255,255,0.60)" />
+            ) : (
+              <MaterialCommunityIcons name="send" size={20} color="rgba(255,255,255,0.92)" />
+            )}
+          </TouchableOpacity>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  connectingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(5, 7, 10, 0.98)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-    zIndex: 100
-  },
-  connectingText: { color: 'white', fontSize: 18, fontWeight: 'bold', marginTop: 8 },
-  encryptionText: { color: 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: '600' },
   safeArea: { flex: 1, backgroundColor: '#111111', paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0 },
   container: { flex: 1, backgroundColor: '#000000' },
   header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111111', paddingVertical: 10, paddingHorizontal: 12, elevation: 6 },
