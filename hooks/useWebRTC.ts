@@ -59,6 +59,7 @@ export function useWebRTC(socketRef: any, roomId: string): UseWebRTCReturn {
   // Refs — mutable, not reactive
   const pcRef             = useRef<RTCPeerConnection | null>(null);
   const isVideoCallRef    = useRef(false);
+  const isProcessingAnswerRef = useRef(false);
   const pendingCandidates = useRef<RTCIceCandidate[]>([]);
   const remoteDescSet     = useRef(false);
   const remoteStreamRef   = useRef<MediaStream | null>(null);
@@ -252,16 +253,21 @@ export function useWebRTC(socketRef: any, roomId: string): UseWebRTCReturn {
         if (signal.type === 'answer') {
           const pc = pcRef.current;
           if (!pc) return;
-          if (pc.signalingState === 'stable') {
-            console.log('[WebRTC] Ignoring duplicate answer (state is already stable)');
+          if (pc.signalingState === 'stable' || isProcessingAnswerRef.current) {
+            console.log('[WebRTC] Ignoring duplicate answer (state is already stable or processing)');
             return;
           }
-          await pc.setRemoteDescription(
-            new RTCSessionDescription({ type: 'answer', sdp: signal.sdp })
-          );
-          remoteDescSet.current = true;
-          await drainCandidateQueue();
-          console.log('[WebRTC] Remote description set from answer');
+          isProcessingAnswerRef.current = true;
+          try {
+            await pc.setRemoteDescription(
+              new RTCSessionDescription({ type: 'answer', sdp: signal.sdp })
+            );
+            remoteDescSet.current = true;
+            await drainCandidateQueue();
+            console.log('[WebRTC] Remote description set from answer');
+          } finally {
+            // We do not reset isProcessingAnswerRef because once an answer is set, we never want to process another one for this PC instance.
+          }
         }
 
         // ── ICE candidate ──────────────────────────────────────────────────

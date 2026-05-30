@@ -175,6 +175,13 @@ export default function Home() {
       socketRef.current.on('wallet_update', ({ walletBalance }: { walletBalance: number }) => {
          setWalletBalance(walletBalance);
       });
+
+      return () => {
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+          socketRef.current = null;
+        }
+      };
     }
   }, [user]);
 
