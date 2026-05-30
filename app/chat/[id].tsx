@@ -273,7 +273,7 @@ export default function ChatScreen() {
     }
   };
 
-  const canSendMessage = providerId !== 'system' && (!sessionId || timeLeft === null || timeLeft > 0);
+  const canSendMessage = providerId !== 'system' && Boolean(sessionId) && (timeLeft === null || timeLeft > 0);
 
   const renderMessageContent = (text: string) => {
     if (text.startsWith('[IMAGE]')) {

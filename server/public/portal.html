@@ -2361,8 +2361,8 @@
       document.getElementById('chat-header-meta').style.display = 'flex';
       document.getElementById('active-chat-name').innerText = u.name;
       
-      // Allow provider to reply to any chat (including offline inbox messages)
-      document.getElementById('chat-input-row').style.display = 'flex';
+      // Enforce active session for messaging
+      document.getElementById('chat-input-row').style.display = (currentSessionId && activeUserId === u.id) ? 'flex' : 'none';
       
       renderUsers();
       socket.emit('join_chat', { userId: u.id, providerId: provider.id });
