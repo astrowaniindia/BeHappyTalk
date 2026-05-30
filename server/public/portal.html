@@ -58,7 +58,9 @@
     .login-box p { 
       color: var(--text-dim); margin: 0 0 40px; font-size: 15px; line-height: 1.5;
     }
-    .input-grp { margin-bottom: 24px; text-align: left; }
+    .input-grp { margin-bottom: 24px; text-align: left; position: relative; }
+    .pwd-toggle { position: absolute; right: 16px; top: 38px; cursor: pointer; color: var(--text-dim); }
+    .pwd-toggle:hover { color: var(--primary); }
     .input-grp label { display: block; font-size: 12px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.5px; margin-bottom: 8px; font-weight: 600; }
     .input-grp input { 
       width: 100%; background: var(--bg-darker); color: var(--text); padding: 16px 20px; 
@@ -318,7 +320,18 @@
 
       <div class="input-grp" id="pwd-grp">
         <label>Password</label>
-        <input type="password" id="login-pwd" placeholder="Enter your secret key">
+        <input type="password" id="login-pwd" placeholder="Enter your secret key" style="padding-right: 48px;">
+        <span class="pwd-toggle" id="toggle-pwd" onclick="
+          const pwdInput = document.getElementById('login-pwd');
+          const eyeIcon = document.getElementById('toggle-pwd');
+          if (pwdInput.type === 'password') {
+            pwdInput.type = 'text';
+            eyeIcon.textContent = '👁️';
+          } else {
+            pwdInput.type = 'password';
+            eyeIcon.textContent = '🔒';
+          }
+        ">🔒</span>
       </div>
 
       <!-- Registration Fields (Hidden by default) -->
