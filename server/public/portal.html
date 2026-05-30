@@ -2541,17 +2541,10 @@ function renderMsg(msg) {
 
         const stream = event.streams && event.streams[0];
 
-        // Video track — attach to remote-video-el
-        if (event.track.kind === 'video' && stream) {
-          const remoteVideoEl = document.getElementById('remote-video-el');
-          if (remoteVideoEl && remoteVideoEl.srcObject !== stream) {
-            remoteVideoEl.srcObject = stream;
-            remoteVideoEl.play().catch(() => {});
-          }
-        }
-
-        // Audio track — attach to hidden audio element
-        if (stream) {
+        if (isVideoCall && stream) {
+          vcAttachRemoteStream(stream);
+        } else if (stream) {
+          // Audio track — attach to hidden audio element
           if (!remoteAudioEl) {
             remoteAudioEl = document.createElement('audio');
             remoteAudioEl.autoplay = true;
@@ -2583,6 +2576,10 @@ function renderMsg(msg) {
       isVideoCall = (type === 'Video');
 
       try {
+        if (isVideoCall) {
+          vcShowOverlay(curVid ? curVid.name : 'Customer');
+        }
+
         // 1. Get local media
         localStream = await navigator.mediaDevices.getUserMedia({
           audio: true,
@@ -2590,23 +2587,8 @@ function renderMsg(msg) {
         });
         console.log('[WebRTC] Got local stream, tracks:', localStream.getTracks().length);
 
-        // 2. Show local preview in PiP (video only)
         if (isVideoCall) {
-          const localContainer = document.getElementById('local-video');
-          if (localContainer) {
-            let localVidEl = localContainer.querySelector('video');
-            if (!localVidEl) {
-              localVidEl = document.createElement('video');
-              localVidEl.autoplay = true;
-              localVidEl.muted = true;
-              localVidEl.playsInline = true;
-              localVidEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
-              localContainer.appendChild(localVidEl);
-            }
-            localVidEl.srcObject = localStream;
-            const pipCam = document.getElementById('vid-pip-cam');
-            if (pipCam) pipCam.style.display = 'none';
-          }
+          vcAttachLocalStream(localStream);
         }
 
         // 3. Create PC and add local tracks
@@ -2715,6 +2697,8 @@ function renderMsg(msg) {
     // ── stopMedia — tears down everything cleanly ─────────────────────────────
     function stopMedia() {
       console.log('[WebRTC] stopMedia called');
+
+      vcHideOverlay();
 
       if (localStream) {
         localStream.getTracks().forEach(t => t.stop());
@@ -2950,51 +2934,160 @@ function renderMsg(msg) {
     }
   </script>
 
-  <!-- Clean Dedicated Call Screen (Full Screen Overlay) -->
-  <div id="clean-call-screen" style="display: none; position: fixed; inset: 0; background: #000; z-index: 99999; font-family: 'Inter', 'Outfit', sans-serif; overflow: hidden; align-items: center; justify-content: center;">
-    
-    <!-- Remote Video Element -->
-    <video id="clean-remote-video" autoplay playsinline style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 10; background: #000;"></video>
-    
-    <!-- Audio Call / Video Off Fallback Avatar (pulsing) -->
-    <div id="clean-avatar-container" style="display: none; position: absolute; inset: 0; z-index: 15; align-items: center; justify-content: center; flex-direction: column; background: #080808;">
-      <div id="clean-avatar-circle" style="width: 140px; height: 140px; border-radius: 70px; background: #FACC15; display: flex; align-items: center; justify-content: center; font-size: 60px; font-weight: bold; color: #000; box-shadow: 0 0 40px rgba(250, 204, 21, 0.4); animation: cleanPulse 2s infinite;">
-        C
-      </div>
-      <div id="clean-customer-name" style="margin-top: 24px; color: #fff; font-size: 24px; font-weight: 600;">Customer</div>
-      <div style="margin-top: 8px; color: rgba(255,255,255,0.4); font-size: 14px;">Voice Call Active</div>
+  <!-- ═══════════════════════════════════════════════════════════════
+       NEW VIDEO CALL OVERLAY — Completely standalone, simple, works
+       Shown when provider accepts a Video call.
+       Hidden by default (display:none). JS controls visibility.
+  ══════════════════════════════════════════════════════════════════ -->
+  <div id="vc-overlay" style="display:none; position:fixed; inset:0; background:#000; z-index:99999; font-family:sans-serif;">
+
+    <!-- Remote video (full screen) -->
+    <video id="vc-remote"
+      autoplay playsinline
+      style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#111;">
+    </video>
+
+    <!-- Waiting / audio-only avatar (shown until remote video arrives) -->
+    <div id="vc-avatar" style="
+        position:absolute;inset:0;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        background:#0a0a0a;z-index:2;">
+      <div id="vc-avatar-letter" style="
+          width:120px;height:120px;border-radius:60px;
+          background:#FACC15;display:flex;align-items:center;justify-content:center;
+          font-size:52px;font-weight:800;color:#000;
+          border:4px solid #fff;">A</div>
+      <div id="vc-name-lbl" style="color:#fff;font-size:22px;font-weight:700;margin-top:20px;">Customer</div>
+      <div id="vc-status-lbl" style="color:rgba(255,255,255,0.45);font-size:14px;margin-top:6px;">Connecting video…</div>
     </div>
 
-    <!-- Local Video PiP (Picture in Picture) -->
-    <div id="clean-local-pip" style="position: absolute; top: 30px; right: 30px; width: 120px; height: 160px; border-radius: 16px; overflow: hidden; border: 2px solid rgba(255,255,255,0.25); z-index: 30; background: #111; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-      <video id="clean-local-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
-    </div>
+    <!-- Local PiP (bottom-right) -->
+    <video id="vc-local"
+      autoplay playsinline muted
+      style="position:absolute;bottom:130px;right:20px;
+             width:110px;height:155px;border-radius:12px;
+             object-fit:cover;transform:scaleX(-1);
+             border:2px solid rgba(255,255,255,0.5);
+             background:#222;z-index:10;display:none;">
+    </video>
 
-    <!-- Floating Timer at the top -->
-    <div id="clean-timer-badge" style="position: absolute; top: 30px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.7); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px 24px; border-radius: 30px; font-size: 20px; font-weight: bold; font-family: monospace; z-index: 40; backdrop-filter: blur(10px); letter-spacing: 1px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-      00:00
-    </div>
+    <!-- Timer (top centre) -->
+    <div id="vc-timer" style="
+        position:absolute;top:28px;left:50%;transform:translateX(-50%);
+        background:rgba(0,0,0,0.6);color:#FACC15;
+        padding:7px 22px;border-radius:20px;
+        font-size:18px;font-weight:700;font-family:monospace;
+        z-index:10;display:none;">00:00</div>
 
-    <!-- Floating Control Bar at the bottom -->
-    <div style="position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 24px; z-index: 50;">
-      <!-- Mute Button -->
-      <button id="clean-mute-btn" onclick="toggleCleanMute()" style="width: 64px; height: 64px; border-radius: 32px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); transition: all 0.2s ease;">
-        <i class="fas fa-microphone" id="clean-mute-icon"></i>
+    <!-- Controls (bottom centre) -->
+    <div style="position:absolute;bottom:36px;left:0;right:0;display:flex;justify-content:center;gap:28px;z-index:20;">
+
+      <!-- Mute -->
+      <button id="vc-btn-mic" onclick="vcToggleMic()" style="
+          width:58px;height:58px;border-radius:50%;border:none;
+          background:rgba(255,255,255,0.15);color:#fff;font-size:22px;cursor:pointer;">
+        <i class="fas fa-microphone" id="vc-mic-icon"></i>
       </button>
-      
-      <!-- Hangup Button -->
-      <button onclick="hangupCleanCall()" style="width: 72px; height: 72px; border-radius: 36px; border: none; background: #ef4444; color: #fff; font-size: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4); transition: all 0.2s ease; transform: rotate(135deg);">
-        <i class="fas fa-phone"></i>
+
+      <!-- Camera off -->
+      <button id="vc-btn-cam" onclick="vcToggleCam()" style="
+          width:58px;height:58px;border-radius:50%;border:none;
+          background:rgba(255,255,255,0.15);color:#fff;font-size:22px;cursor:pointer;">
+        <i class="fas fa-video" id="vc-cam-icon"></i>
       </button>
+
+      <!-- Hang up -->
+      <button onclick="vcHangup()" style="
+          width:72px;height:72px;border-radius:50%;border:none;
+          background:#ef4444;color:#fff;font-size:26px;cursor:pointer;
+          box-shadow:0 8px 20px rgba(239,68,68,0.5);">
+        <i class="fas fa-phone-slash"></i>
+      </button>
+
     </div>
   </div>
 
-  <style>
-    @keyframes cleanPulse {
-      0% { transform: scale(1); box-shadow: 0 0 20px rgba(250, 204, 21, 0.3); }
-      50% { transform: scale(1.05); box-shadow: 0 0 40px rgba(250, 204, 21, 0.6); }
-      100% { transform: scale(1); box-shadow: 0 0 20px rgba(250, 204, 21, 0.3); }
+  <script>
+    // ── Simple Video Call Overlay Logic ────────────────────────────────────────
+    let vcStream = null;    // local stream
+    let vcMicOff = false;
+    let vcCamOff = false;
+    let vcTimerInt = null;
+    let vcSecs = 0;
+
+    function vcShowOverlay(name) {
+      const ol = document.getElementById('vc-overlay');
+      ol.style.display = 'block';
+      document.getElementById('vc-avatar-letter').innerText = name.charAt(0).toUpperCase();
+      document.getElementById('vc-name-lbl').innerText = name;
+      document.getElementById('vc-status-lbl').innerText = 'Connecting video…';
+      document.getElementById('vc-timer').style.display = 'none';
+      document.getElementById('vc-avatar').style.display = 'flex';
     }
-  </style>
+
+    function vcHideOverlay() {
+      document.getElementById('vc-overlay').style.display = 'none';
+      clearInterval(vcTimerInt);
+      vcTimerInt = null; vcSecs = 0;
+    }
+
+    function vcStartTimer() {
+      document.getElementById('vc-timer').style.display = 'block';
+      vcSecs = 0;
+      if (vcTimerInt) clearInterval(vcTimerInt);
+      vcTimerInt = setInterval(() => {
+        vcSecs++;
+        const m = String(Math.floor(vcSecs / 60)).padStart(2, '0');
+        const s = String(vcSecs % 60).padStart(2, '0');
+        document.getElementById('vc-timer').innerText = `${m}:${s}`;
+      }, 1000);
+    }
+
+    function vcSetConnected() {
+      document.getElementById('vc-status-lbl').innerText = 'Connected';
+      vcStartTimer();
+    }
+
+    function vcAttachRemoteStream(stream) {
+      const vid = document.getElementById('vc-remote');
+      if (vid.srcObject !== stream) {
+        vid.srcObject = stream;
+        vid.play().catch(() => {});
+      }
+      // Hide avatar, show video
+      document.getElementById('vc-avatar').style.display = 'none';
+      vcSetConnected();
+    }
+
+    function vcAttachLocalStream(stream) {
+      vcStream = stream;
+      const localVid = document.getElementById('vc-local');
+      localVid.srcObject = stream;
+      localVid.style.display = 'block';
+    }
+
+    function vcToggleMic() {
+      if (!vcStream) return;
+      vcMicOff = !vcMicOff;
+      vcStream.getAudioTracks().forEach(t => t.enabled = !vcMicOff);
+      document.getElementById('vc-mic-icon').className = vcMicOff ? 'fas fa-microphone-slash' : 'fas fa-microphone';
+      document.getElementById('vc-btn-mic').style.background = vcMicOff ? '#ef4444' : 'rgba(255,255,255,0.15)';
+    }
+
+    function vcToggleCam() {
+      if (!vcStream) return;
+      vcCamOff = !vcCamOff;
+      vcStream.getVideoTracks().forEach(t => t.enabled = !vcCamOff);
+      document.getElementById('vc-cam-icon').className = vcCamOff ? 'fas fa-video-slash' : 'fas fa-video';
+      document.getElementById('vc-btn-cam').style.background = vcCamOff ? '#ef4444' : 'rgba(255,255,255,0.15)';
+    }
+
+    function vcHangup() {
+      endVideoCall();    // calls existing endVideoCall() which calls stopMedia()
+      vcHideOverlay();
+    }
+  </script>
+
 </body>
 </html>
+

@@ -93,11 +93,14 @@ export default function VideoCallScreen() {
 
     sock.on('connect', () => {
       console.log('[VideoCall] socket connected:', sock.id);
+      // Join the room FIRST so we can receive the answer from the portal
       sock.emit('join_chat', { userId, providerId });
+      console.log('[VideoCall] Joined room:', roomId);
 
       if (!socketStartedRef.current) {
         socketStartedRef.current = true;
-        setTimeout(() => startCall(), 400);
+        // Small delay to ensure portal has time to process join before offer arrives
+        setTimeout(() => startCall(), 800);
       }
     });
 
