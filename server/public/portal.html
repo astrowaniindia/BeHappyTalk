@@ -479,7 +479,7 @@
         <!-- View: Inbox -->
         <div id="view-inbox" class="view-content">
           <div class="inbox-layout">
-            <div class="user-list" style="display:flex; flex-direction:column; overflow: hidden;">
+            <div class="user-list" id="inbox-sidebar" style="display:flex; flex-direction:column; overflow: hidden; transition: width 0.3s ease;">
               <div style="padding: 24px; border-bottom: 1px solid var(--border); background: var(--surface); z-index: 10;">
                  <h3 style="margin: 0; font-size: 18px; color: var(--text); font-weight: 800;">All Chats</h3>
               </div>
@@ -489,7 +489,8 @@
             </div>
             <div class="chat-container">
                <div class="chat-header" id="chat-header-meta" style="display: none; justify-content: space-between; align-items: center;">
-                  <div>
+                  <div style="display: flex; align-items: center;">
+                    <button onclick="toggleInboxSidebar()" style="background: transparent; border: none; color: var(--text-dim); font-size: 18px; margin-right: 16px; cursor: pointer; transition: 0.3s;"><i class="fas fa-bars"></i></button>
                     <span class="u-active" id="active-chat-name" style="font-weight: 800; font-size: 18px; color: white;">User Session</span>
                     <span style="color: var(--primary); font-size: 13px; font-weight: 700; background: var(--primary-dim); padding: 4px 10px; border-radius: 8px; margin-left: 12px;">
                       <i class="fas fa-clock"></i> <span id="chat-timer">00:00</span>
@@ -1437,27 +1438,44 @@
       });
 
       socket.on('receive_message', (msg) => {
-      if (msg.senderId !== provider.id) {
-        lastMessages[msg.senderId] = msg.text.startsWith('<img') ? '📷 Photo' : msg.text;
-        if (msg.senderId !== activeUserId) {
-          unreadCounts[msg.senderId] = (unreadCounts[msg.senderId] || 0) + 1;
-          notifSound.play().catch(e=>{});
+        if (msg.senderId !== provider.id) {
+          lastMessages[msg.senderId] = msg.text.startsWith('<img') ? '📷 Photo' : msg.text;
+          if (msg.senderId !== activeUserId) {
+            unreadCounts[msg.senderId] = (unreadCounts[msg.senderId] || 0) + 1;
+            notifSound.play().catch(e=>{});
+          } else {
+            if (document.hidden) notifSound.play().catch(e=>{});
+            renderMsg(msg);
+          }
+          renderUsers();
         } else {
-          if (document.hidden) notifSound.play().catch(e=>{});
-          renderMsg(msg);
+          if (msg.userId === activeUserId) {
+            renderMsg(msg);
+          }
         }
-        renderUsers();
-      }
-    });
+      });
     
-    socket.on('typing', (data) => {
-      if (data.from === activeUserId) {
-         const ti = document.getElementById('typing-indicator');
-         ti.style.display = 'block';
-         clearTimeout(typingTimeout);
-         typingTimeout = setTimeout(() => ti.style.display = 'none', 3000);
-      }
-    });
+      socket.on('typing', (data) => {
+        if (data.from === activeUserId) {
+           const ti = document.getElementById('typing-indicator');
+           ti.style.display = 'block';
+           clearTimeout(typingTimeout);
+           typingTimeout = setTimeout(() => ti.style.display = 'none', 3000);
+        }
+      });
+      
+      window.toggleInboxSidebar = function() {
+        const sb = document.getElementById('inbox-sidebar');
+        if (sb.style.width === '0px' || sb.style.display === 'none') {
+          sb.style.width = '340px';
+          sb.style.display = 'flex';
+          sb.style.borderRight = '1px solid var(--border)';
+        } else {
+          sb.style.width = '0px';
+          sb.style.display = 'none';
+          sb.style.borderRight = 'none';
+        }
+      };
 
 
       // Logout
