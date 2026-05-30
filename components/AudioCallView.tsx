@@ -99,9 +99,9 @@ export default function AudioCallView({
       */}
       {remoteStream && (
         <RTCView
-          stream={remoteStream}
+          streamURL={remoteStream.toURL()}
           style={styles.hiddenAudio}
-          zOrder={0}
+          zOrder={1}
           objectFit="cover"
         />
       )}
