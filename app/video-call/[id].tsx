@@ -1,240 +1,161 @@
 /**
- * app/video-call/[id].tsx — Dedicated Video Call Screen for BeHappyTalk Mobile App
+ * app/video-call/[id].tsx
+ * Dedicated Video Call Screen — clean rebuild.
+ * Connects socket, starts WebRTC, displays VideoCallView.
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  Platform,
-  StatusBar as RNStatusBar,
-  ActivityIndicator,
-  BackHandler,
+  View, Text, StyleSheet, SafeAreaView,
+  Platform, StatusBar as RNStatusBar, BackHandler,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import io from 'socket.io-client';
 import { useAuth } from '../../hooks/useAuth';
-import { Audio } from 'expo-av';
 import { API_URL, SOCKET_URL, secureFetch } from '../../constants/ServerConfig';
-import VideoCallView from '../../components/VideoCallView';
 import { useVideoWebRTC } from '../../hooks/useVideoWebRTC';
+import VideoCallView from '../../components/VideoCallView';
 
-const PROVIDER_IMAGE = require('../../assets/images/girl_smiling_1775250936696.png');
-
-export default function DedicatedVideoCallScreen() {
+export default function VideoCallScreen() {
   const router = useRouter();
   const { id: providerId, sessionId, type, duration } = useLocalSearchParams<{
-    id: string;
-    sessionId?: string;
-    type?: string;
-    duration?: string;
+    id: string; sessionId?: string; type?: string; duration?: string;
   }>();
   const { user } = useAuth();
 
-  const [contact, setContact] = useState<any>({ name: 'Loading...', image: PROVIDER_IMAGE });
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [providerName, setProviderName] = useState('Provider');
   const [wallet, setWallet] = useState<number | null>(null);
-  const [isConnecting, setIsConnecting] = useState(true);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   const socketRef = useRef<any>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const isRingbackStoppedRef = useRef(false);
-  const callStartedRef = useRef(false);
-  const handleSignalRef = useRef<((payload: any) => void) | null>(null);
+  const socketStartedRef = useRef(false);
+  const handleSignalRef = useRef<((p: any) => void) | null>(null);
 
   const userId = user?.id;
-  const roomId = userId && providerId ? `chat_${userId}_${providerId}` : '';
+  const roomId = `chat_${userId}_${providerId}`;
 
-  const { localStream, remoteStream, isConnected, startCall, handleSignal, endCall } = useVideoWebRTC(socketRef, roomId);
+  const { localStream, remoteStream, isConnected, startCall, handleSignal, endCall } =
+    useVideoWebRTC(socketRef, roomId);
 
-  const endSession = useCallback(() => {
-    stopRingback();
-    endCall();
-    if (sessionId && socketRef.current) {
-      socketRef.current.emit('end_interaction', { sessionId });
-    }
-    router.replace(`/post-call?providerId=${providerId}&type=${type}&reason=user_ended`);
-  }, [endCall, sessionId, providerId, type]);
-
-  // Timer logic
+  // ── Timer ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (duration === 'unlimited') {
-      setTimeLeft(0);
-    } else if (duration) {
-      setTimeLeft(parseInt(duration, 10) * 60);
-    }
+    if (duration === 'unlimited') setTimeLeft(0);
+    else if (duration) setTimeLeft(parseInt(duration, 10) * 60);
   }, [duration]);
 
   useEffect(() => {
-    let timerInt: NodeJS.Timeout;
-    if (isConnected && timeLeft !== null && duration !== 'unlimited') {
-      timerInt = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev && prev <= 1) {
-            clearInterval(timerInt);
-            endSession();
-            return 0;
-          }
-          return prev ? prev - 1 : 0;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(timerInt);
-  }, [isConnected, timeLeft, duration, endSession]);
-
-  // Ringback tone
-  const playRingback = async () => {
-    try {
-      if (soundRef.current) return;
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+    if (!isConnected || timeLeft === null || duration === 'unlimited') return;
+    const t = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev !== null && prev <= 1) {
+          clearInterval(t);
+          endSession();
+          return 0;
+        }
+        return prev !== null ? prev - 1 : 0;
       });
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3' },
-        { shouldPlay: true, isLooping: true, volume: 0.5 }
-      );
-      if (isRingbackStoppedRef.current) {
-        await sound.stopAsync();
-        await sound.unloadAsync();
-        return;
-      }
-      soundRef.current = sound;
-    } catch (e) {
-      console.log('Ringback error (non-fatal):', e);
-    }
-  };
+    }, 1000);
+    return () => clearInterval(t);
+  }, [isConnected, timeLeft, duration]);
 
-  const stopRingback = async () => {
-    isRingbackStoppedRef.current = true;
-    const sound = soundRef.current;
-    if (!sound) return;
-    
-    soundRef.current = null;
-    try {
-      await sound.stopAsync();
-      await sound.unloadAsync();
-    } catch (e) {}
-  };
+  // ── End session ─────────────────────────────────────────────────────────
+  const endSession = useCallback(() => {
+    endCall();
+    socketRef.current?.emit('end_interaction', { sessionId });
+    router.replace(`/post-call?providerId=${providerId}&type=${type}&reason=user_ended`);
+  }, [endCall, sessionId, providerId, type]);
 
-  useEffect(() => {
-    playRingback();
-    return () => {
-      stopRingback();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isConnected) stopRingback();
-  }, [isConnected]);
-
-  // Main session setup
+  // ── Main setup ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!userId || !providerId) return;
 
-    let activeTimeouts: any[] = [];
-
+    // Fetch provider name + wallet
     secureFetch(`${API_URL}/providers`)
-      .then((r) => r.json())
-      .then((data: any[]) => {
-        const found = data.find((p: any) => p.id === providerId);
-        if (found) {
-          setContact({
-            ...found,
-            image: found.imagePath ? { uri: found.imagePath } : PROVIDER_IMAGE,
-          });
-        }
+      .then(r => r.json())
+      .then((list: any[]) => {
+        const p = list.find(x => x.id === providerId);
+        if (p) setProviderName(p.name);
       })
-      .catch(console.error);
+      .catch(() => {});
 
     secureFetch(`${API_URL}/user/${userId}`)
-      .then((r) => r.json())
-      .then((data: any) => setWallet(data.walletBalance))
-      .catch(console.error);
+      .then(r => r.json())
+      .then(d => setWallet(d.walletBalance ?? null))
+      .catch(() => {});
 
-    socketRef.current = io(SOCKET_URL, {
+    // Socket
+    const sock = io(SOCKET_URL, {
       transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
+      reconnection: false,   // no reconnect — prevents double call
     });
+    socketRef.current = sock;
 
-    socketRef.current.on('connect', () => {
-      console.log('[VideoCall] Socket connected:', socketRef.current.id);
-      socketRef.current.emit('join_chat', { userId, providerId });
+    sock.on('connect', () => {
+      console.log('[VideoCall] socket connected:', sock.id);
+      sock.emit('join_chat', { userId, providerId });
 
-      if (!callStartedRef.current) {
-        callStartedRef.current = true;
-        console.log('[VideoCall] Initiating WebRTC video call...');
-        const timeoutId = setTimeout(async () => {
-          await stopRingback();
-          startCall();
-        }, 500);
-        activeTimeouts.push(timeoutId);
+      if (!socketStartedRef.current) {
+        socketStartedRef.current = true;
+        setTimeout(() => startCall(), 400);
       }
     });
 
-    socketRef.current.on('webrtc_signal', (payload: any) => {
-      if (handleSignalRef.current) handleSignalRef.current(payload);
+    sock.on('webrtc_signal', (payload: any) => {
+      handleSignalRef.current?.(payload);
     });
 
-    socketRef.current.on('session_ended', ({ reason }: { reason: string }) => {
+    sock.on('session_ended', ({ reason }: any) => {
       endCall();
       router.replace(`/post-call?providerId=${providerId}&type=${type}&reason=${reason}`);
     });
 
-    socketRef.current.on('wallet_update', ({ walletBalance }: { walletBalance: number }) => {
+    sock.on('wallet_update', ({ walletBalance }: any) => {
       if (typeof walletBalance === 'number') setWallet(walletBalance);
     });
 
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+    const bh = BackHandler.addEventListener('hardwareBackPress', () => {
       endSession();
       return true;
     });
 
     return () => {
-      backHandler.remove();
-      stopRingback();
-      activeTimeouts.forEach(clearTimeout);
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      bh.remove();
+      sock.disconnect();
+      socketRef.current = null;
     };
   }, [userId, providerId]);
 
+  // Keep signal handler fresh
   useEffect(() => {
     handleSignalRef.current = handleSignal;
   }, [handleSignal]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={st.safe}>
       <StatusBar style="light" />
-      <View style={styles.container}>
+      <View style={st.fill}>
         <VideoCallView
           localStream={localStream}
           remoteStream={remoteStream}
           isConnected={isConnected}
-          onEnd={endSession}
-          callerName={contact.name}
+          callerName={providerName}
           timeLeft={timeLeft}
           isUnlimited={duration === 'unlimited'}
           walletBalance={wallet}
+          onEnd={endSession}
         />
-        {isConnecting && !isConnected && (
-          <View style={styles.connectingOverlay}>
-            <ActivityIndicator size="large" color="#FACC15" />
-            <Text style={styles.connectingText}>Connecting to {contact.name}...</Text>
-            <Text style={styles.encryptionText}>
-              <MaterialCommunityIcons name="shield-check" size={14} color="#34D399" /> End-to-End Encrypted
-            </Text>
+
+        {/* Connecting overlay — shown until ICE is connected */}
+        {!isConnected && (
+          <View style={st.overlay}>
+            <View style={st.avatarRing}>
+              <Text style={st.avatarLetter}>
+                {providerName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <Text style={st.overlayName}>{providerName}</Text>
+            <Text style={st.overlayStatus}>Connecting video call...</Text>
           </View>
         )}
       </View>
@@ -242,33 +163,28 @@ export default function DedicatedVideoCallScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
+const st = StyleSheet.create({
+  safe: {
     flex: 1,
-    backgroundColor: 'black',
+    backgroundColor: '#000',
     paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
   },
-  container: {
-    flex: 1,
-    backgroundColor: 'black',
-  },
-  connectingOverlay: {
+  fill: { flex: 1, backgroundColor: '#000' },
+  overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(5, 7, 10, 0.98)',
-    justifyContent: 'center',
+    backgroundColor: '#060810',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 16,
-    zIndex: 100,
+    zIndex: 20,
   },
-  connectingText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 8,
+  avatarRing: {
+    width: 110, height: 110, borderRadius: 55,
+    backgroundColor: '#FACC15',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 3, borderColor: '#fff',
   },
-  encryptionText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
-    fontWeight: '600',
-  },
+  avatarLetter: { fontSize: 44, fontWeight: '700', color: '#000' },
+  overlayName: { color: '#fff', fontSize: 22, fontWeight: '700' },
+  overlayStatus: { color: 'rgba(255,255,255,0.45)', fontSize: 14 },
 });

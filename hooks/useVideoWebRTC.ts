@@ -1,3 +1,10 @@
+/**
+ * hooks/useVideoWebRTC.ts
+ * Clean, minimal WebRTC hook for VIDEO calls only.
+ * Mobile is always the CALLER (sends offer).
+ * Portal is always the CALLEE (sends answer).
+ */
+
 import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   RTCPeerConnection,
@@ -12,227 +19,185 @@ import { useAuth } from './useAuth';
 
 export function useVideoWebRTC(socketRef: any, roomId: string) {
   const { user } = useAuth();
-  
+
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const pendingCandidates = useRef<RTCIceCandidate[]>([]);
-  const remoteDescSet = useRef(false);
-  const disconnectTimerRef = useRef<any>(null);
+  const pc = useRef<RTCPeerConnection | null>(null);
+  const pendingCandidates = useRef<any[]>([]);
+  const remoteDescReady = useRef(false);
+  const disconnectTimer = useRef<any>(null);
+  const callStarted = useRef(false);
 
-  const fetchIceServers = async () => {
-    try {
-      const token = user?.token;
-      if (!token) return [{ urls: 'stun:stun.l.google.com:19302' }];
-      const res = await secureFetch(`${API_URL}/turn-credentials`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const { iceServers } = await res.json();
-        return iceServers;
-      }
-    } catch (e) {
-      console.warn('[VideoWebRTC] TURN fetch failed, using STUN', e);
-    }
-    return [{ urls: 'stun:stun.l.google.com:19302' }];
-  };
-
+  // ── Cleanup ──────────────────────────────────────────────────────────────
   const endCall = useCallback(() => {
-    console.log('[VideoWebRTC] endCall');
+    console.log('[Video] endCall');
+
+    if (disconnectTimer.current) {
+      clearTimeout(disconnectTimer.current);
+      disconnectTimer.current = null;
+    }
+
+    if (pc.current) {
+      pc.current.close();
+      pc.current = null;
+    }
+
+    try { InCallManager.stop(); } catch (_) {}
+
+    setLocalStream(prev => {
+      prev?.getTracks().forEach(t => t.stop());
+      return null;
+    });
+    setRemoteStream(null);
     setIsConnected(false);
 
-    if (disconnectTimerRef.current) {
-      clearTimeout(disconnectTimerRef.current);
-      disconnectTimerRef.current = null;
-    }
-
-    InCallManager.stop();
-
-    if (pcRef.current) {
-      pcRef.current.close();
-      pcRef.current = null;
-    }
-
-    if (localStream) {
-      localStream.getTracks().forEach(t => t.stop());
-      setLocalStream(null);
-    }
-
-    setRemoteStream(null);
-    remoteDescSet.current = false;
+    remoteDescReady.current = false;
     pendingCandidates.current = [];
-  }, [localStream]);
+    callStarted.current = false;
+  }, []);
 
-  const startCall = async () => {
+  // ── Start call (caller side — mobile) ───────────────────────────────────
+  const startCall = useCallback(async () => {
+    if (callStarted.current) {
+      console.log('[Video] startCall already called — ignoring');
+      return;
+    }
+    callStarted.current = true;
+    console.log('[Video] startCall');
+
     try {
-      console.log('[VideoWebRTC] startCall');
-      
-      // 1. Get media
+      // 1. Get camera + mic
       const stream = await mediaDevices.getUserMedia({
         audio: true,
-        video: { facingMode: 'user' }
+        video: { facingMode: 'user' },
       });
       setLocalStream(stream);
 
-      // 2. Configure audio routing
+      // 2. Audio routing
       InCallManager.start({ media: 'video' });
       InCallManager.setForceSpeakerphoneOn(true);
 
-      // 3. Create PC
-      const iceServers = await fetchIceServers();
-      const pc = new RTCPeerConnection({ iceServers });
-      pcRef.current = pc;
-      remoteDescSet.current = false;
+      // 3. Fetch TURN credentials
+      let iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+      try {
+        const res = await secureFetch(`${API_URL}/turn-credentials`, {
+          headers: { Authorization: `Bearer ${user?.token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          iceServers = data.iceServers;
+          console.log('[Video] TURN servers:', iceServers.length);
+        }
+      } catch (e) {
+        console.warn('[Video] TURN fetch failed, using STUN only');
+      }
 
-      // Add local tracks
-      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      // 4. Build PeerConnection
+      const conn = new RTCPeerConnection({ iceServers } as any);
+      pc.current = conn;
+      remoteDescReady.current = false;
 
-      // Handle ICE
-      pc.addEventListener('icecandidate', (event: any) => {
+      // 5. Add local tracks
+      stream.getTracks().forEach(track => conn.addTrack(track, stream));
+
+      // 6. ICE → socket
+      conn.addEventListener('icecandidate', (event: any) => {
         if (event.candidate && socketRef.current) {
           socketRef.current.emit('webrtc_signal', {
             to: roomId,
-            signal: { type: 'candidate', candidate: event.candidate }
+            signal: { type: 'candidate', candidate: event.candidate },
           });
         }
       });
 
-      // Handle Connection State
-      pc.addEventListener('iceconnectionstatechange', () => {
-        console.log('[VideoWebRTC] ICE state:', pc.iceConnectionState);
-        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-          if (disconnectTimerRef.current) {
-            clearTimeout(disconnectTimerRef.current);
-            disconnectTimerRef.current = null;
-          }
+      // 7. ICE connection state
+      conn.addEventListener('iceconnectionstatechange', () => {
+        const state = conn.iceConnectionState;
+        console.log('[Video] ICE state:', state);
+
+        if (state === 'connected' || state === 'completed') {
+          clearTimeout(disconnectTimer.current);
+          disconnectTimer.current = null;
           setIsConnected(true);
-        } else if (pc.iceConnectionState === 'disconnected') {
-          // Transient state — wait 8s before giving up
-          console.log('[VideoWebRTC] ICE disconnected (transient) — waiting 8s...');
-          disconnectTimerRef.current = setTimeout(() => {
-            if (pcRef.current?.iceConnectionState === 'disconnected') {
-              console.log('[VideoWebRTC] ICE still disconnected after 8s — ending call');
+        } else if (state === 'disconnected') {
+          // Transient — give it 8 seconds to recover
+          disconnectTimer.current = setTimeout(() => {
+            if (pc.current?.iceConnectionState === 'disconnected') {
+              console.log('[Video] Still disconnected after 8s — ending');
               setIsConnected(false);
-              endCall();
             }
           }, 8000);
-        } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
-          if (disconnectTimerRef.current) {
-            clearTimeout(disconnectTimerRef.current);
-            disconnectTimerRef.current = null;
-          }
+        } else if (state === 'failed' || state === 'closed') {
+          clearTimeout(disconnectTimer.current);
           setIsConnected(false);
-          endCall();
         }
       });
 
-      // Handle Remote Stream (v124+ standard)
-      pc.addEventListener('track', (event: any) => {
-        console.log('[VideoWebRTC] ontrack', event.track.kind);
-        if (event.streams && event.streams[0]) {
+      // 8. Remote track
+      conn.addEventListener('track', (event: any) => {
+        console.log('[Video] Remote track:', event.track.kind);
+        if (event.streams?.[0]) {
           setRemoteStream(event.streams[0]);
         }
       });
 
-      // 4. Create Offer
-      const offer = await pc.createOffer({});
-      
-      // Prefer VP8 for better Android/Web compat
-      let sdp = offer.sdp;
-      if (sdp) {
-        try {
-          sdp = preferVP8(sdp);
-          console.log('[VideoWebRTC] Munged local offer SDP to prefer VP8');
-        } catch (e) {
-          console.warn('[VideoWebRTC] SDP munging failed:', e);
-        }
-      }
+      // 9. Create & send offer
+      const offer = await conn.createOffer({});
+      await conn.setLocalDescription(offer);
 
-      await pc.setLocalDescription({ type: offer.type, sdp });
+      socketRef.current?.emit('webrtc_signal', {
+        to: roomId,
+        signal: { type: offer.type, sdp: offer.sdp },
+      });
+      console.log('[Video] Offer sent');
 
-      if (socketRef.current) {
-        socketRef.current.emit('webrtc_signal', {
-          to: roomId,
-          signal: { type: offer.type, sdp }
-        });
-      }
-
-    } catch (e) {
-      console.error('[VideoWebRTC] startCall error', e);
+    } catch (err) {
+      console.error('[Video] startCall error:', err);
+      callStarted.current = false;
       endCall();
     }
-  };
+  }, [roomId, user, endCall]);
 
-  const handleSignal = async (payload: { signal: any }) => {
-    const pc = pcRef.current;
-    if (!pc) return;
+  // ── Handle incoming signals ──────────────────────────────────────────────
+  const handleSignal = useCallback(async (payload: { signal: any }) => {
     const { signal } = payload;
+    const conn = pc.current;
+
+    if (!signal) return;
+    console.log('[Video] signal received:', signal.type || 'candidate');
 
     try {
       if (signal.type === 'answer') {
-        if (pc.signalingState !== 'have-local-offer') return;
-        
-        await pc.setRemoteDescription(new RTCSessionDescription(signal));
-        remoteDescSet.current = true;
-
-        // Drain ICE queue
-        for (const candidate of pendingCandidates.current) {
-          try { await pc.addIceCandidate(candidate); } catch(e){}
+        if (!conn || conn.signalingState !== 'have-local-offer') return;
+        await conn.setRemoteDescription(new RTCSessionDescription(signal));
+        remoteDescReady.current = true;
+        // Drain queued candidates
+        for (const c of pendingCandidates.current) {
+          try { await conn.addIceCandidate(c); } catch (_) {}
         }
         pendingCandidates.current = [];
-      } 
-      else if (signal.type === 'candidate' && signal.candidate) {
+        console.log('[Video] Remote description set from answer, drained candidates');
+
+      } else if (signal.type === 'candidate' && signal.candidate) {
         const candidate = new RTCIceCandidate(signal.candidate);
-        if (remoteDescSet.current) {
-          try { await pc.addIceCandidate(candidate); } catch(e){}
+        if (conn && remoteDescReady.current) {
+          try { await conn.addIceCandidate(candidate); } catch (_) {}
         } else {
           pendingCandidates.current.push(candidate);
         }
       }
-    } catch (e) {
-      console.error('[VideoWebRTC] handleSignal error', e);
+      // Ignore 'offer' — mobile is always the caller
+    } catch (err) {
+      console.error('[Video] handleSignal error:', err);
     }
-  };
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      endCall();
-    };
-  }, [endCall]);
+    return () => { endCall(); };
+  }, []);
 
   return { localStream, remoteStream, isConnected, startCall, handleSignal, endCall };
-}
-
-// ─── Helper function for SDP mangling to prioritize VP8 ───────────────
-function preferVP8(sdp: string): string {
-  const lines = sdp.split('\r\n');
-  let videoLineIdx = -1;
-  let vp8Payload: string | null = null;
-
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].startsWith('m=video')) {
-      videoLineIdx = i;
-    } else if (lines[i].startsWith('a=rtpmap:') && lines[i].toLowerCase().includes('vp8/90000')) {
-      const match = lines[i].match(/^a=rtpmap:(\d+) VP8/i);
-      if (match) {
-        vp8Payload = match[1];
-      }
-    }
-  }
-
-  if (videoLineIdx !== -1 && vp8Payload !== null) {
-    const videoLine = lines[videoLineIdx];
-    const parts = videoLine.split(' ');
-    // parts[0] is 'm=video', parts[1] is port, parts[2] is protocol
-    // The rest are payloads. We want to bring vp8Payload to the front.
-    const payloads = parts.slice(3);
-    const newPayloads = payloads.filter(p => p !== vp8Payload);
-    newPayloads.unshift(vp8Payload);
-    lines[videoLineIdx] = `${parts[0]} ${parts[1]} ${parts[2]} ${newPayloads.join(' ')}`;
-  }
-
-  return lines.join('\r\n');
 }

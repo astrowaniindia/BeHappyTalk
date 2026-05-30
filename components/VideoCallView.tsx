@@ -1,227 +1,271 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+/**
+ * components/VideoCallView.tsx
+ * Simple, clean UI for the video call screen.
+ */
+
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 import { RTCView, MediaStream } from 'react-native-webrtc';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-const { width, height } = Dimensions.get('window');
-
-interface VideoCallViewProps {
+interface Props {
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   isConnected: boolean;
-  onEnd: () => void;
   callerName: string;
   timeLeft: number | null;
   isUnlimited: boolean;
   walletBalance: number | null;
+  onEnd: () => void;
 }
 
 export default function VideoCallView({
   localStream,
   remoteStream,
   isConnected,
-  onEnd,
   callerName,
   timeLeft,
   isUnlimited,
   walletBalance,
-}: VideoCallViewProps) {
-  const [isVideoOff, setIsVideoOff] = React.useState(false);
-  const [isMuted, setIsMuted] = React.useState(false);
-
-  const toggleVideo = () => {
-    if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setIsVideoOff(!isVideoOff);
-    }
-  };
+  onEnd,
+}: Props) {
+  const [muted, setMuted] = useState(false);
+  const [camOff, setCamOff] = useState(false);
 
   const toggleMute = () => {
-    if (localStream) {
-      localStream.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled;
-      });
-      setIsMuted(!isMuted);
-    }
+    localStream?.getAudioTracks().forEach(t => { t.enabled = !t.enabled; });
+    setMuted(m => !m);
   };
 
-  const switchCamera = () => {
-    if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
-        // @ts-ignore
-        if (track._switchCamera) track._switchCamera();
-      });
-    }
+  const toggleCam = () => {
+    localStream?.getVideoTracks().forEach(t => { t.enabled = !t.enabled; });
+    setCamOff(c => !c);
   };
 
-  const hasRemoteVideo = remoteStream != null;
-  const hasLocalVideo = localStream != null && !isVideoOff;
-
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  const flipCamera = () => {
+    localStream?.getVideoTracks().forEach((t: any) => {
+      t._switchCamera?.();
+    });
   };
+
+  const fmt = (s: number) =>
+    `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   return (
-    <View style={styles.container}>
-      {/* Wallet Balance Badge */}
-      {walletBalance !== null && (
-        <View style={styles.walletBadge}>
-          <Ionicons name="wallet-outline" size={14} color="#FACC15" style={{ marginRight: 4 }} />
-          <Text style={styles.walletText}>₹{walletBalance}</Text>
-        </View>
-      )}
+    <View style={s.root}>
 
-      {/* Main Screen: Remote Video OR Waiting screen */}
-      {hasRemoteVideo ? (
+      {/* ── Remote video (full screen) ─────────────── */}
+      {remoteStream ? (
         <RTCView
-          key={remoteStream?.id || 'remote-video'}
           stream={remoteStream}
-          style={styles.remoteVideo}
+          style={s.remoteFull}
           objectFit="cover"
-          mirror={false}
           zOrder={0}
         />
       ) : (
-        <View style={styles.waitingScreen}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{callerName.charAt(0).toUpperCase()}</Text>
+        <View style={s.waitBox}>
+          <View style={s.avatarRing}>
+            <Text style={s.avatarLetter}>
+              {callerName.charAt(0).toUpperCase()}
+            </Text>
           </View>
-          <Text style={styles.callerName}>{callerName}</Text>
-        </View>
-      )}
-
-      {/* Floating Timer */}
-      {isConnected && (
-        <View style={styles.floatingTimer}>
-          <Text style={styles.timerText}>
-            {isUnlimited ? '∞' : timeLeft !== null ? formatTime(timeLeft) : '--:--'}
+          <Text style={s.waitName}>{callerName}</Text>
+          <Text style={s.waitSub}>
+            {isConnected ? 'Connected' : 'Connecting...'}
           </Text>
         </View>
       )}
 
-      {/* Local PiP */}
-      {hasLocalVideo && (
+      {/* ── Timer (top-centre) ─────────────────────── */}
+      {isConnected && (
+        <View style={s.timerBadge}>
+          <Text style={s.timerTxt}>
+            {isUnlimited || timeLeft === 0
+              ? '∞'
+              : timeLeft !== null
+              ? fmt(timeLeft)
+              : '--:--'}
+          </Text>
+        </View>
+      )}
+
+      {/* ── Wallet (top-left) ─────────────────────── */}
+      {walletBalance !== null && (
+        <View style={s.walletBadge}>
+          <MaterialCommunityIcons name="wallet-outline" size={13} color="#FACC15" />
+          <Text style={s.walletTxt}> ₹{walletBalance}</Text>
+        </View>
+      )}
+
+      {/* ── Local PiP (bottom-right) ──────────────── */}
+      {localStream && !camOff && (
         <RTCView
-          key={localStream?.id || 'local-video'}
           stream={localStream}
-          style={styles.localVideo}
+          style={s.localPip}
           objectFit="cover"
-          mirror={true}
+          mirror
           zOrder={1}
         />
       )}
 
-      {/* Controls */}
-      <View style={styles.controls}>
-        <TouchableOpacity style={styles.ctrlBtn} onPress={switchCamera}>
+      {/* ── Controls row ──────────────────────────── */}
+      <View style={s.controls}>
+        <TouchableOpacity style={s.ctrlBtn} onPress={flipCamera}>
           <MaterialIcons name="flip-camera-ios" size={24} color="#fff" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.ctrlBtn, isVideoOff && styles.ctrlBtnActive]} onPress={toggleVideo}>
-          <MaterialIcons name={isVideoOff ? 'videocam-off' : 'videocam'} size={24} color="#fff" />
+        <TouchableOpacity
+          style={[s.ctrlBtn, camOff && s.ctrlActive]}
+          onPress={toggleCam}
+        >
+          <MaterialIcons
+            name={camOff ? 'videocam-off' : 'videocam'}
+            size={24}
+            color="#fff"
+          />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.endBtn} onPress={onEnd}>
-          <Ionicons name="call" size={28} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
+        {/* End call */}
+        <TouchableOpacity style={s.endBtn} onPress={onEnd}>
+          <MaterialIcons name="call-end" size={30} color="#fff" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.ctrlBtn, isMuted && styles.ctrlBtnActive]} onPress={toggleMute}>
-          <MaterialIcons name={isMuted ? 'mic-off' : 'mic'} size={24} color="#fff" />
+        <TouchableOpacity
+          style={[s.ctrlBtn, muted && s.ctrlActive]}
+          onPress={toggleMute}
+        >
+          <MaterialIcons
+            name={muted ? 'mic-off' : 'mic'}
+            size={24}
+            color="#fff"
+          />
         </TouchableOpacity>
-        
-        <View style={styles.ctrlBtnPlaceholder} />
+
+        {/* Placeholder for symmetry */}
+        <View style={s.ctrlBtn} />
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
+const s = StyleSheet.create({
+  root: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#0a0a0a',
   },
-  remoteVideo: {
+  remoteFull: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000',
+    backgroundColor: '#111',
   },
-  waitingScreen: {
+  waitBox: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0D0E16',
-    gap: 16,
+    gap: 14,
   },
-  avatarCircle: {
-    width: 100, height: 100,
-    borderRadius: 50,
+  avatarRing: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     backgroundColor: '#FACC15',
-    alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
   },
-  avatarText: {
-    fontSize: 40, fontWeight: '600', color: '#000',
+  avatarLetter: {
+    fontSize: 44,
+    fontWeight: '700',
+    color: '#000',
   },
-  callerName: {
-    color: '#fff', fontSize: 22, fontWeight: '600',
+  waitName: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '700',
   },
-  floatingTimer: {
+  waitSub: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 14,
+  },
+  timerBadge: {
     position: 'absolute',
-    top: 60,
+    top: 56,
     alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 16,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 18,
     paddingVertical: 6,
     borderRadius: 20,
-    zIndex: 10,
+    zIndex: 5,
   },
-  timerText: {
-    color: '#FACC15', fontSize: 18, fontWeight: '700', fontVariant: ['tabular-nums'],
-  },
-  localVideo: {
-    position: 'absolute',
-    bottom: 140, right: 16,
-    width: 110, height: 160,
-    borderRadius: 12, overflow: 'hidden',
-    borderWidth: 2, borderColor: '#fff',
-    backgroundColor: '#333',
-  },
-  controls: {
-    position: 'absolute',
-    bottom: 48, left: 0, right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  ctrlBtn: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  ctrlBtnActive: {
-    backgroundColor: '#e53935',
-  },
-  ctrlBtnPlaceholder: {
-    width: 52,
-  },
-  endBtn: {
-    width: 66, height: 66, borderRadius: 33,
-    backgroundColor: '#e53935',
-    alignItems: 'center', justifyContent: 'center',
+  timerTxt: {
+    color: '#FACC15',
+    fontSize: 18,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   walletBadge: {
     position: 'absolute',
-    top: 60, left: 20,
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 16, borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.3)',
+    top: 56,
+    left: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    zIndex: 5,
+  },
+  walletTxt: {
+    color: '#FACC15',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  localPip: {
+    position: 'absolute',
+    bottom: 130,
+    right: 14,
+    width: 100,
+    height: 148,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#fff',
+    backgroundColor: '#222',
+    zIndex: 5,
+  },
+  controls: {
+    position: 'absolute',
+    bottom: 38,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    alignItems: 'center',
+    paddingHorizontal: 12,
     zIndex: 10,
   },
-  walletText: {
-    color: '#FACC15', fontSize: 14, fontWeight: 'bold',
+  ctrlBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctrlActive: {
+    backgroundColor: '#c62828',
+  },
+  endBtn: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#c62828',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

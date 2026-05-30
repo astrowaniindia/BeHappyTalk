@@ -2458,8 +2458,6 @@ function renderMsg(msg) {
       } else {
         document.getElementById('scroll-bottom-btn').style.display = 'block';
       }
-    }
-
     function updateTimer() {
       const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
       const s = (timeRemaining % 60).toString().padStart(2, '0');
@@ -2519,16 +2517,14 @@ function renderMsg(msg) {
           document.getElementById('vid-network-warning').style.display = 'block';
           console.warn('[WebRTC] ICE failed — trying restart');
           newPc.restartIce();
-        } else if (newPc.iceConnectionState === 'disconnected') {
-          document.getElementById('vid-network-warning').style.display = 'block';
         }
+        // Note: 'disconnected' is transient — do NOT tear down on it
       };
 
-      // ── Remote track handler — THE key fix for black screen ──────────────
       newPc.ontrack = (event) => {
         console.log('[WebRTC] ontrack:', event.track.kind);
-        
-        // Activate UI as soon as we get remote tracks (fallback if ICE state fires early)
+
+        // Activate UI as soon as we receive remote tracks
         if (curVid && curVid.status !== 'active') {
           curVid.status = 'active';
           renderVidQueue();
@@ -2541,47 +2537,27 @@ function renderMsg(msg) {
           setVidState('active');
         }
 
-        const remoteVideoEl = document.getElementById('remote-video-el');
-        const cleanRemoteVideo = document.getElementById('clean-remote-video');
+        const stream = event.streams && event.streams[0];
 
-        if (event.streams && event.streams[0]) {
-          // Attach stream directly — most reliable path
-          if (remoteVideoEl && remoteVideoEl.srcObject !== event.streams[0]) {
-            remoteVideoEl.srcObject = event.streams[0];
-            remoteVideoEl.play().catch(e => {
-              console.warn('[WebRTC] Remote video autoplay blocked:', e);
-              showPlayOverlay(document.getElementById('remote-video'), remoteVideoEl);
-            });
+        // Video track — attach to remote-video-el
+        if (event.track.kind === 'video' && stream) {
+          const remoteVideoEl = document.getElementById('remote-video-el');
+          if (remoteVideoEl && remoteVideoEl.srcObject !== stream) {
+            remoteVideoEl.srcObject = stream;
+            remoteVideoEl.play().catch(() => {});
           }
-          if (cleanRemoteVideo && cleanRemoteVideo.srcObject !== event.streams[0]) {
-            cleanRemoteVideo.srcObject = event.streams[0];
-            cleanRemoteVideo.play().catch(e => console.warn('[WebRTC] Clean remote video autoplay blocked:', e));
-          }
+        }
 
-          // For audio-only: also attach to a dedicated audio element
-          if (!isVideoCall) {
-            if (!remoteAudioEl) {
-              remoteAudioEl = document.createElement('audio');
-              remoteAudioEl.autoplay = true;
-              remoteAudioEl.style.display = 'none';
-              document.body.appendChild(remoteAudioEl);
-            }
-            remoteAudioEl.srcObject = event.streams[0];
+        // Audio track — attach to hidden audio element
+        if (stream) {
+          if (!remoteAudioEl) {
+            remoteAudioEl = document.createElement('audio');
+            remoteAudioEl.autoplay = true;
+            remoteAudioEl.style.display = 'none';
+            document.body.appendChild(remoteAudioEl);
           }
-        } else {
-          // Fallback: build stream from individual tracks
-          if (!remoteVideoEl._rtcStream) {
-            remoteVideoEl._rtcStream = new MediaStream();
-          }
-          if (!remoteVideoEl._rtcStream.getTracks().some(t => t.id === event.track.id)) {
-            remoteVideoEl._rtcStream.addTrack(event.track);
-          }
-          remoteVideoEl.srcObject = remoteVideoEl._rtcStream;
-          remoteVideoEl.play().catch(() => {});
-          
-          if (cleanRemoteVideo) {
-            cleanRemoteVideo.srcObject = remoteVideoEl._rtcStream;
-            cleanRemoteVideo.play().catch(() => {});
+          if (remoteAudioEl.srcObject !== stream) {
+            remoteAudioEl.srcObject = stream;
           }
         }
       };
@@ -2604,54 +2580,15 @@ function renderMsg(msg) {
       console.log('[WebRTC] startMedia, type:', type);
       isVideoCall = (type === 'Video');
 
-      // Show the dedicated clean call overlay
-      const cleanScreen = document.getElementById('clean-call-screen');
-      if (cleanScreen) {
-        cleanScreen.style.display = 'flex';
-      }
-
-      // Reset mute status visual elements
-      const cleanMuteIcon = document.getElementById('clean-mute-icon');
-      if (cleanMuteIcon) cleanMuteIcon.className = 'fas fa-microphone';
-      const cleanMuteBtn = document.getElementById('clean-mute-btn');
-      if (cleanMuteBtn) cleanMuteBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-
-      // Configure media element display and details
-      const cleanLocalPip = document.getElementById('clean-local-pip');
-      const cleanRemoteVideo = document.getElementById('clean-remote-video');
-      const cleanAvatarContainer = document.getElementById('clean-avatar-container');
-
-      if (isVideoCall) {
-        if (cleanLocalPip) cleanLocalPip.style.display = 'block';
-        if (cleanRemoteVideo) cleanRemoteVideo.style.display = 'block';
-        if (cleanAvatarContainer) cleanAvatarContainer.style.display = 'none';
-      } else {
-        if (cleanLocalPip) cleanLocalPip.style.display = 'none';
-        if (cleanRemoteVideo) cleanRemoteVideo.style.display = 'none';
-        if (cleanAvatarContainer) {
-          cleanAvatarContainer.style.display = 'flex';
-          const name = (curVid && curVid.name) ? curVid.name : 'Customer';
-          document.getElementById('clean-avatar-circle').innerText = name.charAt(0).toUpperCase();
-          document.getElementById('clean-customer-name').innerText = name;
-        }
-      }
-
       try {
-        // 1. Get local camera/mic FIRST
-        const constraints = {
+        // 1. Get local media
+        localStream = await navigator.mediaDevices.getUserMedia({
           audio: true,
-          video: isVideoCall ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } : false
-        };
-        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+          video: isVideoCall ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false
+        });
         console.log('[WebRTC] Got local stream, tracks:', localStream.getTracks().length);
 
-        // Feed local video to clean PiP element
-        const cleanLocalVid = document.getElementById('clean-local-video');
-        if (cleanLocalVid) {
-          cleanLocalVid.srcObject = localStream;
-        }
-
-        // 2. Show local preview in PiP
+        // 2. Show local preview in PiP (video only)
         if (isVideoCall) {
           const localContainer = document.getElementById('local-video');
           if (localContainer) {
@@ -2659,17 +2596,18 @@ function renderMsg(msg) {
             if (!localVidEl) {
               localVidEl = document.createElement('video');
               localVidEl.autoplay = true;
-              localVidEl.muted = true;        // mute local preview — prevents echo
+              localVidEl.muted = true;
               localVidEl.playsInline = true;
               localVidEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
               localContainer.appendChild(localVidEl);
             }
             localVidEl.srcObject = localStream;
-            document.getElementById('vid-pip-cam').style.display = 'none'; // hide camera icon
+            const pipCam = document.getElementById('vid-pip-cam');
+            if (pipCam) pipCam.style.display = 'none';
           }
         }
 
-        // 3. Create PeerConnection and add tracks
+        // 3. Create PC and add local tracks
         pc = await createPeerConnection();
         remoteDescSet = false;
         pendingCandidates = [];
@@ -2679,8 +2617,7 @@ function renderMsg(msg) {
           console.log('[WebRTC] Added local track:', track.kind);
         });
 
-        // 4. The PROVIDER is the answerer — we wait for the offer from the mobile app.
-        //    The mobile app's startCall() sends the offer; we respond in handleWebRTCSignal.
+        // 4. Portal is the ANSWERER — wait for offer from mobile app
         console.log('[WebRTC] Ready — waiting for offer from mobile app...');
 
       } catch (err) {
@@ -2698,60 +2635,58 @@ function renderMsg(msg) {
 
       try {
         if (signal.type === 'offer') {
-          // Guard: ignore duplicate offers when already answered or currently processing one
+          // Guard: ignore duplicate offers
           if ((pc && remoteDescSet) || isProcessingOffer) {
             console.warn('[WebRTC] Ignoring duplicate offer — already answered or processing');
             return;
           }
           isProcessingOffer = true;
-          
+
           try {
-            // Mobile app sent an offer — we answer
+            // If PC wasn't created yet (race condition), create it now
             if (!pc) {
-            console.warn('[WebRTC] Offer received but PC not ready, creating PC now...');
-            isVideoCall = signal.sdp && signal.sdp.includes('m=video');
-            pc = await createPeerConnection();
-            remoteDescSet = false;
-            pendingCandidates = [];
+              console.warn('[WebRTC] Offer received but PC not ready — creating PC now');
+              isVideoCall = signal.sdp && signal.sdp.includes('m=video');
+              pc = await createPeerConnection();
+              remoteDescSet = false;
+              pendingCandidates = [];
 
-            // We need a local stream to send tracks back
-            if (!localStream) {
-              try {
-                localStream = await navigator.mediaDevices.getUserMedia({
-                  audio: true,
-                  video: isVideoCall ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false
-                });
+              if (!localStream) {
+                try {
+                  localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: isVideoCall ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false
+                  });
+                  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+                } catch(e) {
+                  console.error('[WebRTC] Could not get media for answer:', e);
+                }
+              } else {
                 localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-              } catch(e) {
-                console.error('[WebRTC] Could not get media for answer:', e);
               }
-            } else {
-              localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
             }
-          }
 
-          await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
-          remoteDescSet = true;
-          await drainCandidateQueue();
+            await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
+            remoteDescSet = true;
+            await drainCandidateQueue();
 
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
 
-          const room = getRoomId();
-          if (room && socket) {
-            socket.emit('webrtc_signal', {
-              to: room,
-              signal: { type: 'answer', sdp: answer.sdp }
-            });
-            console.log('[WebRTC] Answer sent to room:', room);
-          }
+            const room = getRoomId();
+            if (room && socket) {
+              socket.emit('webrtc_signal', {
+                to: room,
+                signal: { type: 'answer', sdp: answer.sdp }
+              });
+              console.log('[WebRTC] Answer sent to room:', room);
+            }
           } finally {
             isProcessingOffer = false;
           }
         }
 
         else if (signal.type === 'answer') {
-          // We sent an offer and got an answer back (not typical for portal but handle it)
           if (!pc) return;
           await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
           remoteDescSet = true;
@@ -2779,40 +2714,28 @@ function renderMsg(msg) {
     function stopMedia() {
       console.log('[WebRTC] stopMedia called');
 
-      // Hide the clean call overlay screen
-      const cleanScreen = document.getElementById('clean-call-screen');
-      if (cleanScreen) cleanScreen.style.display = 'none';
-      const cleanRemoteVideo = document.getElementById('clean-remote-video');
-      if (cleanRemoteVideo) cleanRemoteVideo.srcObject = null;
-      const cleanLocalVid = document.getElementById('clean-local-video');
-      if (cleanLocalVid) cleanLocalVid.srcObject = null;
-
-      // Stop all local tracks
       if (localStream) {
         localStream.getTracks().forEach(t => t.stop());
         localStream = null;
       }
 
-      // Close peer connection
       if (pc) {
         pc.close();
         pc = null;
       }
 
-      // Clear remote audio element
       if (remoteAudioEl) {
         remoteAudioEl.srcObject = null;
         remoteAudioEl.remove();
         remoteAudioEl = null;
       }
 
-      // Reset flags
       remoteDescSet = false;
+      isProcessingOffer = false;
       pendingCandidates = [];
 
-      // Clear video elements
       const remoteVideoEl = document.getElementById('remote-video-el');
-      if (remoteVideoEl) { remoteVideoEl.srcObject = null; remoteVideoEl._rtcStream = null; }
+      if (remoteVideoEl) { remoteVideoEl.srcObject = null; }
 
       const localContainer = document.getElementById('local-video');
       if (localContainer) {
