@@ -108,14 +108,15 @@ export default function DedicatedAudioCallScreen() {
   };
 
   const stopRingback = async () => {
+    const sound = soundRef.current;
+    if (!sound) return;
+    
+    soundRef.current = null; // Clear immediately to prevent double-calls
     try {
-      if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-      }
+      await sound.stopAsync();
+      await sound.unloadAsync();
     } catch (e) {
-      console.log('Stop ringback error:', e);
+      // Ignore "Player does not exist" which happens during fast remounts
     }
   };
 
