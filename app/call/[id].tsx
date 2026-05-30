@@ -45,12 +45,20 @@ export default function DedicatedCallScreen() {
   const soundRef = useRef<Audio.Sound | null>(null);
   const callStartedRef = useRef(false);
   const handleSignalRef = useRef<((payload: any) => void) | null>(null);
-  const timeoutsRef = useRef<any[]>([]);
 
   const userId = user?.id;
   const roomId = userId && providerId ? `chat_${userId}_${providerId}` : '';
 
   const { localStream, remoteStream, isConnected, startCall, handleSignal, endCall } = useWebRTC(socketRef, roomId);
+
+  const endSession = useCallback(() => {
+    stopRingback();
+    endCall();
+    if (sessionId && socketRef.current) {
+      socketRef.current.emit('end_interaction', { sessionId });
+    }
+    router.replace(`/post-call?providerId=${providerId}&type=${type}&reason=user_ended`);
+  }, [endCall, sessionId, providerId, type]);
 
   // Timer logic
   useEffect(() => {
@@ -62,40 +70,30 @@ export default function DedicatedCallScreen() {
   }, [duration]);
 
   useEffect(() => {
-    if (!isConnected || timeLeft === null) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev === null) return null;
-        if (duration === 'unlimited') {
-          return prev + 1;
-        } else {
-          return prev > 0 ? prev - 1 : 0;
-        }
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isConnected, timeLeft, duration]);
-
-  // Ringback sound
-  const stopRingback = async () => {
-    if (soundRef.current) {
-      try {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
-        soundRef.current = null;
-      } catch {}
+    let timerInt: NodeJS.Timeout;
+    if (isConnected && timeLeft !== null && duration !== 'unlimited') {
+      timerInt = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev && prev <= 1) {
+            clearInterval(timerInt);
+            endSession();
+            return 0;
+          }
+          return prev ? prev - 1 : 0;
+        });
+      }, 1000);
     }
-  };
+    return () => clearInterval(timerInt);
+  }, [isConnected, timeLeft, duration, endSession]);
 
+  // Ringback tone
   const playRingback = async () => {
-    await stopRingback();
     try {
+      if (soundRef.current) return; // already playing
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
+        staysActiveInBackground: true,
         shouldDuckAndroid: true,
         playThroughEarpieceAndroid: false,
       });
@@ -106,6 +104,18 @@ export default function DedicatedCallScreen() {
       soundRef.current = sound;
     } catch (e) {
       console.log('Ringback error (non-fatal):', e);
+    }
+  };
+
+  const stopRingback = async () => {
+    try {
+      if (soundRef.current) {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+        soundRef.current = null;
+      }
+    } catch (e) {
+      console.log('Stop ringback error:', e);
     }
   };
 
@@ -124,6 +134,8 @@ export default function DedicatedCallScreen() {
   // Main session setup
   useEffect(() => {
     if (!userId || !providerId) return;
+
+    let activeTimeouts: any[] = [];
 
     // 1. Fetch provider details
     secureFetch(`${API_URL}/providers`)
@@ -167,7 +179,7 @@ export default function DedicatedCallScreen() {
         }, 500);
         
         // Store timeout ID to clear on unmount
-        timeoutsRef.current.push(timeoutId);
+        activeTimeouts.push(timeoutId);
       }
     });
 
@@ -192,7 +204,7 @@ export default function DedicatedCallScreen() {
     return () => {
       backHandler.remove();
       stopRingback();
-      timeoutsRef.current.forEach((t: any) => clearTimeout(t));
+      activeTimeouts.forEach(clearTimeout);
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
