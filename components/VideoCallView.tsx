@@ -62,7 +62,7 @@ export default function VideoCallView({
       {/* ── Remote video (full screen) ─────────────── */}
       {remoteStream ? (
         <RTCView
-          stream={remoteStream}
+          streamURL={remoteStream.toURL()}
           style={s.remoteFull}
           objectFit="cover"
           zOrder={0}
@@ -102,18 +102,16 @@ export default function VideoCallView({
         </View>
       )}
 
-      {/* ── Local PiP (bottom-right) ──────────────── */}
+      {/* ── Local video (PiP, bottom-right) ────────── */}
       {localStream && !camOff && (
         <RTCView
-          stream={localStream}
+          streamURL={localStream.toURL()}
           style={s.localPip}
           objectFit="cover"
-          mirror
           zOrder={1}
+          mirror={true}
         />
-      )}
-
-      {/* ── Controls row ──────────────────────────── */}
+      )}{/* ── Controls row ──────────────────────────── */}
       <View style={s.controls}>
         <TouchableOpacity style={s.ctrlBtn} onPress={flipCamera}>
           <MaterialIcons name="flip-camera-ios" size={24} color="#fff" />
