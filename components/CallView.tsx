@@ -113,10 +113,9 @@ export default function CallView({
       {hasRemoteVideo ? (
         <RTCView
           key={remoteStream?.id || 'remote-video'}
-          stream={remoteStream}
+          streamURL={remoteStream.toURL()}
           style={styles.remoteVideo}
           objectFit="cover"
-          zOrder={1}
           mirror={false}
         />
       ) : (
@@ -166,10 +165,9 @@ export default function CallView({
       {/* ── Local PiP (bottom-right), video only ─────────────────────────── */}
       {hasLocalVideo && (
         <RTCView
-          stream={localStream}
+          streamURL={localStream.toURL()}
           style={styles.localVideo}
           objectFit="cover"
-          zOrder={2}
           mirror={true}
         />
       )}
@@ -183,9 +181,8 @@ export default function CallView({
       */}
       {!isVideo && remoteStream && (
         <RTCView
-          stream={remoteStream}
+          streamURL={remoteStream.toURL()}
           style={styles.hiddenAudio}
-          zOrder={1}
           objectFit="cover"
         />
       )}
@@ -251,7 +248,7 @@ export default function CallView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: 'transparent',
   },
 
   // Remote full-screen
