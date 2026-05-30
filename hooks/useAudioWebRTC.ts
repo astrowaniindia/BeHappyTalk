@@ -242,63 +242,13 @@ export function useAudioWebRTC(socketRef: any, roomId: string): UseWebRTCReturn 
       console.log('[WebRTC] handleSignal type:', signal.type || 'candidate');
 
       try {
-        // ── ANSWER: We are the callee ──────────────────────────────────────
         if (signal.type === 'offer') {
-          // Guard: ignore duplicate offers when already negotiated
-          if (pcRef.current && remoteDescSet.current && pcRef.current.signalingState === 'stable') {
-            console.log('[WebRTC] Ignoring duplicate offer — already connected');
-            return;
-          }
-          // Get local media if not already obtained
-          let stream = localStream;
-          if (!stream) {
-            isVideoCallRef.current = false;
-
-            const constraints = {
-              audio: true,
-              video: false,
-            };
-            stream = await mediaDevices.getUserMedia(constraints);
-            setLocalStream(stream);
-            console.log('[WebRTC] Callee got local stream (audio only)');
-
-            InCallManager.start({ media: 'audio' });
-            InCallManager.setForceSpeakerphoneOn(true);
-          }
-
-          // Create PC if needed
-          let pc = pcRef.current;
-          if (!pc) {
-            const iceServers = await fetchIceServers();
-            pc = createPeerConnection(iceServers);
-            pcRef.current = pc;
-            remoteDescSet.current = false;
-
-            stream.getTracks().forEach((track) => {
-              pc!.addTrack(track, stream!);
-            });
-          }
-
-          await pc.setRemoteDescription(
-            new RTCSessionDescription({ type: 'offer', sdp: signal.sdp })
-          );
-          remoteDescSet.current = true;
-          await drainCandidateQueue();
-
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-
-          if (socketRef.current) {
-            socketRef.current.emit('webrtc_signal', {
-              to: roomId,
-              signal: { type: 'answer', sdp: answer.sdp },
-            });
-          }
-          console.log('[WebRTC] Answer sent');
+          console.log('[WebRTC] Ignoring incoming offer — Mobile App is always the caller in Audio mode');
+          return;
         }
 
         // ── ANSWER received by caller ──────────────────────────────────────
-        else if (signal.type === 'answer') {
+        if (signal.type === 'answer') {
           const pc = pcRef.current;
           if (!pc) return;
           if (pc.signalingState === 'stable') {
