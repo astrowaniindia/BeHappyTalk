@@ -916,11 +916,8 @@ io.on('connection', (socket) => {
       delete pendingRequests[userId];
     }
 
-    const { data: session } = await db.from('sessions').select('id').eq('userId', userId).eq('providerId', providerId).eq('status', 'active').maybeSingle();
-    if (!session) {
-      socket.emit('session_ended', { reason: 'access_denied' });
-      return;
-    }
+    // Allow messaging freely (for inbox/offline messages as well)
+    // If it's a live paid session, billing is already handled separately via startBillingInterval.
 
     const room = `chat_${userId}_${providerId}`;
     const { data: inserted, error } = await db.from('messages').insert({

@@ -226,7 +226,7 @@ export default function ChatScreen() {
 
   const sendMessage = () => {
     const trimmed = message.trim();
-    if (!trimmed || !socketRef.current || !userId || !isSessionActive) return;
+    if (!trimmed || !socketRef.current || !userId || !canSendMessage) return;
 
     setIsSending(true);
     socketRef.current.emit('send_message', {
@@ -273,7 +273,7 @@ export default function ChatScreen() {
     }
   };
 
-  const isSessionActive = providerId !== 'system' && Boolean(sessionId) && (timeLeft === null || timeLeft > 0);
+  const canSendMessage = providerId !== 'system' && (!sessionId || timeLeft === null || timeLeft > 0);
 
   const renderMessageContent = (text: string) => {
     if (text.startsWith('[IMAGE]')) {
@@ -417,26 +417,26 @@ export default function ChatScreen() {
         </View>
 
         {/* Input */}
-        <View style={[styles.inputContainer, !isSessionActive && { opacity: 0.5 }]}>
-          <TouchableOpacity style={styles.attachBtn} onPress={pickImage} disabled={!isSessionActive || isSending}>
+        <View style={[styles.inputContainer, !canSendMessage && { opacity: 0.5 }]}>
+          <TouchableOpacity style={styles.attachBtn} onPress={pickImage} disabled={!canSendMessage || isSending}>
             <MaterialCommunityIcons name="paperclip" size={24} color="rgba(255,255,255,0.7)" />
           </TouchableOpacity>
-          <View style={[styles.inputWrapper, !isSessionActive && { backgroundColor: '#12141B' }]}>
+          <View style={[styles.inputWrapper, !canSendMessage && { backgroundColor: '#12141B' }]}>
             <TextInput
               style={styles.textInput}
-              placeholder={providerId === 'system' ? 'Cannot reply to system message' : (isSessionActive ? 'Message...' : 'Session ended')}
+              placeholder={providerId === 'system' ? 'Cannot reply to system message' : (canSendMessage ? 'Message...' : 'Session ended')}
               placeholderTextColor="rgba(255,255,255,0.35)"
               value={message}
               onChangeText={setMessage}
               multiline
-              editable={isSessionActive}
+              editable={canSendMessage}
               onSubmitEditing={sendMessage}
             />
           </View>
           <TouchableOpacity
-            style={[styles.sendButton, (!message.trim() || isSending || !isSessionActive) && styles.sendButtonDisabled]}
+            style={[styles.sendButton, (!message.trim() || isSending || !canSendMessage) && styles.sendButtonDisabled]}
             onPress={sendMessage}
-            disabled={!message.trim() || isSending || !isSessionActive}
+            disabled={!message.trim() || isSending || !canSendMessage}
           >
             {isSending ? (
               <ActivityIndicator size="small" color="rgba(255,255,255,0.60)" />

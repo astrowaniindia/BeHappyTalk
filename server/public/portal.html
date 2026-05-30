@@ -2343,7 +2343,8 @@
       document.getElementById('chat-header-meta').style.display = 'flex';
       document.getElementById('active-chat-name').innerText = u.name;
       
-      document.getElementById('chat-input-row').style.display = (currentSessionId && activeUserId === u.id) ? 'flex' : 'none';
+      // Allow provider to reply to any chat (including offline inbox messages)
+      document.getElementById('chat-input-row').style.display = 'flex';
       
       renderUsers();
       socket.emit('join_chat', { userId: u.id, providerId: provider.id });
