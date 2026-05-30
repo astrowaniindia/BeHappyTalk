@@ -157,9 +157,9 @@ export default function Home() {
         setConnectingModal(false);
         setSelectedProvider(null);
         setDurationModal(false);
-        if (type === 'Call' || type === 'Video') {
-          router.push(`/call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
-        } else if (type === 'Audio') {
+        if (type === 'Video') {
+          router.push(`/video-call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
+        } else if (type === 'Audio' || type === 'Call') {
           router.push(`/audio-call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
         } else {
           router.push(`/chat/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
