@@ -45,6 +45,7 @@ export default function DedicatedCallScreen() {
   const soundRef = useRef<Audio.Sound | null>(null);
   const callStartedRef = useRef(false);
   const handleSignalRef = useRef<((payload: any) => void) | null>(null);
+  const timeoutsRef = useRef<any[]>([]);
 
   const userId = user?.id;
   const roomId = userId && providerId ? `chat_${userId}_${providerId}` : '';
@@ -166,10 +167,7 @@ export default function DedicatedCallScreen() {
         }, 500);
         
         // Store timeout ID to clear on unmount
-        if (!(socketRef.current as any)._timeouts) {
-           (socketRef.current as any)._timeouts = [];
-        }
-        (socketRef.current as any)._timeouts.push(timeoutId);
+        timeoutsRef.current.push(timeoutId);
       }
     });
 
@@ -194,11 +192,8 @@ export default function DedicatedCallScreen() {
     return () => {
       backHandler.remove();
       stopRingback();
+      timeoutsRef.current.forEach((t: any) => clearTimeout(t));
       if (socketRef.current) {
-        const timeouts = (socketRef.current as any)._timeouts;
-        if (timeouts) {
-           timeouts.forEach(clearTimeout);
-        }
         socketRef.current.disconnect();
         socketRef.current = null;
       }
