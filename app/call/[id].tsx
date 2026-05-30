@@ -21,7 +21,7 @@ import io from 'socket.io-client';
 import { useAuth } from '../../hooks/useAuth';
 import { Audio } from 'expo-av';
 import { API_URL, SOCKET_URL, secureFetch } from '../../constants/ServerConfig';
-import CallView from '../../components/CallView';
+import { CallView } from '../../components/CallView';
 import { useWebRTC } from '../../hooks/useWebRTC';
 
 const PROVIDER_IMAGE = require('../../assets/images/girl_smiling_1775250936696.png');

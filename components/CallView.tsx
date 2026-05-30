@@ -1,46 +1,24 @@
-/**
- * components/CallView.tsx — BeHappyTalk
- *
- * BLACK SCREEN FIXES APPLIED:
- *  - RTCView requires a non-zero width/height AND a valid streamURL.
- *    We gate rendering behind a null-check on the stream prop.
- *  - zOrder={0} for remote (background), zOrder={1} for local PiP (foreground).
- *    Mixing zOrder values is the most common cause of blank video on Android.
- *  - objectFit="cover" is set explicitly — defaults to "contain" which can look black
- *    on some aspect ratios.
- *  - The hidden audio RTCView still needs to be mounted so audio tracks are played;
- *    we give it width:1/height:1 (not 0) to keep it in the render tree on Android.
- *  - mirror={true} on local stream so the self-view looks natural.
- *  - Timer shows for both video (floating) and audio (center screen) modes.
- */
-
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  Platform,
-} from 'react-native';
-import { RTCView } from 'react-native-webrtc';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
+import { RTCView, MediaStream } from 'react-native-webrtc';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import InCallManager from 'react-native-incall-manager';
 
 const { width, height } = Dimensions.get('window');
 
 interface CallViewProps {
-  localStream: any;
-  remoteStream: any;
+  localStream: MediaStream | null;
+  remoteStream: MediaStream | null;
   isVideo: boolean;
   isConnected: boolean;
   onEnd: () => void;
   callerName: string;
-  timeLeft?: number | null;
-  isUnlimited?: boolean;
-  walletBalance?: number | null;
+  timeLeft: number | null;
+  isUnlimited: boolean;
+  walletBalance: number | null;
 }
 
-export default function CallView({
+export function CallView({
   localStream,
   remoteStream,
   isVideo,
@@ -51,118 +29,81 @@ export default function CallView({
   isUnlimited,
   walletBalance,
 }: CallViewProps) {
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
+  const [isVideoOff, setIsVideoOff] = React.useState(false);
+  const [isMuted, setIsMuted] = React.useState(false);
 
-  // ── Track controls ────────────────────────────────────────────────────────
-
-  const toggleMute = () => {
-    if (localStream) {
-      localStream.getAudioTracks().forEach((track: any) => {
+  const toggleVideo = () => {
+    if (localStream && isVideo) {
+      localStream.getVideoTracks().forEach(track => {
         track.enabled = !track.enabled;
       });
-      setIsMuted((prev) => !prev);
+      setIsVideoOff(!isVideoOff);
     }
   };
 
-  const toggleVideo = () => {
+  const toggleMute = () => {
     if (localStream) {
-      localStream.getVideoTracks().forEach((track: any) => {
+      localStream.getAudioTracks().forEach(track => {
         track.enabled = !track.enabled;
       });
-      setIsVideoOff((prev) => !prev);
+      setIsMuted(!isMuted);
     }
   };
 
   const switchCamera = () => {
-    if (localStream) {
-      localStream.getVideoTracks().forEach((track: any) => {
-        if (typeof track._switchCamera === 'function') {
-          track._switchCamera();
-        }
+    if (localStream && isVideo) {
+      localStream.getVideoTracks().forEach(track => {
+        // @ts-ignore - _switchCamera is a react-native-webrtc specific method
+        if (track._switchCamera) track._switchCamera();
       });
     }
   };
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  const formatTime = (seconds: number) => {
-    const absSeconds = Math.abs(seconds);
-    const m = Math.floor(absSeconds / 60).toString().padStart(2, '0');
-    const s = (absSeconds % 60).toString().padStart(2, '0');
-    // For pay-as-you-go (isUnlimited), show elapsed time with a + prefix
-    return isUnlimited ? `+${m}:${s}` : `${m}:${s}`;
-  };
-
-  const showTimer =
-    isConnected && timeLeft !== undefined && timeLeft !== null;
-
-  // ── Remote stream URL ─────────────────────────────────────────────────────
-  // react-native-webrtc ≥ 106 uses stream.toURL() on Android and the stream
-  // object itself on iOS.  The RTCView component handles both automatically
-  // when you pass the stream object directly as the `stream` prop.
   const hasRemoteVideo = isVideo && remoteStream != null;
-  const hasLocalVideo  = isVideo && localStream != null && !isVideoOff;
+  const hasLocalVideo = isVideo && localStream != null && !isVideoOff;
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
 
   return (
     <View style={styles.container}>
-
-      {/* ── Remote video (full screen) ────────────────────────────────────── */}
-      {hasRemoteVideo ? (
-        <RTCView
-          key={remoteStream?.id || 'remote-video'}
-          streamURL={remoteStream.toURL()}
-          style={styles.remoteVideo}
-          objectFit="cover"
-          mirror={false}
-        />
-      ) : (
-        /* ── Waiting / audio-call avatar screen ─────────────────────────── */
-        <View style={styles.waitingScreen}>
-          {/* Avatar */}
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>
-              {callerName?.charAt(0)?.toUpperCase() ?? '?'}
-            </Text>
-          </View>
-
-          <Text style={styles.callerName}>{callerName}</Text>
-
-          <Text style={styles.connectingText}>
-            {isConnected
-              ? isVideo
-                ? 'Video Call'
-                : 'Audio Call'
-              : 'Connecting…'}
-          </Text>
-
-          {/* Timer for audio call / waiting screen */}
-          {showTimer && (
-            <View style={styles.timerBadge}>
-              <Text style={styles.timerText}>{formatTime(timeLeft!)}</Text>
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* ── Wallet Balance overlay badge ───────────────────────────────── */}
-      {walletBalance !== undefined && walletBalance !== null && (
+      {/* Wallet Balance Badge */}
+      {walletBalance !== null && (
         <View style={styles.walletBadge}>
           <Ionicons name="wallet-outline" size={14} color="#FACC15" style={{ marginRight: 4 }} />
           <Text style={styles.walletText}>₹{walletBalance}</Text>
         </View>
       )}
 
-      {/* ── Floating timer for video calls ───────────────────────────────── */}
-      {hasRemoteVideo && showTimer && (
-        <View style={styles.floatingTimer}>
-          <Text style={styles.timerText}>{formatTime(timeLeft!)}</Text>
+      {/* Main Screen: Remote Video OR Waiting/Audio screen */}
+      {hasRemoteVideo ? (
+        <RTCView
+          streamURL={remoteStream.toURL()}
+          style={styles.remoteVideo}
+          objectFit="cover"
+          mirror={false}
+        />
+      ) : (
+        <View style={styles.waitingScreen}>
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarText}>{callerName.charAt(0).toUpperCase()}</Text>
+          </View>
+          <Text style={styles.callerName}>{callerName}</Text>
+          
+          {isConnected && (
+            <View style={styles.timerBadge}>
+              <Text style={styles.timerText}>
+                {isUnlimited ? '∞' : timeLeft !== null ? formatTime(timeLeft) : '--:--'}
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
-      {/* ── Local PiP (bottom-right), video only ─────────────────────────── */}
+      {/* Local PiP */}
       {hasLocalVideo && (
         <RTCView
           streamURL={localStream.toURL()}
@@ -172,13 +113,7 @@ export default function CallView({
         />
       )}
 
-      {/*
-        ── Hidden audio player ────────────────────────────────────────────
-        IMPORTANT: Even for audio-only calls, keep an RTCView in the tree so
-        the remote audio track is actually rendered/played by the native layer.
-        Width/height must be > 0 on Android — the native renderer ignores
-        views with zero size.
-      */}
+      {/* Hidden audio for Audio-only calls so the stream is actually rendered/played */}
       {!isVideo && remoteStream && (
         <RTCView
           streamURL={remoteStream.toURL()}
@@ -187,80 +122,41 @@ export default function CallView({
         />
       )}
 
-      {/* ── Controls ─────────────────────────────────────────────────────── */}
+      {/* Controls */}
       <View style={styles.controls}>
-        {/* Camera flip — video only */}
         {isVideo ? (
           <TouchableOpacity style={styles.ctrlBtn} onPress={switchCamera}>
             <MaterialIcons name="flip-camera-ios" size={24} color="#fff" />
           </TouchableOpacity>
-        ) : (
-          <View style={styles.ctrlBtnPlaceholder} />
-        )}
+        ) : <View style={styles.ctrlBtnPlaceholder} />}
 
-        {/* Toggle video */}
-        <TouchableOpacity
-          style={[styles.ctrlBtn, isVideoOff && styles.ctrlBtnActive]}
-          onPress={toggleVideo}
-        >
-          <MaterialIcons
-            name={isVideoOff ? 'videocam-off' : 'videocam'}
-            size={24}
-            color="#fff"
-          />
+        <TouchableOpacity style={[styles.ctrlBtn, isVideoOff && styles.ctrlBtnActive]} onPress={toggleVideo}>
+          <MaterialIcons name={isVideoOff ? 'videocam-off' : 'videocam'} size={24} color="#fff" />
         </TouchableOpacity>
 
-        {/* End call */}
         <TouchableOpacity style={styles.endBtn} onPress={onEnd}>
-          <Ionicons
-            name="call"
-            size={28}
-            color="#fff"
-            style={{ transform: [{ rotate: '135deg' }] }}
-          />
+          <Ionicons name="call" size={28} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
         </TouchableOpacity>
 
-        {/* Toggle mute */}
-        <TouchableOpacity
-          style={[styles.ctrlBtn, isMuted && styles.ctrlBtnActive]}
-          onPress={toggleMute}
-        >
-          <MaterialIcons
-            name={isMuted ? 'mic-off' : 'mic'}
-            size={24}
-            color="#fff"
-          />
+        <TouchableOpacity style={[styles.ctrlBtn, isMuted && styles.ctrlBtnActive]} onPress={toggleMute}>
+          <MaterialIcons name={isMuted ? 'mic-off' : 'mic'} size={24} color="#fff" />
         </TouchableOpacity>
 
-        {/* Spacer for symmetry when not video */}
-        {!isVideo ? (
-          <View style={styles.ctrlBtnPlaceholder} />
-        ) : (
-          <View style={styles.ctrlBtnPlaceholder} />
-        )}
+        <View style={styles.ctrlBtnPlaceholder} />
       </View>
     </View>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
   },
-
-  // Remote full-screen
   remoteVideo: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width,
-    height,
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
   },
-
-  // Audio / waiting state
   waitingScreen: {
     flex: 1,
     alignItems: 'center',
@@ -268,104 +164,49 @@ const styles = StyleSheet.create({
     backgroundColor: '#0D0E16',
     gap: 16,
   },
-
   avatarCircle: {
-    width: 100,
-    height: 100,
+    width: 100, height: 100,
     borderRadius: 50,
     backgroundColor: '#FACC15',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 40,
-    fontWeight: '600',
-    color: '#000',
+    fontSize: 40, fontWeight: '600', color: '#000',
   },
   callerName: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: '600',
+    color: '#fff', fontSize: 22, fontWeight: '600',
   },
-  connectingText: {
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 14,
-  },
-
-  // Timer badge (center, used on audio/waiting screen)
   timerBadge: {
-    marginTop: 8,
-    backgroundColor: 'rgba(250, 204, 21, 0.15)',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    marginTop: 8, paddingHorizontal: 16, paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#FACC15',
-  },
-
-  // Floating timer (top center, used on video call)
-  floatingTimer: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 40,
-    alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#FACC15',
-    zIndex: 10,
   },
   timerText: {
-    color: '#FACC15',
-    fontSize: 22,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
+    color: '#FACC15', fontSize: 22, fontWeight: '700', fontVariant: ['tabular-nums'],
   },
-
-  // Local PiP
   localVideo: {
     position: 'absolute',
-    bottom: 140,
-    right: 16,
-    width: 110,
-    height: 160,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#fff',
-    zIndex: 10,
+    bottom: 140, right: 16,
+    width: 110, height: 160,
+    borderRadius: 12, overflow: 'hidden',
+    borderWidth: 2, borderColor: '#fff',
+    backgroundColor: '#333',
   },
-
-  // Hidden audio player — must NOT be 0×0 on Android
   hiddenAudio: {
-    width: 1,
-    height: 1,
-    opacity: 0,
-    position: 'absolute',
-    top: 0,
-    left: 0,
+    width: 1, height: 1, opacity: 0, position: 'absolute',
   },
-
-  // Control row
   controls: {
     position: 'absolute',
-    bottom: 48,
-    left: 0,
-    right: 0,
+    bottom: 48, left: 0, right: 0,
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     alignItems: 'center',
     paddingHorizontal: 16,
-    zIndex: 20,
   },
   ctrlBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 52, height: 52, borderRadius: 26,
     backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
   ctrlBtnActive: {
     backgroundColor: '#6b7280',
@@ -374,30 +215,20 @@ const styles = StyleSheet.create({
     width: 52,
   },
   endBtn: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 66, height: 66, borderRadius: 33,
     backgroundColor: '#e53935',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
   walletBadge: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 40,
-    left: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
+    top: 60, left: 20,
+    flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.65)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(250, 204, 21, 0.3)',
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 16, borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.3)',
     zIndex: 10,
   },
   walletText: {
-    color: '#FACC15',
-    fontSize: 14,
-    fontWeight: 'bold',
+    color: '#FACC15', fontSize: 14, fontWeight: 'bold',
   },
 });
