@@ -51,7 +51,7 @@ export default function ProviderInfo() {
             })}
           </ul>
           {/* This points to the portal webapp which will be hosted at /provider-app or sub-domain later, for now we will just use a hashtag to not break routing */}
-          <a href="#portal" className="btn-primary" style={{ marginTop: '1.5rem' }}>Access Provider Portal</a>
+          <a href="https://provider.behappytalk.com" className="btn-primary" style={{ marginTop: '1.5rem' }}>Access Provider Portal</a>
         </div>
         <div className="provider-image">
           <img src="/Screenshot 2026-06-04 182811.png" className="stacked-sticker s1" alt="" />
