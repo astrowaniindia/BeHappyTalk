@@ -18,7 +18,7 @@ export default function ProviderInfo() {
     <section className="provider-section section-block dark-block" style={{ minHeight: 'calc(100vh - 88px)', paddingTop: '12rem' }}>
       <div className="container provider-container" style={{ transform: 'translateX(70px)' }}>
         <div className="provider-content">
-          <h2>Join as a Provider</h2>
+          <h2>Join Us</h2>
           <p>Make a real difference in people's lives. Join BeHappyTalk's network of certified providers and dedicated volunteers.</p>
           <ul className="provider-benefits" onMouseLeave={() => setActiveIndex(0)}>
             {benefits.map((benefit, index) => {
@@ -51,7 +51,7 @@ export default function ProviderInfo() {
             })}
           </ul>
           {/* This points to the portal webapp which will be hosted at /provider-app or sub-domain later, for now we will just use a hashtag to not break routing */}
-          <a href="https://provider.behappytalk.com" className="btn-primary" style={{ marginTop: '1.5rem' }}>Access Provider Portal</a>
+          <a href="https://provider.behappytalk.com" className="btn-primary" style={{ marginTop: '1.5rem' }}>Join as Provider</a>
         </div>
         <div className="provider-image">
           <img src="/Screenshot 2026-06-04 182811.png" className="stacked-sticker s1" alt="" />
