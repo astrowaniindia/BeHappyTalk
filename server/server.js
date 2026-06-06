@@ -67,34 +67,12 @@ const io = new Server(server, {
 });
 
 app.use(cors());
+app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// ─── Domain-Based Static File Routing ─────────────────────────────────────────
+// ─── Frontend Routes ──────────────────────────────────────────────────────────
 const path = require('path');
-
-app.use((req, res, next) => {
-  // Skip API routes so they fall through to the API handlers below
-  if (req.path.startsWith('/api')) return next();
-
-  const host = req.hostname || '';
-  
-  // Check if it's the provider subdomain or the default render URL
-  if (host.includes('provider.behappytalk.com') || host.includes('behappytalk-server-ipxj.onrender.com')) {
-    // Serve Provider Portal files
-    express.static(path.join(__dirname, 'public'))(req, res, () => {
-      // React/HTML Router fallback for Provider Portal
-      res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    });
-  } else {
-    // Serve Main React Website (behappytalk.com, www.behappytalk.com, etc)
-    express.static(path.join(__dirname, '../website/dist'))(req, res, (err) => {
-      // React Router fallback for Main Website
-      res.sendFile(path.join(__dirname, '../website/dist', 'index.html'));
-    });
-  }
-});
-
 app.get('/manu', (req, res) => res.sendFile(path.join(__dirname, 'public', 'manu.html')));
 app.get('/admin', (req, res) => res.redirect('/manu'));
 
