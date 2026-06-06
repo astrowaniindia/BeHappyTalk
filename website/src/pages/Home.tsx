@@ -129,6 +129,32 @@ export default function Home() {
             );
           })}
         </div>
+        
+        <div style={{
+          position: 'absolute',
+          bottom: '40px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          opacity: Math.max(0, 1 - scrollY / 150),
+          zIndex: 100,
+          pointerEvents: 'none'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: 'rgba(20, 20, 20, 0.95)',
+            border: '2px solid var(--primary)',
+            padding: '12px 28px',
+            borderRadius: '50px',
+            color: 'var(--primary)'
+          }}>
+            <span style={{ fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.5px' }}>Scroll to reveal</span>
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+        </div>
       </header>
       </div>
 
