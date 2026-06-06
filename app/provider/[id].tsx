@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Dimensions, Modal, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, ScrollView, Dimensions, Modal, RefreshControl, Alert, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons, MaterialIcons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,6 +29,18 @@ export default function ProviderProfile() {
   const socketRef = useRef<any>(null);
 
   const [refreshing, setRefreshing] = useState(false);
+  const [reportModal, setReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+
+  const handleBlock = () => {
+    Alert.alert("Block Provider", "Are you sure you want to block this provider? They will no longer be able to contact you.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Block", style: "destructive", onPress: () => {
+          Alert.alert("Blocked", "This provider has been blocked successfully.");
+          router.replace('/home');
+      }}
+    ]);
+  };
 
   const fetchProviderData = async (isRefresh = false) => {
     if (!id) return;
@@ -240,7 +252,6 @@ export default function ProviderProfile() {
           </View>
         </View>
 
-        {/* About & Bio */}
         <View style={styles.detailsSection}>
           <Text style={styles.sectionTitle}>About {provider.name}</Text>
           <Text style={styles.bioText}>
@@ -258,6 +269,20 @@ export default function ProviderProfile() {
             {provider.demographic ? (
                <View style={styles.tagBadge}><Text style={styles.tagText}>{provider.demographic}</Text></View>
             ) : null}
+          </View>
+        </View>
+
+        <View style={styles.safetySection}>
+          <Text style={styles.sectionTitle}>Safety & Support</Text>
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 10 }}>
+            <TouchableOpacity style={styles.safetyActionBtn} onPress={() => setReportModal(true)}>
+              <Feather name="flag" size={18} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.safetyActionText}>Report User</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.safetyActionBtn, { borderColor: 'rgba(239, 68, 68, 0.3)' }]} onPress={handleBlock}>
+              <Feather name="slash" size={18} color="#EF4444" />
+              <Text style={[styles.safetyActionText, { color: '#EF4444' }]}>Block User</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -427,6 +452,37 @@ export default function ProviderProfile() {
         </View>
       </Modal>
 
+      {/* Report Modal */}
+      <Modal visible={reportModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.bottomSheetHandle} />
+            <Text style={styles.modalTitle}>Report Provider</Text>
+            <Text style={styles.modalSubtitle}>Please let us know why you are reporting this user. We take this seriously.</Text>
+            <TextInput
+               style={styles.reportInput}
+               placeholder="Reason for reporting..."
+               placeholderTextColor="rgba(255,255,255,0.3)"
+               multiline
+               value={reportReason}
+               onChangeText={setReportReason}
+            />
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
+               <TouchableOpacity style={styles.cancelReportBtn} onPress={() => setReportModal(false)}>
+                 <Text style={styles.cancelReportText}>Cancel</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.submitReportBtn} onPress={() => {
+                 setReportModal(false);
+                 setReportReason('');
+                 Alert.alert("Report Submitted", "Thank you for reporting. We take this very seriously and necessary action will be taken immediately.", [{ text: "OK" }]);
+               }}>
+                 <Text style={styles.submitReportText}>Submit Report</Text>
+               </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
@@ -487,5 +543,14 @@ const styles = StyleSheet.create({
   connectingAvatar: { width: 100, height: 100, borderRadius: 50 },
   connectingTitle: { color: 'rgba(255, 255, 255, 0.92)', fontSize: 24, fontWeight: '900', marginBottom: 8 },
   connectingSub: { color: '#FACC15', fontSize: 16, fontWeight: '600', marginBottom: 40 },
-  cancelBtn: { backgroundColor: '#EF4444', width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', elevation: 10 }
+  cancelBtn: { backgroundColor: '#EF4444', width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', elevation: 10 },
+  
+  safetySection: { padding: 24, paddingTop: 10 },
+  safetyActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, backgroundColor: '#1A1A1A', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  safetyActionText: { color: 'rgba(255,255,255,0.8)', fontSize: 14, fontWeight: '700' },
+  reportInput: { backgroundColor: '#1A1A1A', borderRadius: 12, padding: 16, color: '#FFF', minHeight: 100, textAlignVertical: 'top', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  cancelReportBtn: { flex: 1, paddingVertical: 16, backgroundColor: '#111111', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center' },
+  cancelReportText: { color: '#FFF', fontWeight: 'bold' },
+  submitReportBtn: { flex: 1, paddingVertical: 16, backgroundColor: '#FACC15', borderRadius: 12, alignItems: 'center' },
+  submitReportText: { color: '#000000', fontWeight: 'bold' }
 });

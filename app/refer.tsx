@@ -47,7 +47,7 @@ export default function ReferScreen() {
         {/* Banner Image */}
         <View style={styles.bannerContainer}>
           <Image 
-            source={require('../assets/images/refer_earn_banner.png')} 
+            source={require('../assets/images/refer_earn_banner.jpg')} 
             style={styles.bannerImage}
             resizeMode="cover"
           />

@@ -42,6 +42,12 @@
           <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-gray-600 border-l-4 border-transparent" id="tab-sessions" onclick="switchTab('sessions')">
             <i class="fa-solid fa-phone w-6"></i> Call Ledger
           </li>
+          <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-gray-600 border-l-4 border-transparent" id="tab-reviews" onclick="switchTab('reviews')">
+            <i class="fa-solid fa-star w-6"></i> Reviews
+          </li>
+          <li class="px-6 py-3 hover:bg-purple-50 cursor-pointer text-gray-600 border-l-4 border-transparent" id="tab-support" onclick="switchTab('support')">
+            <i class="fa-solid fa-headset w-6"></i> Support Tickets
+          </li>
         </ul>
       </aside>
 
@@ -187,6 +193,50 @@
             </table>
           </div>
         </div>
+
+        <!-- Reviews Tab -->
+        <div id="content-reviews" class="hidden">
+          <h2 class="text-2xl font-bold mb-6">Manage Reviews & Ratings</h2>
+          <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Provider</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rating</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comment</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="reviews-table" class="divide-y divide-gray-200">
+                <tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No reviews found in database.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Support Tab -->
+        <div id="content-support" class="hidden">
+          <h2 class="text-2xl font-bold mb-6">Support Tickets</h2>
+          <div class="bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type (User/Provider)</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject / Reason</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Message</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="support-table" class="divide-y divide-gray-200">
+                <tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">No active support tickets.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </main>
     </div>
   </div>
@@ -239,11 +289,13 @@
     }
 
     function switchTab(tab) {
-      ['overview', 'users', 'providers', 'sessions'].forEach(t => {
+      ['overview', 'users', 'providers', 'sessions', 'reviews', 'support'].forEach(t => {
         document.getElementById('content-' + t).classList.add('hidden');
         const tabEl = document.getElementById('tab-' + t);
-        tabEl.classList.remove('text-purple-700', 'font-bold', 'border-purple-600', 'bg-purple-50');
-        tabEl.classList.add('text-gray-600', 'border-transparent');
+        if (tabEl) {
+          tabEl.classList.remove('text-purple-700', 'font-bold', 'border-purple-600', 'bg-purple-50');
+          tabEl.classList.add('text-gray-600', 'border-transparent');
+        }
       });
       
       document.getElementById('content-' + tab).classList.remove('hidden');

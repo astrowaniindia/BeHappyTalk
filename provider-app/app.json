@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Provider BeHappyTalk",
+    "slug": "behappytalk-provider",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1B76FF"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.behappytalk.provider"
+    },
+    "android": {
+      "package": "com.behappytalk.provider",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#1B76FF"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "scheme": "provider-app",
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}
