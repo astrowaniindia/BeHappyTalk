@@ -147,11 +147,11 @@ export default function Home() {
         
         <div id="scroll-reveal" style={{
           position: 'absolute',
-          bottom: '40px',
+          bottom: '80px',
           left: '50%',
           transform: 'translateX(-50%)',
           opacity: 1,
-          zIndex: 100,
+          zIndex: 999,
           pointerEvents: 'none'
         }}>
           <div style={{
@@ -162,7 +162,8 @@ export default function Home() {
             border: '2px solid var(--primary)',
             padding: '12px 28px',
             borderRadius: '50px',
-            color: 'var(--primary)'
+            color: 'var(--primary)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
           }}>
             <span style={{ fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.5px' }}>Scroll to reveal</span>
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
