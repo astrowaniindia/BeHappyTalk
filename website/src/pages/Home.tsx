@@ -49,7 +49,7 @@ export default function Home() {
           const distanceMultiplier = 1.2 + (i % 3) * 0.8;
           const scrollX = Math.cos(angle) * scrollY * distanceMultiplier;
           const scrollYAxis = Math.sin(angle) * scrollY * distanceMultiplier;
-          (layers[i] as HTMLElement).style.transform = `translate(${scrollX}px, ${scrollYAxis}px)`;
+          (layers[i] as HTMLElement).style.transform = `translate3d(${scrollX}px, ${scrollYAxis}px, 0)`;
         }
       }
       ticking = false;
