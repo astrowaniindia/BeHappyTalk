@@ -642,15 +642,16 @@ button {
     border-radius: 25px;
   }
   .nav-logo {
-    font-size: 1.5rem;
+    font-size: 1.1rem;
+    gap: 0.2rem;
   }
   .nav-logo img {
-    width: 40px !important;
-    height: 40px !important;
+    width: 32px !important;
+    height: 32px !important;
   }
   .btn-primary {
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem !important;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem !important;
   }
   .hero-title {
     font-size: 2.5rem;

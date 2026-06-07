@@ -3,5 +3,6 @@
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit",
     "source.sortMembers": "explicit"
-  }
+  },
+  "cmake.sourceDirectory": "D:/Projects/BeHappyTalk/provider-app/android/app/.cxx/Debug/4h6o4d5a/arm64-v8a/CMakeFiles/_CMakeLTOTest-CXX/src"
 }
