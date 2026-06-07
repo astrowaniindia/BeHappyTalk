@@ -91,6 +91,14 @@ button {
   color: var(--primary);
 }
 
+.mobile-menu-btn {
+  display: none;
+}
+
+.mobile-only-btn {
+  display: none !important;
+}
+
 .btn-primary {
   background: var(--primary);
   color: #000;
@@ -662,6 +670,40 @@ button {
   }
   .nav-links {
     display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: rgba(15, 15, 15, 0.98);
+    backdrop-filter: blur(16px);
+    flex-direction: column;
+    padding: 2rem 1.5rem;
+    border-radius: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+    margin-top: 15px;
+    gap: 1.5rem;
+  }
+  .nav-links.active {
+    display: flex;
+  }
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    background: transparent;
+    color: var(--text-main);
+    border: none;
+    padding: 0.5rem;
+    cursor: pointer;
+  }
+  .desktop-only-btn {
+    display: none !important;
+  }
+  .mobile-only-btn {
+    display: inline-flex !important;
+    margin-top: 1rem;
+    width: 100%;
+    justify-content: center;
   }
   .feature-row, .feature-row.reverse, .provider-container, .about-container {
     flex-direction: column;
