@@ -210,6 +210,9 @@ button {
 .fan-36 { transform: translate(790px, 250px) rotate(15deg); }
 
 /* Individual Hover Highlights */
+.scroll-layer:hover {
+  z-index: 100;
+}
 .fan-layer:hover {
   z-index: 50;
 }
@@ -632,14 +635,67 @@ button {
 }
 
 @media (max-width: 768px) {
+  .navbar {
+    padding: 0.5rem 1rem;
+    left: 2%;
+    right: 2%;
+    border-radius: 25px;
+  }
+  .nav-logo {
+    font-size: 1.5rem;
+  }
+  .nav-logo img {
+    width: 40px !important;
+    height: 40px !important;
+  }
+  .btn-primary {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem !important;
+  }
   .hero-title {
     font-size: 2.5rem;
+  }
+  .hero-desc {
+    font-size: 1rem;
   }
   .nav-links {
     display: none;
   }
   .feature-row, .feature-row.reverse, .provider-container, .about-container {
     flex-direction: column;
+    text-align: center;
+    gap: 2rem;
+    transform: none !important;
+  }
+  .provider-section, .about-section {
+    padding-top: 8rem !important;
+  }
+  .section-block {
+    padding: 4rem 5%;
+  }
+  .card-stack-container {
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  .offset-sticker, .offset-sticker-about, .s1, .s2 {
+    display: none !important;
+  }
+  .stacked-sticker {
+    display: none !important; /* Hide other stacked stickers in provider on mobile */
+  }
+  .inline-sticker {
+    width: 80%;
+    max-width: 250px;
+  }
+  .provider-benefits li {
+    text-align: left;
+  }
+  .footer {
+    padding: 2rem 1.5rem;
+    margin: 0 2% 1rem;
+  }
+  .footer-content {
+    flex-direction: column;
+    align-items: center;
     text-align: center;
   }
 }
