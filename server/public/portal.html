@@ -295,10 +295,11 @@
     .idle-dev-btn.off { background: var(--danger); color: white; }
     .idle-dev-btn.off i::before { content: "\f126"; } /* fa-video-slash approx */
     
-    .v-chat-msg { background: rgba(0,0,0,0.4); padding: 10px 14px; border-radius: 12px; width: fit-content; max-width: 90%; }
+      .v-chat-msg { background: rgba(0,0,0,0.4); padding: 10px 14px; border-radius: 12px; width: fit-content; max-width: 90%; }
     .v-chat-msg.me { background: rgba(0,245,255,0.1); border: 1px solid var(--primary); align-self: flex-end; }
     .v-chat-time { font-size: 9px; color: var(--text-dim); margin-top: 4px; text-align: right; }
     @media (max-width: 768px) {
+      #sidebar-close { display: block !important; }
       .login-box { width: 90%; padding: 32px 24px; }
       .sidebar { position: absolute; z-index: 1000; height: 100vh; box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
       .main-wrapper { width: 100vw; }
@@ -392,10 +393,11 @@
 
   <!-- App Main Layout -->
   <div id="app-container">
-    <div class="sidebar">
+    <div class="sidebar" id="mobile-sidebar">
       <div class="logo-sidebar">
         <img src="assets/logo-white.png" alt="BeHappyTalk Partner Hub Logo">
         <span>Partner Hub</span>
+        <button id="sidebar-close" style="display:none; background:transparent; border:none; color:white; font-size:24px; cursor:pointer; margin-left:auto;"><i class="fas fa-times"></i></button>
       </div>
       <div class="nav-items">
         <div class="nav-item active" data-view="dashboard">
@@ -1258,9 +1260,17 @@
     function initApp() {
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('app-container').style.display = 'flex';
+      
+      if (window.innerWidth <= 768) {
+        document.querySelector('.sidebar').classList.add('collapsed');
+      }
+
       // Sidebar Toggle Logic
       document.getElementById('sidebar-toggle').onclick = () => {
         document.querySelector('.sidebar').classList.toggle('collapsed');
+      };
+      document.getElementById('sidebar-close').onclick = () => {
+        document.querySelector('.sidebar').classList.add('collapsed');
       };
 
       // Populate Profile Tab
@@ -1297,6 +1307,9 @@
       // Views Swapping
       document.querySelectorAll('.nav-item').forEach(btn => {
         btn.onclick = () => {
+          if (window.innerWidth <= 768) {
+            document.querySelector('.sidebar').classList.add('collapsed');
+          }
           document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
