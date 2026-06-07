@@ -65,6 +65,15 @@
       background: #ffffff; 
       box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
     }
+    
+    .mobile-menu-btn {
+      display: none;
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: var(--text);
+      cursor: pointer;
+    }
 
     .logo {
       display: flex;
@@ -298,7 +307,26 @@
     /* Mobile Responsive */
     @media (max-width: 1024px) {
       .navbar { padding: 16px 24px; }
-      .nav-links { display: none; }
+      .mobile-menu-btn { display: block; }
+      .nav-links { 
+        display: none; 
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.98);
+        flex-direction: column;
+        padding: 24px;
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        gap: 20px;
+        align-items: flex-start;
+      }
+      .nav-links.active {
+        display: flex;
+      }
+      .nav-link { font-size: 16px; width: 100%; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+      .btn-login { width: 100%; justify-content: center; }
       .hero, .features, .how-it-works, .stats-bar, .cta-final { padding: 60px 24px; }
       .hero { flex-direction: column; text-align: center; justify-content: center; }
       .hero h1 { font-size: 40px; letter-spacing: -1px; }
@@ -322,10 +350,13 @@
       <img src="assets/logo-blue.png" alt="BeHappyTalk Partner Hub Logo">
       <span>BeHappyTalk Partner Hub</span>
     </div>
-    <div class="nav-links">
-      <a href="#features" class="nav-link">Benefits</a>
-      <a href="#how" class="nav-link">How it Works</a>
-      <a href="/portal.html" class="btn-login">Dashboard <i class="fas fa-arrow-right"></i></a>
+    <button class="mobile-menu-btn" onclick="document.getElementById('nav-links').classList.toggle('active')">
+      <i class="fas fa-bars"></i>
+    </button>
+    <div class="nav-links" id="nav-links">
+      <a href="#features" class="nav-link" onclick="document.getElementById('nav-links').classList.remove('active')">Benefits</a>
+      <a href="#how" class="nav-link" onclick="document.getElementById('nav-links').classList.remove('active')">How it Works</a>
+      <a href="/portal.html" class="btn-login" onclick="document.getElementById('nav-links').classList.remove('active')">Dashboard <i class="fas fa-arrow-right"></i></a>
     </div>
   </nav>
 
