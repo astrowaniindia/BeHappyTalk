@@ -59,6 +59,7 @@ export default function Home() {
   const [recentContacts, setRecentContacts] = useState<any[]>([]);
   const [insufficientModal, setInsufficientModal] = useState(false);
   const [busyModal, setBusyModal] = useState(false);
+  const [isSettingsExpanded, setIsSettingsExpanded] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(-width * 0.75)).current;
 
@@ -219,7 +220,7 @@ export default function Home() {
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 2 && Math.abs(gestureState.dx) > 15;
+        return Math.abs(gestureState.dx) > 35 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 3;
       },
       onPanResponderRelease: (evt, gestureState) => {
         if (gestureState.dx > 40 && !isDrawerOpenRef.current) {
@@ -518,12 +519,17 @@ export default function Home() {
             <View style={StyleSheet.absoluteFillObject} />
           </TouchableWithoutFeedback>
           <Animated.View style={[styles.drawerContent, { transform: [{ translateX: slideAnim }] }]}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}>
             {/* Profile */}
             <View style={styles.drawerProfileSection}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24, gap: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, paddingHorizontal: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                  <Image source={require('../assets/images/icon.png')} style={{ width: 32, height: 32, borderRadius: 16 }} />
                  <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: 18, fontWeight: 'bold' }}>BeHappyTalk</Text>
+                </View>
+                <TouchableOpacity onPress={toggleDrawer} style={{ padding: 8, backgroundColor: '#333', borderRadius: 20 }}>
+                  <MaterialIcons name="close" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
               </View>
               <TouchableOpacity style={styles.largeAvatar} onPress={() => setShowAvatarModal(true)} activeOpacity={0.8}>
                 {user?.profileImage ? (
@@ -570,31 +576,22 @@ export default function Home() {
                 <Text style={styles.drawerMenuText}>{t('usage') || 'Call Summary'}</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); Linking.openURL('mailto:care@BeHappyTalk.com'); }}>
+              <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/support'); }}>
                 <MaterialCommunityIcons name="headset" size={24} color="rgba(255,255,255,0.70)" />
                 <Text style={styles.drawerMenuText}>Support</Text>
               </TouchableOpacity>
 
-              <View style={styles.drawerMenuItem}>
+              <TouchableOpacity style={styles.drawerMenuItem} onPress={toggleLanguage}>
+                <MaterialIcons name="language" size={24} color="#3B82F6" />
+                <Text style={[styles.drawerMenuText, { color: '#3B82F6', fontWeight: 'bold' }]}>{t('changeLanguage')}</Text>
+              </TouchableOpacity>
+
+
+
+              <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/settings'); }}>
                 <MaterialIcons name="settings" size={24} color="rgba(255,255,255,0.70)" />
                 <Text style={styles.drawerMenuText}>{t('settings')}</Text>
-              </View>
-
-              <View style={styles.subMenu}>
-                <TouchableOpacity style={styles.subMenuItem} onPress={toggleLanguage}>
-                  <MaterialIcons name="language" size={20} color="#3B82F6" />
-                  <Text style={[styles.subMenuText, { color: '#3B82F6', fontWeight: 'bold' }]}>{t('changeLanguage')}</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.subMenuItem}>
-                  <MaterialCommunityIcons name="trash-can-outline" size={20} color="rgba(255,255,255,0.45)" />
-                  <Text style={styles.subMenuText}>{t('deleteAccount')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.subMenuItem} onPress={handleLogout}>
-                  <AntDesign name="logout" size={20} color="#EF4444" />
-                  <Text style={[styles.subMenuText, { color: '#EF4444' }]}>{t('logout')}</Text>
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             </View>
 
             {/* Legal Links */}

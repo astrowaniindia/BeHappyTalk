@@ -4,6 +4,9 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import axios from 'axios';
+import { Image } from 'react-native';
 
 const Colors = {
   primary: '#1B76FF',
@@ -26,7 +29,10 @@ export default function ProfileScreen() {
   const [phone, setPhone] = useState('');
   const [bio, setBio] = useState('');
   const [specialty, setSpecialty] = useState('');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const API_URL = 'http://192.168.29.168:3000';
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -46,13 +52,62 @@ export default function ProfileScreen() {
         setProviderData(data);
         setName(data.name || 'Studio Partner');
         setPhone(data.phone || '');
-        setBio(data.bio || 'Experienced consultant ready to help clients achieve their goals.');
-        setSpecialty(data.specialty || 'General Consultation');
+        setBio(data.bio || data.tagline || 'Experienced consultant ready to help clients achieve their goals.');
+        setSpecialty(data.specialty || data.demographic || 'General Consultation');
+        setProfileImage(data.imagePath || null);
       }
     } catch (e) {
       console.error('Failed to load profile', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+      base64: true,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      setProfileImage(base64Image); // optimistic UI
+      
+      try {
+        const token = await AsyncStorage.getItem('providerToken');
+        const imgRes = await axios.post(`${API_URL}/api/provider/upload-image`, 
+          { base64Image }, 
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (providerData) {
+          const updatedData = { ...providerData, imagePath: imgRes.data.url };
+          await AsyncStorage.setItem('providerData', JSON.stringify(updatedData));
+          setProviderData(updatedData);
+          setProfileImage(imgRes.data.url);
+          Alert.alert('Success', 'Profile picture updated!');
+        }
+      } catch (err) {
+        Alert.alert('Error', 'Failed to upload image.');
+        setProfileImage(providerData?.imagePath || null);
+      }
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    try {
+      const token = await AsyncStorage.getItem('providerToken');
+      await axios.post(`${API_URL}/api/provider/remove-image`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      setProfileImage(null);
+      if (providerData) {
+        const updatedData = { ...providerData, imagePath: null };
+        await AsyncStorage.setItem('providerData', JSON.stringify(updatedData));
+        setProviderData(updatedData);
+      }
+      Alert.alert('Success', 'Profile picture removed.');
+    } catch (err) {
+      Alert.alert('Error', 'Failed to remove image.');
     }
   };
 
@@ -116,13 +171,23 @@ export default function ProfileScreen() {
           {/* Avatar Section */}
           <View style={styles.avatarSection}>
             <View style={styles.avatarContainer}>
-              <Text style={styles.avatarInitial}>{name.charAt(0).toUpperCase()}</Text>
-              <TouchableOpacity style={styles.editAvatarBtn}>
+              {profileImage ? (
+                <Image source={{ uri: profileImage }} style={{ width: 100, height: 100, borderRadius: 50 }} />
+              ) : (
+                <Text style={styles.avatarInitial}>{name.charAt(0).toUpperCase()}</Text>
+              )}
+              <TouchableOpacity style={styles.editAvatarBtn} onPress={handlePickImage}>
                 <Ionicons name="camera" size={16} color={Colors.white} />
               </TouchableOpacity>
             </View>
             <Text style={styles.providerName}>{name}</Text>
             <Text style={styles.providerRole}>Verified Partner</Text>
+            
+            {profileImage && (
+              <TouchableOpacity onPress={handleRemoveImage} style={{ marginTop: 10 }}>
+                <Text style={{ color: Colors.danger, fontWeight: 'bold' }}>Remove Photo</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Form Section */}

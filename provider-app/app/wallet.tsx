@@ -39,6 +39,19 @@ export default function WalletScreen() {
         if (res.data && res.data.walletBalance !== undefined) {
           setBalance(res.data.walletBalance.toFixed(2));
         }
+
+        // Fetch transaction history
+        const histRes = await axios.get(`${API_URL}/api/provider/history/${data.id}`);
+        if (histRes.data && Array.isArray(histRes.data)) {
+          const formattedTx = histRes.data.map((s: any) => ({
+            id: s.id,
+            type: s.type, // 'chat', 'audio', 'video'
+            amount: s.cost || 0,
+            date: new Date(s.startTime).toLocaleDateString() + ' ' + new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'completed',
+          }));
+          setTransactions(formattedTx);
+        }
       }
     } catch (error) {
       console.error('Error fetching wallet balance:', error);
@@ -59,8 +72,8 @@ export default function WalletScreen() {
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
-      case 'call_audio': return <Ionicons name="call" size={20} color="#3B82F6" />;
-      case 'call_video': return <Ionicons name="videocam" size={20} color="#8B5CF6" />;
+      case 'audio': return <Ionicons name="call" size={20} color="#3B82F6" />;
+      case 'video': return <Ionicons name="videocam" size={20} color="#8B5CF6" />;
       case 'chat': return <Ionicons name="chatbubbles" size={20} color="#10B981" />;
       case 'withdrawal': return <Ionicons name="cash" size={20} color="#EF4444" />;
       default: return <Ionicons name="wallet" size={20} color={Colors.textDark} />;
@@ -69,15 +82,15 @@ export default function WalletScreen() {
 
   const getTransactionLabel = (type: string) => {
     switch (type) {
-      case 'call_audio': return 'Audio Session';
-      case 'call_video': return 'Video Session';
+      case 'audio': return 'Audio Session';
+      case 'video': return 'Video Session';
       case 'chat': return 'Chat Session';
       case 'withdrawal': return 'Bank Withdrawal';
       default: return 'Transaction';
     }
   };
 
-  const renderTransaction = ({ item }: { item: typeof DUMMY_TRANSACTIONS[0] }) => {
+  const renderTransaction = ({ item }: { item: any }) => {
     const isNegative = item.amount < 0;
     return (
       <View style={styles.transactionCard}>

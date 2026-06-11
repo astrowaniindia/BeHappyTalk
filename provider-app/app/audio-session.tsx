@@ -213,9 +213,10 @@ export default function AudioSessionScreen() {
     socketInitialized.current = true;
     cleanedUp.current = false;
 
-    const parts = roomId.split('_');
-    const parsedUserId = parts[1];
-    const parsedProviderId = parts[2];
+    // Parse providerId safely
+    const parsedUserId = Array.isArray(userId) ? userId[0] : userId;
+    const rId = Array.isArray(roomId) ? roomId[0] : roomId;
+    const parsedProviderId = rId.replace(`chat_${parsedUserId}_`, '');
 
     console.log('[ProviderAudio] Connecting socket, room:', roomId);
     const sock = io(SOCKET_URL, { transports: ['websocket'], reconnection: false });

@@ -148,6 +148,28 @@ app.post('/api/login', async (req, res) => {
   res.json(safeData);
 });
 
+app.post('/api/provider/signup', async (req, res) => {
+  const { phone, password, name } = req.body;
+  if (!phone || !password || !name) return res.status(400).json({ error: 'Name, phone, and password required.' });
+  const { data: existing } = await db.from('providers').select('id').eq('phone', phone).maybeSingle();
+  if (existing) return res.status(400).json({ error: 'Phone already registered.' });
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const id = 'p_' + Date.now();
+  const { data, error } = await db.from('providers').insert([{ id, name, phone, password: hashedPassword, status: 'offline', verified: false, priceChat: 10, priceCall: 20, priceVideo: 30 }]).select('*').single();
+  if (error) return res.status(500).json({ error: error.message });
+  const token = jwt.sign({ id: data.id, phone: data.phone, role: 'provider' }, JWT_SECRET, { expiresIn: '30d' });
+  const { password: _, ...safeData } = data;
+  safeData.token = token;
+  res.json(safeData);
+});
+
+app.post('/api/provider/update-profile', async (req, res) => {
+  const { providerId, demographic, tagline, langs, priceChat, priceCall, priceVideo } = req.body;
+  const { data, error } = await db.from('providers').update({ demographic, tagline, langs, priceChat, priceCall, priceVideo, verified: true }).eq('id', providerId).select('*').single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
 app.post('/api/provider/login', async (req, res) => {
   const { phone, password } = req.body;
   if (!phone || !password) return res.status(400).json({ error: 'Phone and password required.' });

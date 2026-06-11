@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Image } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Image, Linking } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -38,8 +38,10 @@ export default function LoginScreen() {
   const checkAuth = async () => {
     try {
       const token = await AsyncStorage.getItem('providerToken');
-      if (token) {
-        router.replace('/dashboard');
+      const dataStr = await AsyncStorage.getItem('providerData');
+      if (token && dataStr) {
+        const data = JSON.parse(dataStr);
+        if (data.verified === false) { router.replace('/setup'); } else { router.replace('/dashboard'); }
       } else {
         setIsCheckingAuth(false);
       }
@@ -83,7 +85,7 @@ export default function LoginScreen() {
         await AsyncStorage.setItem('providerData', JSON.stringify(data));
         
         // Success! Go to dashboard
-        router.replace('/dashboard');
+        if (data.verified === false) { router.replace('/setup'); } else { router.replace('/dashboard'); }
       } else {
         Alert.alert('Login Failed', data.error || 'Invalid credentials');
       }
@@ -160,9 +162,11 @@ export default function LoginScreen() {
                 )}
               </TouchableOpacity>
               
-              <Text style={styles.authToggle}>
-                Don't have an account? Join BeHappyTalk Partner Hub
-              </Text>
+              <TouchableOpacity onPress={() => router.push('/signup')}>
+                <Text style={styles.authToggle}>
+                  Don't have an account? Join as a Provider
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>

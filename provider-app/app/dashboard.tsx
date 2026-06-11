@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Animated, Dimensions, Switch, RefreshControl, Image } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Animated, Dimensions, Switch, RefreshControl, Image, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -33,6 +33,7 @@ export default function DashboardScreen() {
   const [walletBalance, setWalletBalance] = useState('0.00');
   const [providerId, setProviderId] = useState(null);
   const [providerName, setProviderName] = useState('Provider');
+  const [providerImage, setProviderImage] = useState<string | null>(null);
   const [incomingRequest, setIncomingRequest] = useState<any>(null);
   
   // New State for Analytics & Online Status
@@ -84,6 +85,23 @@ export default function DashboardScreen() {
             if (res.data.status) {
               setIsOnline(res.data.status === 'online' || res.data.status === 'busy');
             }
+            if (res.data.imagePath) {
+              setProviderImage(res.data.imagePath);
+            }
+          }
+
+          const histRes = await axios.get(`${API_URL}/api/provider/history/${data.id}`);
+          if (histRes.data && Array.isArray(histRes.data)) {
+            const today = new Date().toLocaleDateString();
+            const todayGains = histRes.data
+              .filter((s: any) => new Date(s.startTime).toLocaleDateString() === today)
+              .reduce((acc: number, s: any) => acc + (s.cost || 0), 0);
+            setDailyGains(`₹${todayGains.toFixed(2)}`);
+            
+            const totalMins = histRes.data.reduce((acc: number, s: any) => acc + (Math.floor((s.duration || 0) / 60)), 0);
+            const hrs = Math.floor(totalMins / 60);
+            const mins = totalMins % 60;
+            setTotalLiveTime(`${hrs}h ${mins}m`);
           }
 
           socket = io(SOCKET_URL, { 
@@ -215,7 +233,11 @@ export default function DashboardScreen() {
           </View>
           <TouchableOpacity onPress={() => router.push('/profile')}>
             <View style={styles.navAvatar}>
-              <Ionicons name="person" size={20} color={Colors.white} />
+              {providerImage ? (
+                <Image source={{ uri: providerImage }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
+              ) : (
+                <Ionicons name="person" size={20} color={Colors.white} />
+              )}
             </View>
           </TouchableOpacity>
         </View>
@@ -224,10 +246,22 @@ export default function DashboardScreen() {
         <View style={styles.appBarRow2}>
           <TouchableOpacity style={styles.navWalletBadge} onPress={() => router.push('/wallet')}>
             <Ionicons name="wallet" size={16} color={Colors.white} style={{ marginRight: 6 }} />
-            <Text style={styles.navWalletText}>₹2,540.00</Text>
+            <Text style={styles.navWalletText}>₹{walletBalance}</Text>
           </TouchableOpacity>
 
-          <View style={styles.appBarRight}>
+          <View style={[styles.appBarRight, { flexDirection: 'row', alignItems: 'center', gap: 16 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
+              <Text style={{ color: isOnline ? '#10B981' : 'rgba(255,255,255,0.5)', fontWeight: 'bold', fontSize: 12, marginRight: 4 }}>
+                {isOnline ? 'ONLINE' : 'OFFLINE'}
+              </Text>
+              <Switch
+                value={isOnline}
+                onValueChange={toggleOnlineStatus}
+                trackColor={{ false: 'rgba(255,255,255,0.3)', true: '#059669' }}
+                thumbColor={Colors.white}
+                style={{ transform: [{ scaleX: 0.7 }, { scaleY: 0.7 }] }}
+              />
+            </View>
             <TouchableOpacity onPress={() => router.push('/notifications')}>
               <Ionicons name="notifications-outline" size={24} color={Colors.white} />
               <View style={{ position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.danger, borderWidth: 2, borderColor: Colors.primary }} />
@@ -418,7 +452,7 @@ export default function DashboardScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/wallet'); }}>
               <Ionicons name="wallet" size={22} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.menuItemText}>Wallet & Withdraw</Text>
+              <Text style={styles.menuItemText}>Wallet & Payouts</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/profile'); }}>
               <Ionicons name="person" size={22} color="rgba(255,255,255,0.7)" />
@@ -428,12 +462,48 @@ export default function DashboardScreen() {
               <Ionicons name="help-circle" size={22} color="rgba(255,255,255,0.7)" />
               <Text style={styles.menuItemText}>Help & Support</Text>
             </TouchableOpacity>
+
+            {/* Legal Links Section */}
+            <View style={{ marginTop: 24, paddingHorizontal: 20, marginBottom: 8 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 'bold', letterSpacing: 1 }}>LEGAL</Text>
+            </View>
+            
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/terms'); }}>
+              <Ionicons name="document-text" size={22} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.menuItemText}>Terms & Conditions</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/privacy'); }}>
+              <Ionicons name="shield-checkmark" size={22} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.menuItemText}>Privacy Policy</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/safety'); }}>
+              <Ionicons name="warning" size={22} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.menuItemText}>Safety & Guidelines</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/child-safety'); }}>
+              <Ionicons name="people" size={22} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.menuItemText}>Child Safety</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/report-vulnerability'); }}>
+              <Ionicons name="bug" size={22} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.menuItemText}>Report Vulnerability</Text>
+            </TouchableOpacity>
+            
+            <View style={{ height: 40 }} />
           </ScrollView>
 
           <View style={styles.sidebarFooter}>
             <View style={styles.profileRow}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{providerName.charAt(0).toUpperCase()}</Text>
+                {providerImage ? (
+                  <Image source={{ uri: providerImage }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
+                ) : (
+                  <Text style={styles.avatarText}>{providerName.charAt(0).toUpperCase()}</Text>
+                )}
                 <View style={[styles.statusDot, { backgroundColor: isOnline ? Colors.success : Colors.danger }]} />
               </View>
               <View style={styles.profileInfo}>
