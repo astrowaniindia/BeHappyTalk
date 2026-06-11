@@ -51,7 +51,7 @@ export default function Home() {
             <span>Feel better.</span>
           </h1>
           <p className="hero-desc" style={{ margin: '0 auto 2.5rem' }}>
-            We understand, and you're not alone. Try BeHappyTalk, a completely anonymous platform for mental wellbeing. Connect with volunteers or certified providers securely via chat, voice, or video.
+            Connect with mental health coaches and relationship coaches. We are committed to providing an accessible platform for mental wellbeing. Whether you are dealing with everyday stress or deeper emotional challenges, our community is here to listen.
           </p>
           <div className="hero-actions" id="download">
             <a href="https://play.google.com/store/apps/details?id=com.behappytalk" target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.1rem' }}>
