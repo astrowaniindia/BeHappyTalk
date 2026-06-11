@@ -29,6 +29,8 @@ export default function Footer() {
             <li><Link to="/safety">Safety & Guidelines</Link></li>
             <li><Link to="/child-safety">Child Safety</Link></li>
             <li><Link to="/report-vulnerability">Report Vulnerability</Link></li>
+            <li><Link to="/refund-policy">Cancellation & Refund Policy</Link></li>
+            <li><Link to="/shipping-policy">Shipping & Delivery Policy</Link></li>
           </ul>
         </div>
       </div>

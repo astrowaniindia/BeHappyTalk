@@ -11,6 +11,8 @@ import Safety from './pages/Safety';
 import ChildSafety from './pages/ChildSafety';
 import ReportVulnerability from './pages/ReportVulnerability';
 import ContactUs from './pages/ContactUs';
+import RefundPolicy from './pages/RefundPolicy';
+import ShippingPolicy from './pages/ShippingPolicy';
 import './index.css';
 
 function App() {
@@ -29,6 +31,8 @@ function App() {
             <Route path="/child-safety" element={<ChildSafety />} />
             <Route path="/report-vulnerability" element={<ReportVulnerability />} />
             <Route path="/contact" element={<ContactUs />} />
+            <Route path="/refund-policy" element={<RefundPolicy />} />
+            <Route path="/shipping-policy" element={<ShippingPolicy />} />
           </Routes>
         </main>
         <Footer />
