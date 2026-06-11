@@ -27,6 +27,7 @@ export default function ProviderProfile() {
   const [selectedInteraction, setSelectedInteraction] = useState<{type: string, rate: number, duration?: number} | null>(null);
   
   const socketRef = useRef<any>(null);
+  const hasNavigatedRef = useRef(false);
 
   const [refreshing, setRefreshing] = useState(false);
   const [reportModal, setReportModal] = useState(false);
@@ -99,14 +100,18 @@ export default function ProviderProfile() {
     if (!user?.id) return;
     socketRef.current = io(SOCKET_URL, { transports: ['websocket'] });
     socketRef.current.on('connect', () => {
-      socketRef.current.emit('user_connect', { userId: user.id });
+      socketRef.current.emit('user_online', { userId: user.id });
     });
     
     socketRef.current.on('session_accepted', ({ providerId, sessionId, type, duration, room }: any) => {
+      if (hasNavigatedRef.current) return;
+      hasNavigatedRef.current = true;
       setConnectingModal(false);
-      if (type === 'Video') {
+      
+      const t = (type || '').toLowerCase();
+      if (t === 'video') {
         router.replace(`/video-call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(room || '')}`);
-      } else if (type === 'Audio' || type === 'Call') {
+      } else if (t === 'audio' || t === 'call') {
         router.replace(`/audio-call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(room || '')}`);
       } else {
         router.replace(`/chat/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(room || '')}`);
@@ -155,6 +160,7 @@ export default function ProviderProfile() {
     
     setDurationModal(false);
     setConnectingModal(true);
+    hasNavigatedRef.current = false;
     
     socketRef.current?.emit('request_interaction', {
       userId: user.id,

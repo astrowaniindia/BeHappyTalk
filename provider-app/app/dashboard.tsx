@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Animated, Dimensions, Switch, RefreshControl } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Animated, Dimensions, Switch, RefreshControl, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -24,8 +24,8 @@ const Colors = {
   sidebarHover: 'rgba(255,255,255,0.1)'
 };
 
-const API_URL = 'https://behappytalk-server-ipxj.onrender.com';
-const SOCKET_URL = 'https://behappytalk-server-ipxj.onrender.com';
+const API_URL = 'http://192.168.29.168:3000';
+const SOCKET_URL = 'http://192.168.29.168:3000';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -41,6 +41,8 @@ export default function DashboardScreen() {
   const [dailyGains, setDailyGains] = useState('₹0.00'); 
   const [socketRef, setSocketRef] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const socketInitialized = useRef(false);
+  const hasNavigatedToSession = useRef(false);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -63,6 +65,10 @@ export default function DashboardScreen() {
     let socket: any;
     
     const init = async () => {
+      // Prevent double-initialization
+      if (socketInitialized.current) return;
+      socketInitialized.current = true;
+
       try {
         const dataStr = await AsyncStorage.getItem('providerData');
         if (dataStr) {
@@ -71,22 +77,56 @@ export default function DashboardScreen() {
           if (data.name) setProviderName(data.name);
           
           const res = await axios.get(`${API_URL}/api/provider/${data.id}`);
-          if (res.data && res.data.walletBalance !== undefined) {
-            setWalletBalance(res.data.walletBalance.toFixed(2));
+          if (res.data) {
+            if (res.data.walletBalance !== undefined) {
+              setWalletBalance(res.data.walletBalance.toFixed(2));
+            }
+            if (res.data.status) {
+              setIsOnline(res.data.status === 'online' || res.data.status === 'busy');
+            }
           }
 
-          socket = io(SOCKET_URL, { transports: ['websocket'], reconnectionAttempts: 5 });
+          socket = io(SOCKET_URL, { 
+            transports: ['websocket'], 
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000 
+          });
           setSocketRef(socket);
 
           socket.on('connect', () => {
             console.log('Provider Socket Connected:', socket.id);
-            // Default to online on connect
-            socket.emit('provider_online', { providerId: data.id });
+            // Just register socket, do not force online
+            socket.emit('provider_connected', { providerId: data.id });
+          });
+
+          socket.on('provider_status_changed', (payload: any) => {
+            if (payload.providerId === data.id) {
+              setIsOnline(payload.state.isOnline);
+            }
           });
 
           socket.on('incoming_request', (req: any) => {
             console.log('Incoming Request:', req);
             setIncomingRequest(req);
+          });
+
+          socket.on('session_started', (data: any) => {
+            console.log('Session started:', data);
+            // Prevent double navigation
+            if (hasNavigatedToSession.current) return;
+            hasNavigatedToSession.current = true;
+
+            const typeStr = (data.type || '').toLowerCase();
+            if (typeStr === 'video') {
+              router.push({ pathname: '/video-session', params: { roomId: data.room, sessionId: data.sessionId, userId: data.userId } });
+            } else if (typeStr === 'audio' || typeStr === 'call') {
+              router.push({ pathname: '/audio-session', params: { roomId: data.room, sessionId: data.sessionId, userId: data.userId } });
+            } else {
+              // Chat type - navigate to chat
+              router.push({ pathname: '/chat/[id]', params: { id: data.userId, name: 'User' } });
+            }
           });
         }
       } catch (e) {
@@ -105,19 +145,16 @@ export default function DashboardScreen() {
     const newState = !isOnline;
     setIsOnline(newState);
     if (socketRef && providerId) {
-      if (newState) {
-        console.log('Emitting provider_online');
-        socketRef.emit('provider_online', { providerId });
-      } else {
-        console.log('Emitting provider_offline');
-        socketRef.emit('provider_offline', { providerId });
-      }
+      console.log('Emitting update_provider_status', newState);
+      socketRef.emit('update_provider_status', { providerId, isOnline: newState });
     }
   };
 
   const handleAcceptRequest = () => {
     console.log('Accepted request:', incomingRequest);
     if (socketRef && incomingRequest) {
+      // Reset navigation guard for the new session
+      hasNavigatedToSession.current = false;
       socketRef.emit('accept_interaction', {
         userId: incomingRequest.userId,
         providerId: providerId,
@@ -125,10 +162,7 @@ export default function DashboardScreen() {
         rate: incomingRequest.rate || 0,
         duration: incomingRequest.duration || 5
       });
-      // Route to appropriate screen
-      if (incomingRequest.type === 'video') router.push('/video-calls');
-      else if (incomingRequest.type === 'audio') router.push('/audio-calls');
-      else router.push(`/chat/${incomingRequest.userId}`);
+      // We do NOT navigate here anymore! We wait for the 'session_started' socket event to ensure the room is ready.
     }
     setIncomingRequest(null);
   };
@@ -165,7 +199,7 @@ export default function DashboardScreen() {
         
         {/* Brand Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 12, marginBottom: 16 }}>
-          <Ionicons name="sparkles" size={20} color={Colors.white} />
+          <Image source={require('../assets/icon.png')} style={{ width: 24, height: 24, resizeMode: 'contain', borderRadius: 4 }} />
           <Text style={{ color: Colors.white, fontSize: 15, fontWeight: 'bold', marginLeft: 6, letterSpacing: 0.5, opacity: 0.9 }}>
             BEHAPPYTALK PROVIDER
           </Text>
@@ -326,9 +360,14 @@ export default function DashboardScreen() {
       <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
         <SafeAreaView style={{flex: 1}}>
             <View style={styles.sidebarHeader}>
-              <View style={styles.logoContainer}>
-                <Ionicons name="sparkles" size={28} color={Colors.white} />
-                <Text style={styles.sidebarBrand}>BeHappyTalk</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={styles.logoContainer}>
+                  <Image source={require('../assets/icon.png')} style={{ width: 28, height: 28, resizeMode: 'contain', borderRadius: 6 }} />
+                  <Text style={styles.sidebarBrand}>BeHappyTalk</Text>
+                </View>
+                <TouchableOpacity onPress={toggleSidebar} style={{ padding: 4 }}>
+                  <Ionicons name="menu" size={28} color={Colors.white} />
+                </TouchableOpacity>
               </View>
 
               {/* Online Toggle Moved to Sidebar */}

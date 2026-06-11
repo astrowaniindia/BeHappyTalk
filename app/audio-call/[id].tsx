@@ -46,6 +46,7 @@ export default function DedicatedAudioCallScreen() {
   const isRingbackStoppedRef = useRef(false);
   const callStartedRef = useRef(false);
   const handleSignalRef = useRef<((payload: any) => void) | null>(null);
+  const socketInitialized = useRef(false);
 
   const userId = user?.id;
   const roomId = userId && providerId ? `chat_${userId}_${providerId}` : '';
@@ -142,6 +143,9 @@ export default function DedicatedAudioCallScreen() {
   // Main session setup
   useEffect(() => {
     if (!userId || !providerId) return;
+    // Prevent double-initialization
+    if (socketInitialized.current) return;
+    socketInitialized.current = true;
 
     let activeTimeouts: any[] = [];
 
@@ -183,8 +187,8 @@ export default function DedicatedAudioCallScreen() {
         console.log('[Call] Initiating WebRTC call...');
         const timeoutId = setTimeout(async () => {
           await stopRingback();
-          startCall(); // Removed type === 'Video' parameter
-        }, 500);
+          startCall();
+        }, 2000);
         
         // Store timeout ID to clear on unmount
         activeTimeouts.push(timeoutId);

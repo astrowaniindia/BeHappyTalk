@@ -6,8 +6,8 @@
 //
 // LOCAL DEV:  Set EXPO_PUBLIC_API_URL in a .env file to override.
 
-const RENDER_URL = 'https://behappytalk-server-ipxj.onrender.com';
-// const RENDER_URL = 'http://192.168.29.168:3000';
+const RENDER_URL = 'http://192.168.29.168:3000';
+// const RENDER_URL = 'https://behappytalk-server-ipxj.onrender.com';
 
 // Wrapper to automatically bypass localtunnel and ngrok warning landing pages
 const originalFetch = global.fetch;

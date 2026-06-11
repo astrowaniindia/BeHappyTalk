@@ -1665,6 +1665,7 @@
            const data = await res.json();
            if (res.ok) {
               provider = data;
+              token = provider.token;
               localStorage.setItem('bt_provider', JSON.stringify(provider));
               initApp();
            } else {

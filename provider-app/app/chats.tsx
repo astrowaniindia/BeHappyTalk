@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, SafeAreaView, FlatList, TouchableOpacity, Image, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+
+// Replace with your local machine's IP, e.g. 192.168.x.x
+const API_URL = 'http://192.168.29.168:3000';
 
 const Colors = {
   primary: '#1B76FF',
@@ -20,18 +25,43 @@ export default function ChatsListScreen() {
   const [chats, setChats] = useState([]); // This will eventually be populated from the server
   const [refreshing, setRefreshing] = useState(false);
 
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => {
+  const loadInbox = async () => {
+    try {
+      setRefreshing(true);
+      const dataStr = await AsyncStorage.getItem('providerData');
+      if (!dataStr) return;
+      const data = JSON.parse(dataStr);
+      const res = await axios.get(`${API_URL}/api/provider/inbox/${data.id}`);
+      // map data to local state
+      const mapped = res.data.map((u: any) => ({
+        id: u.id,
+        userName: u.name,
+        lastTime: 'Recent',
+        lastMessage: 'Tap to view messages'
+      }));
+      setChats(mapped);
+    } catch (e) {
+      console.error(e);
+    } finally {
       setRefreshing(false);
-    }, 1000);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadInbox();
+    }, [])
+  );
+
+  const onRefresh = React.useCallback(() => {
+    loadInbox();
   }, []);
 
   const renderChatItem = ({ item }: any) => {
     return (
       <TouchableOpacity 
         style={styles.chatCard}
-        onPress={() => router.push(`/chat/${item.id}`)}
+        onPress={() => router.push({ pathname: '/chat/[id]', params: { id: item.id, name: item.userName || 'User' } })}
       >
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{item.userName.charAt(0)}</Text>

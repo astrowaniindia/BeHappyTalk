@@ -1,32 +1,41 @@
-const db = require('./db.js');
+const db = require('./db');
 
 async function addMoney() {
-  const { data, error } = await db.from('users')
-    .select('*')
-    .eq('id', 'u1779897320693');
+  console.log("Checking user...");
+  // First get the user to see current columns
+  const { data: user, error: getErr } = await db.from('users').select('*').eq('phone', '9828858885').single();
   
-  if (error) {
-    console.error('Error fetching user:', error.message);
+  if (getErr || !user) {
+    console.error("User not found or error:", getErr);
     process.exit(1);
   }
+  
+  console.log("User found:", user);
+  
+  // Update wallet
+  const currentWallet = user.walletBalance || user.walletbalance || user.wallet || 0;
+  const newWallet = currentWallet + 5000;
+  
+  // We'll try updating all common variations to be safe
+  const updates = {};
+  if ('walletBalance' in user) updates.walletBalance = newWallet;
+  if ('walletbalance' in user) updates.walletbalance = newWallet;
+  if ('wallet' in user) updates.wallet = newWallet;
+  
+  // If none existed, just try walletBalance
+  if (Object.keys(updates).length === 0) updates.walletBalance = newWallet;
 
-  if (data && data.length > 0) {
-    const user = data[0];
-    const newBalance = Number(user.walletBalance || 0) + 5000;
-    
-    const { error: updateError } = await db.from('users')
-      .update({ walletBalance: newBalance })
-      .eq('id', user.id);
-      
-    if (updateError) {
-      console.error('Update failed:', updateError.message);
-    } else {
-      console.log(`✅ Added 5000 rs to ${user.name} (${user.id}). New balance: ${newBalance}`);
-    }
+  console.log("Updating to:", updates);
+  
+  const { data, error } = await db.from('users').update(updates).eq('phone', '9828858885').select();
+  
+  if (error) {
+    console.error("Failed to update wallet:", error);
   } else {
-    console.log('❌ User not found.');
+    console.log("SUCCESS! Wallet updated:", data);
   }
-  process.exit(0);
+  
+  process.exit();
 }
 
 addMoney();

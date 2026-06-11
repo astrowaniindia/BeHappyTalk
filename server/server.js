@@ -704,8 +704,8 @@ async function stopBillingInterval(sessionId) {
   if (activeBillingTimers[sessionId]) {
     clearInterval(activeBillingTimers[sessionId]);
     delete activeBillingTimers[sessionId];
-    await db.from('sessions').update({ status: 'completed' }).eq('id', sessionId);
   }
+  await db.from('sessions').update({ status: 'completed' }).eq('id', sessionId);
 }
 
 function startBillingInterval(sessionId, userId, providerId, rate, room, passedDuration) {
@@ -770,9 +770,12 @@ io.on('connection', (socket) => {
     console.log(`[Socket] User ${userId} joined their room.`);
   });
 
-  socket.on('update_provider_status', ({ providerId, isOnline, isTalking, settings }) => {
+  socket.on('update_provider_status', async ({ providerId, isOnline, isTalking, settings }) => {
     if (!providerStates[providerId]) providerStates[providerId] = { isOnline: true, isTalking: false, settings: { chat: true, audio: true, video: true } };
-    if (isOnline !== undefined) providerStates[providerId].isOnline = isOnline;
+    if (isOnline !== undefined) {
+      providerStates[providerId].isOnline = isOnline;
+      await db.from('providers').update({ status: isOnline ? 'online' : 'offline' }).eq('id', providerId);
+    }
     if (isTalking !== undefined) providerStates[providerId].isTalking = isTalking;
     if (settings !== undefined) providerStates[providerId].settings = { ...providerStates[providerId].settings, ...settings };
     io.emit('provider_status_changed', { providerId, state: providerStates[providerId] });
@@ -782,9 +785,17 @@ io.on('connection', (socket) => {
     if (typeof callback === 'function') callback(providerStates);
   });
 
-  socket.on('provider_online', ({ providerId }) => {
-    if (!providerStates[providerId]) providerStates[providerId] = { isOnline: true, isTalking: false, settings: { chat: true, audio: true, video: true } };
-    else providerStates[providerId].isOnline = true;
+  socket.on('provider_connected', async ({ providerId }) => {
+    socket.providerId = providerId;
+    console.log(`[Socket] Provider ${providerId} connected on socket ${socket.id}`);
+    
+    // Fetch real status from DB instead of forcing online
+    const { data } = await db.from('providers').select('status').eq('id', providerId).maybeSingle();
+    const isOnline = data ? (data.status === 'online' || data.status === 'busy') : true;
+
+    if (!providerStates[providerId]) providerStates[providerId] = { isOnline, isTalking: false, settings: { chat: true, audio: true, video: true } };
+    else providerStates[providerId].isOnline = isOnline;
+    
     io.emit('provider_status_changed', { providerId, state: providerStates[providerId] });
     socket.join(`provider_room_${providerId}`);
     
@@ -803,12 +814,22 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('provider_offline', async ({ providerId }) => {
+    if (providerStates[providerId]) providerStates[providerId].isOnline = false;
+    else providerStates[providerId] = { isOnline: false, isTalking: false, settings: { chat: true, audio: true, video: true } };
+    await db.from('providers').update({ status: 'offline' }).eq('id', providerId);
+    io.emit('provider_status_changed', { providerId, state: providerStates[providerId] });
+    socket.leave(`provider_room_${providerId}`);
+  });
+
   socket.on('request_interaction', ({ userId, providerId, type, rate, userName, duration }) => {
+    console.log(`[Socket] request_interaction: user=${userId} provider=${providerId} type=${type}`);
     socket.userId = userId;
     if (pendingRequests[userId] && pendingRequests[userId].providerId !== providerId) {
       io.to(`provider_room_${pendingRequests[userId].providerId}`).emit('request_cancelled');
     }
     pendingRequests[userId] = { providerId, userName, type, rate, duration };
+    console.log(`[Socket] Emitting incoming_request to provider_room_${providerId}`);
     io.to(`provider_room_${providerId}`).emit('incoming_request', { userId, userName, providerId, type, rate, duration });
   });
 
@@ -862,6 +883,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('accept_interaction', async ({ userId, providerId, type, rate, duration }) => {
+    console.log(`[Socket] accept_interaction: user=${userId} provider=${providerId} type=${type}`);
     if (pendingRequests[userId] && pendingRequests[userId].providerId === providerId) delete pendingRequests[userId];
     const sessionId = `sess_${Date.now()}`;
 
@@ -874,7 +896,9 @@ io.on('connection', (socket) => {
     const room = `chat_${userId}_${providerId}`;
     socket.join(room);
 
+    console.log(`[Socket] Emitting session_accepted to user_room_${userId}`);
     io.to(`user_room_${userId}`).emit('session_accepted', { providerId, sessionId, type, rate, duration, room });
+    console.log(`[Socket] Emitting session_started to provider_room_${providerId}`);
     io.to(`provider_room_${providerId}`).emit('session_started', { sessionId, type, rate, duration, room, userId });
 
     if (!providerStates[providerId]) providerStates[providerId] = { isOnline: true, isTalking: false, settings: {} };
@@ -951,13 +975,37 @@ io.on('connection', (socket) => {
        io.to(`provider_room_${pId}`).emit('request_cancelled');
        delete pendingRequests[socket.userId];
     }
+
+    // Attempt to clear provider isTalking state if this was a provider socket
+    // We search through providerStates to see if this socket was a provider
+    for (const [pId, state] of Object.entries(providerStates)) {
+      if (state.isTalking) {
+        // We can't be 100% sure this socket is the provider without tracking socket.providerId
+        // but we'll leave it to the explicit end_interaction for now, except if we know
+      }
+    }
+    
+    if (socket.providerId && providerStates[socket.providerId]) {
+      providerStates[socket.providerId].isTalking = false;
+      io.emit('provider_status_changed', { providerId: socket.providerId, state: providerStates[socket.providerId] });
+    }
   });
 });
 
 // ─── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`✅  BeHappyTalk server (Supabase Edition) running on http://localhost:${PORT}`);
+  
+  // Cleanup any stale active sessions from previous crashes
+  try {
+    const { data, error } = await db.from('sessions').update({ status: 'completed' }).eq('status', 'active');
+    if (!error) {
+      console.log(`🧹  Cleaned up stale active sessions on startup.`);
+    }
+  } catch (err) {
+    console.error('Failed to cleanup stale sessions:', err);
+  }
 });
 
 // ─── Keep-Alive Ping (Render Free Tier) ──────────────────────────────────────

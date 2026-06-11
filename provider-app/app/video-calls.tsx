@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, SafeAreaView, TouchableOpacity, Image, Dimensions, ScrollView, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import io from 'socket.io-client';
+import { RTCView } from 'react-native-webrtc';
+import { useVideoWebRTC } from '../hooks/useVideoWebRTC';
 
 const { width, height } = Dimensions.get('window');
-const SOCKET_URL = 'https://behappytalk-server-ipxj.onrender.com';
+const SOCKET_URL = 'http://192.168.29.168:3000';
 
 const Colors = {
   primary: '#1B76FF',
@@ -24,16 +27,52 @@ export default function VideoCallsScreen() {
   const router = useRouter();
   const [providerId, setProviderId] = useState<string | null>(null);
   const [socket, setSocket] = useState<any>(null);
+  const [roomId, setRoomId] = useState<string | null>(null);
   
   // Call States: 'idle' | 'incoming' | 'active'
   const [callState, setCallState] = useState<'idle' | 'incoming' | 'active'>('idle');
   const [incomingData, setIncomingData] = useState<any>(null);
   const [callDuration, setCallDuration] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+
+  // Fetch video call history
+  const loadHistory = async () => {
+    try {
+      setRefreshing(true);
+      const dataStr = await AsyncStorage.getItem('providerData');
+      if (!dataStr) return;
+      const data = JSON.parse(dataStr);
+      const res = await axios.get(`${SOCKET_URL}/api/provider/history/${data.id}`);
+      if (res.data) {
+        // Filter only video calls
+        const videoCalls = res.data.filter((s: any) => (s.type || '').toLowerCase() === 'video').map((s: any) => ({
+          id: s.id,
+          date: s.startTime || new Date().toISOString(),
+          userName: s.userName || 'Unknown User',
+          duration: s.duration || 0,
+          earning: (s.rate * (s.duration || 0) * 0.5).toFixed(2),
+        }));
+        setHistory(videoCalls);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadHistory();
+    }, [])
+  );
+
+  // WebRTC Hook
+  const { localStream, remoteStream, isConnected, startLocalStream, handleSignal, endCall: endWebRTC } = useVideoWebRTC(socket, roomId);
 
   const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+    loadHistory();
   }, []);
 
   useEffect(() => {
@@ -47,7 +86,10 @@ export default function VideoCallsScreen() {
         s = io(SOCKET_URL, { transports: ['websocket'] });
         setSocket(s);
 
-        s.on('connect', () => console.log('Video Call Socket Connected'));
+        s.on('connect', () => {
+          console.log('Video Call Socket Connected');
+          s.emit('provider_online', { providerId: data.id });
+        });
 
         // Listen for incoming WebRTC video calls
         s.on('incoming_request', (req: any) => {
@@ -56,14 +98,47 @@ export default function VideoCallsScreen() {
             setCallState('incoming');
           }
         });
+
+        s.on('session_started', (data: any) => {
+          if (data.type === 'video') {
+            setRoomId(data.room);
+            setCallState('active');
+            startLocalStream();
+          }
+        });
+
+        s.on('session_ended', () => {
+          endCall();
+        });
+
+        s.on('request_cancelled', () => {
+          if (callState === 'incoming') {
+            setCallState('idle');
+            setIncomingData(null);
+          }
+        });
       }
     };
     init();
 
     return () => {
       if (s) s.disconnect();
+      endWebRTC();
     };
   }, []);
+
+  // Listen to WebRTC signaling events once room is set
+  useEffect(() => {
+    if (socket && roomId) {
+      const webrtcListener = (data: any) => {
+        handleSignal(data);
+      };
+      socket.on('webrtc_signal', webrtcListener);
+      return () => {
+        socket.off('webrtc_signal', webrtcListener);
+      };
+    }
+  }, [socket, roomId, handleSignal]);
 
   // Timer for active call
   useEffect(() => {
@@ -91,11 +166,10 @@ export default function VideoCallsScreen() {
         duration: incomingData.duration || 5
       });
     }
-    setCallState('active');
+    // We don't set active here; we wait for 'session_started' from server to get roomId
   };
 
   const rejectCall = () => {
-    // Notify server call was rejected
     if (socket && incomingData) {
       socket.emit('reject_interaction', {
         userId: incomingData.userId,
@@ -107,10 +181,14 @@ export default function VideoCallsScreen() {
   };
 
   const endCall = () => {
-    // Close WebRTC peer connection
+    if (socket && roomId) {
+      socket.emit('end_interaction', { sessionId: incomingData?.sessionId || 'unknown' });
+    }
+    endWebRTC();
     setCallState('idle');
     setIncomingData(null);
     setCallDuration(0);
+    setRoomId(null);
   };
 
   if (callState === 'incoming') {
@@ -121,7 +199,7 @@ export default function VideoCallsScreen() {
           <View style={styles.callerAvatar}>
             <Ionicons name="person" size={60} color={Colors.white} />
           </View>
-          <Text style={styles.callerName}>User {incomingData?.userId}</Text>
+          <Text style={styles.callerName}>User {incomingData?.userName || incomingData?.userId}</Text>
           <Text style={styles.incomingLabel}>Incoming Video Call...</Text>
         </View>
         <View style={styles.callActionsBox}>
@@ -140,21 +218,41 @@ export default function VideoCallsScreen() {
     return (
       <View style={styles.activeCallContainer}>
         <StatusBar style="light" />
-        {/* Placeholder for Remote Video Stream (RTCView) */}
+        
+        {/* Remote Video Stream */}
         <View style={styles.remoteVideoPlaceholder}>
-          <Ionicons name="person" size={80} color="rgba(255,255,255,0.2)" />
-          <Text style={styles.remoteVideoText}>Client Video Stream</Text>
+          {remoteStream ? (
+            <RTCView
+              streamURL={remoteStream.toURL()}
+              objectFit="cover"
+              style={{ width: '100%', height: '100%' }}
+            />
+          ) : (
+            <>
+              <Ionicons name="person" size={80} color="rgba(255,255,255,0.2)" />
+              <Text style={styles.remoteVideoText}>Connecting...</Text>
+            </>
+          )}
         </View>
 
-        {/* Placeholder for Local Video Stream (RTCView) */}
+        {/* Local Video Stream */}
         <View style={styles.localVideoPlaceholder}>
-          <Text style={styles.localVideoText}>Your Camera</Text>
+          {localStream ? (
+            <RTCView
+              streamURL={localStream.toURL()}
+              objectFit="cover"
+              zOrder={1}
+              style={{ width: '100%', height: '100%' }}
+            />
+          ) : (
+            <Text style={styles.localVideoText}>Your Camera</Text>
+          )}
         </View>
 
         {/* Top bar */}
         <View style={styles.activeTopBar}>
           <View style={styles.durationBadge}>
-            <View style={styles.redDot} />
+            <View style={[styles.redDot, isConnected && { backgroundColor: Colors.success }]} />
             <Text style={styles.durationText}>{formatTime(callDuration)}</Text>
           </View>
         </View>
@@ -191,13 +289,43 @@ export default function VideoCallsScreen() {
         contentContainerStyle={styles.idleContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />}
       >
-        <View style={styles.waitingCircle}>
-          <Ionicons name="videocam" size={48} color={Colors.primary} />
+        <View style={{ alignItems: 'center', padding: 32 }}>
+          <View style={styles.waitingCircle}>
+            <Ionicons name="videocam" size={48} color={Colors.primary} />
+          </View>
+          <Text style={styles.idleTitle}>Ready for Video Sessions</Text>
+          <Text style={styles.idleSubtitle}>
+            Stay on this screen to receive incoming video calls, or view your history below.
+          </Text>
         </View>
-        <Text style={styles.idleTitle}>Ready for Video Sessions</Text>
-        <Text style={styles.idleSubtitle}>
-          Stay on this screen or the dashboard to receive incoming video call requests from clients.
-        </Text>
+
+        <View style={styles.historySection}>
+          <Text style={styles.historyTitle}>Recent Video Calls</Text>
+          {history.length === 0 ? (
+            <Text style={styles.emptyText}>No video calls yet.</Text>
+          ) : (
+            history.map((item, index) => (
+              <View key={item.id || index} style={styles.historyCard}>
+                <View style={styles.historyRow}>
+                  <Text style={styles.historyLabel}>Date</Text>
+                  <Text style={styles.historyValue}>{new Date(item.date).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</Text>
+                </View>
+                <View style={styles.historyRow}>
+                  <Text style={styles.historyLabel}>User</Text>
+                  <Text style={styles.historyValue}>{item.userName}</Text>
+                </View>
+                <View style={styles.historyRow}>
+                  <Text style={styles.historyLabel}>Duration</Text>
+                  <Text style={styles.historyValue}>{item.duration} mins</Text>
+                </View>
+                <View style={[styles.historyRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.historyLabel}>Earnings</Text>
+                  <Text style={[styles.historyValue, { color: Colors.success }]}>₹{item.earning}</Text>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -210,10 +338,18 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.textDark },
   
   // Idle State
-  idleContent: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  idleContent: { flexGrow: 1, paddingBottom: 40 },
   waitingCircle: { width: 120, height: 120, borderRadius: 60, backgroundColor: '#E6EFFF', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
   idleTitle: { fontSize: 22, fontWeight: 'bold', color: Colors.textDark, marginBottom: 12 },
   idleSubtitle: { fontSize: 15, color: Colors.textLight, textAlign: 'center', lineHeight: 22 },
+
+  historySection: { paddingHorizontal: 20 },
+  historyTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.textDark, marginBottom: 16 },
+  emptyText: { color: Colors.textLight, textAlign: 'center', marginTop: 10 },
+  historyCard: { backgroundColor: Colors.white, borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: Colors.border },
+  historyRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  historyLabel: { color: Colors.textLight, fontSize: 14 },
+  historyValue: { color: Colors.textDark, fontSize: 14, fontWeight: '600' },
 
   // Incoming State
   fullscreenOverlay: { flex: 1, backgroundColor: Colors.overlay, justifyContent: 'space-between', paddingTop: 100, paddingBottom: 60 },

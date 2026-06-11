@@ -16,7 +16,7 @@ const Colors = {
   star: '#F59E0B',
 };
 
-const API_URL = 'https://behappytalk-server-ipxj.onrender.com';
+const API_URL = 'http://192.168.29.168:3000';
 
 export default function ReviewsScreen() {
   const router = useRouter();

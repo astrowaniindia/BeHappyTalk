@@ -21,7 +21,7 @@ const Colors = {
 };
 
 // Use the live production backend that the main app uses
-const API_URL = 'https://behappytalk-server-ipxj.onrender.com';
+const API_URL = 'http://192.168.29.168:3000';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -106,10 +106,13 @@ export default function LoginScreen() {
           <View style={styles.loginBox}>
             {/* Header Section */}
             <View style={styles.header}>
-              <View style={styles.logoPlaceholder}>
-                <Ionicons name="sparkles" size={40} color={Colors.primary} />
+              <View style={{ marginBottom: 20, alignItems: 'center', justifyContent: 'center' }}>
+                <Image 
+                  source={require('../assets/icon.png')} 
+                  style={{ width: 80, height: 80, resizeMode: 'contain', borderRadius: 20 }} 
+                />
               </View>
-              <Text style={styles.title}>Partner Hub Portal</Text>
+              <Text style={styles.title}>BeHappyTalk Provider Login</Text>
               <Text style={styles.subtitle}>Manage your professional creator studio</Text>
             </View>
 

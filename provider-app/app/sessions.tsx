@@ -17,7 +17,7 @@ const Colors = {
   pillText: '#6B7A99',
 };
 
-const API_URL = 'https://behappytalk-server-ipxj.onrender.com';
+const API_URL = 'http://192.168.29.168:3000';
 
 export default function SessionsScreen() {
   const router = useRouter();
@@ -32,15 +32,22 @@ export default function SessionsScreen() {
       const dataStr = await AsyncStorage.getItem('providerData');
       if (dataStr) {
         const data = JSON.parse(dataStr);
-        // Assuming an API endpoint exists for fetching provider sessions history
-        const res = await axios.get(`${API_URL}/api/provider/${data.id}/sessions`);
-        if (res.data && res.data.sessions) {
-          setSessions(res.data.sessions);
+        const res = await axios.get(`${API_URL}/api/provider/history/${data.id}`);
+        if (res.data) {
+          // Map backend 'type' to our UI 'mediaType' string, and calculate earning
+          const mapped = res.data.map((s: any) => ({
+            id: s.id,
+            date: s.startTime || new Date().toISOString(),
+            userName: s.userName || 'Unknown User',
+            mediaType: s.type === 'video' ? 'Video Call' : s.type === 'audio' ? 'Audio Call' : 'Chat',
+            duration: s.duration || 0,
+            earning: (s.rate * (s.duration || 0) * 0.5).toFixed(2),
+          }));
+          setSessions(mapped);
         }
       }
     } catch (error) {
-      console.log('Skipping API fetch - endpoint not ready');
-      // We do NOT use dummy data. Real empty state.
+      console.error(error);
     } finally {
       setLoading(false);
     }

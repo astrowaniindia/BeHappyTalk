@@ -153,8 +153,8 @@ export default function Home() {
          }));
       });
 
-      socketRef.current.on('session_accepted', ({ providerId, sessionId, type, duration, agoraChannel }: any) => {
-        console.log('[Socket] Session Accepted received! Channel:', agoraChannel);
+      socketRef.current.on('session_accepted', ({ providerId, sessionId, type, duration, room }: any) => {
+        console.log('[Socket] Session Accepted received! Room:', room);
         // Guard: only navigate once per session request
         if (hasNavigatedRef.current) {
           console.log('[Socket] Ignoring duplicate session_accepted');
@@ -164,12 +164,13 @@ export default function Home() {
         setConnectingModal(false);
         setSelectedProvider(null);
         setDurationModal(false);
-        if (type === 'Video') {
-          router.push(`/video-call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
-        } else if (type === 'Audio' || type === 'Call') {
-          router.push(`/audio-call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
+        const t = (type || '').toLowerCase();
+        if (t === 'video') {
+          router.push(`/video-call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(room || '')}`);
+        } else if (t === 'audio' || t === 'call') {
+          router.push(`/audio-call/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(room || '')}`);
         } else {
-          router.push(`/chat/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(agoraChannel || '')}`);
+          router.push(`/chat/${providerId}?sessionId=${sessionId}&type=${type}&duration=${duration}&channel=${encodeURIComponent(room || '')}`);
         }
       });
 
@@ -348,6 +349,7 @@ export default function Home() {
 
     setDurationModal(false);
     setConnectingModal(true);
+    hasNavigatedRef.current = false; // RESET the ref so new sessions can navigate!
     socketRef.current?.emit('request_interaction', {
       userId: user?.id,
       userName: user?.name,
