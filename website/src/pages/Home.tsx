@@ -1,21 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
-const IMAGES = [
-  "Screenshot 2026-06-04 181453.png", "Screenshot 2026-06-04 181507.png", "Screenshot 2026-06-04 181516.png",
-  "Screenshot 2026-06-04 181542.png", "Screenshot 2026-06-04 181557.png", "Screenshot 2026-06-04 192223.png",
-  "Screenshot 2026-06-04 192238.png", "Screenshot 2026-06-04 192253.png", "Screenshot 2026-06-04 192410.png",
-  "Screenshot 2026-06-05 130538.png", "Screenshot 2026-06-05 130548.png", "Screenshot 2026-06-05 130559.png",
-  "Screenshot 2026-06-05 130607.png", "Screenshot 2026-06-05 130617.png", "Screenshot 2026-06-05 130635.png",
-  "Screenshot 2026-06-05 130644.png", "Screenshot 2026-06-05 130702.png", "Screenshot 2026-06-05 133513.png",
-  "Screenshot 2026-06-05 133528.png", "Screenshot 2026-06-05 133538.png", "Screenshot 2026-06-05 133551.png",
-  "Screenshot 2026-06-05 133608.png", "Screenshot 2026-06-05 133633.png", "Screenshot 2026-06-05 145423.png",
-  "Screenshot 2026-06-05 145436.png", "Screenshot 2026-06-05 145444.png", "Screenshot 2026-06-05 145456.png",
-  "Screenshot 2026-06-05 145508.png", "Screenshot 2026-06-05 145519.png", "Screenshot 2026-06-05 145748.png",
-  "Screenshot 2026-06-05 145756.png", "Screenshot 2026-06-05 145804.png", "Screenshot 2026-06-05 145814.png",
-  "Screenshot 2026-06-05 145830.png", "Screenshot 2026-06-05 145904.png", "Screenshot 2026-06-05 145924.png"
-];
-
 export default function Home() {
   const { hash } = useLocation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,23 +20,8 @@ export default function Home() {
         content.style.pointerEvents = scrollY > 200 ? 'auto' : 'none';
       }
 
-      const stack = document.getElementById('card-stack-container');
-      if (stack) stack.style.pointerEvents = scrollY > 100 ? 'none' : 'auto';
-
       const reveal = document.getElementById('scroll-reveal');
       if (reveal) reveal.style.opacity = String(Math.max(0, 1 - scrollY / 150));
-
-      if (containerRef.current) {
-        const layers = containerRef.current.getElementsByClassName('scroll-layer');
-        for (let i = 0; i < layers.length; i++) {
-          const total = IMAGES.length;
-          const angle = (i / total) * Math.PI * 2;
-          const distanceMultiplier = 1.2 + (i % 3) * 0.8;
-          const scrollX = Math.cos(angle) * scrollY * distanceMultiplier;
-          const scrollYAxis = Math.sin(angle) * scrollY * distanceMultiplier;
-          (layers[i] as HTMLElement).style.transform = `translate3d(${scrollX}px, ${scrollYAxis}px, 0)`;
-        }
-      }
       ticking = false;
     };
 
@@ -113,7 +83,7 @@ export default function Home() {
 
           <div id="hero-content" className="hero-content" style={{ position: 'relative', zIndex: 30, opacity: 0, pointerEvents: 'none', transition: 'opacity 0.1s ease-out' }}>
             <h1 className="hero-title">
-            Talk anonymously.<br/>
+            Talk to a relationship coach.<br/>
             <span>Feel better.</span>
           </h1>
           <p className="hero-desc">
@@ -129,21 +99,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div id="card-stack-container" className="card-stack-container" ref={containerRef} style={{ pointerEvents: 'auto' }}>
-          {IMAGES.map((src, index) => {
-            return (
-              <div 
-                key={index} 
-                className="scroll-layer"
-                style={{ transform: `translate(0px, 0px)` }}
-              >
-                <div className={`fan-layer fan-${index + 1}`}>
-                  <img src={`/${src}`} className="stacked-card" alt="" loading="lazy" />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+
         
         <div id="scroll-reveal" style={{
           position: 'absolute',
