@@ -1,5 +1,5 @@
 /**
- * server.js — SUPABASE EDITION
+ * server.js â€” SUPABASE EDITION
  */
 require('dotenv').config();
 const express = require('express');
@@ -11,20 +11,20 @@ const jwt = require('jsonwebtoken');
 const db = require('./db');
 const admin = require('firebase-admin');
 
-// ─── Optional Agora support ───────────────────────────────────────────────────
+// â”€â”€â”€ Optional Agora support â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let RtcTokenBuilder, RtcRole;
 try {
   const agoraToken = require('agora-token');
   RtcTokenBuilder = agoraToken.RtcTokenBuilder;
   RtcRole = agoraToken.RtcRole;
 } catch (e) {
-  console.warn('⚠️ agora-token not installed — Agora endpoints disabled.');
+  console.warn('âš ï¸ agora-token not installed â€” Agora endpoints disabled.');
 }
 
 const AGORA_APP_ID = process.env.AGORA_APP_ID;
 const AGORA_APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
 
-// ─── Firebase Admin ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Firebase Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let firebaseInitialized = false;
 try {
   const fs = require('fs');
@@ -35,27 +35,27 @@ try {
     const serviceAccount = require(serviceAccountPath);
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     firebaseInitialized = true;
-    console.log('✅ Firebase Admin Initialized (via JSON file)');
+    console.log('âœ… Firebase Admin Initialized (via JSON file)');
   } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
     admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
     firebaseInitialized = true;
-    console.log('✅ Firebase Admin Initialized (via ENV variable)');
+    console.log('âœ… Firebase Admin Initialized (via ENV variable)');
   }
 } catch (e) {
-  console.error('❌ Failed to initialize Firebase Admin:', e.message);
+  console.error('âŒ Failed to initialize Firebase Admin:', e.message);
 }
 
 if (!firebaseInitialized) {
-  console.log('⚠️ Firebase OTP verification is currently disabled.');
+  console.log('âš ï¸ Firebase OTP verification is currently disabled.');
 }
 
-// ─── Provider State Tracking ──────────────────────────────────────────────────
+// â”€â”€â”€ Provider State Tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const providerStates = {};
 const pendingRequests = {}; // userId -> { providerId, userName, type, rate, duration }
 
-// ─── App setup ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ App setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_local_dev_only';
 const app = express();
 const server = http.createServer(app);
@@ -71,12 +71,12 @@ app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-// ─── Frontend Routes ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Frontend Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const path = require('path');
 app.get('/manu', (req, res) => res.sendFile(path.join(__dirname, 'public', 'manu.html')));
 app.get('/admin', (req, res) => res.redirect('/manu'));
 
-// ─── Helper: upsert inbox entry ───────────────────────────────────────────────
+// â”€â”€â”€ Helper: upsert inbox entry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function upsertInbox(userId, providerId, message, providerStatus) {
   const id = `inbox_${userId}_${providerId}`;
   const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -87,7 +87,7 @@ async function upsertInbox(userId, providerId, message, providerStatus) {
   if (error) console.error('[DB] upsertInbox error:', error.message);
 }
 
-// ─── Auth Middleware ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Auth Middleware â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -100,7 +100,7 @@ function authenticateToken(req, res, next) {
   });
 }
 
-// ─── REST Endpoints ───────────────────────────────────────────────────────────
+// â”€â”€â”€ REST Endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 app.post('/api/register', async (req, res) => {
   const { phone, password, name } = req.body;
@@ -563,7 +563,7 @@ app.get('/api/chat/:userId/:providerId', async (req, res) => {
   res.json(data);
 });
 
-// ─── Admin Endpoints ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Admin Endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body;
   const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
@@ -719,7 +719,7 @@ app.get('/api/provider/withdrawals/:providerId', async (req, res) => {
   res.json(data || []);
 });
 
-// ─── Billing Internals ────────────────────────────────────────────────────────
+// â”€â”€â”€ Billing Internals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const activeBillingTimers = {};
 
 async function stopBillingInterval(sessionId) {
@@ -780,7 +780,7 @@ function startBillingInterval(sessionId, userId, providerId, rate, room, passedD
   activeBillingTimers[sessionId] = setInterval(deduct, 60000);
 }
 
-// ─── Socket.IO ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Socket.IO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const waitlists = {};
 
 io.on('connection', (socket) => {
@@ -982,7 +982,7 @@ io.on('connection', (socket) => {
 
   socket.on('webrtc_signal', ({ to, signal }) => {
     // Log signal routing so we can verify room IDs match between mobile and portal
-    console.log(`[WebRTC Signal] socket=${socket.id} → room="${to}" type=${signal?.type || 'candidate'}`);
+    console.log(`[WebRTC Signal] socket=${socket.id} â†’ room="${to}" type=${signal?.type || 'candidate'}`);
     socket.to(to).emit('webrtc_signal', { signal });
   });
 
@@ -1014,23 +1014,23 @@ io.on('connection', (socket) => {
   });
 });
 
-// ─── Start ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Start â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, async () => {
-  console.log(`✅  BeHappyTalk server (Supabase Edition) running on http://localhost:${PORT}`);
+  console.log(`âœ…  BeHappyTalk server (Supabase Edition) running on http://localhost:${PORT}`);
   
   // Cleanup any stale active sessions from previous crashes
   try {
     const { data, error } = await db.from('sessions').update({ status: 'completed' }).eq('status', 'active');
     if (!error) {
-      console.log(`🧹  Cleaned up stale active sessions on startup.`);
+      console.log(`ðŸ§¹  Cleaned up stale active sessions on startup.`);
     }
   } catch (err) {
     console.error('Failed to cleanup stale sessions:', err);
   }
 });
 
-// ─── Keep-Alive Ping (Render Free Tier) ──────────────────────────────────────
+// â”€â”€â”€ Keep-Alive Ping (Render Free Tier) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 if (process.env.NODE_ENV === 'production') {
   const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
   if (RENDER_URL) {
@@ -1045,3 +1045,4 @@ if (process.env.NODE_ENV === 'production') {
     console.log(`[KeepAlive] Self-ping active for ${RENDER_URL}`);
   }
 }
+
