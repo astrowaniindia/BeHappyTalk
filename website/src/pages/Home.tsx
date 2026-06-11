@@ -96,7 +96,7 @@ export default function Home() {
           <div className="feature-row">
             <div className="feature-text slide-hidden-left">
               <h3>Video Consultations</h3>
-              <p>For deeper connections, schedule a video session. Face-to-face interactions built on state-of-the-art secure WebRTC technology.</p>
+              <p>For deeper connections, schedule a video session. Face-to-face interactions built on secure and private technology.</p>
             </div>
             <div className="feature-image slide-hidden-right">
               <img src="/Screenshot 2026-06-04 182744.png" className="inline-sticker" alt="" />
