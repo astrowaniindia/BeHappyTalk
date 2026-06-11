@@ -492,6 +492,11 @@ export default function DashboardScreen() {
               <Ionicons name="bug" size={22} color="rgba(255,255,255,0.7)" />
               <Text style={styles.menuItemText}>Report Vulnerability</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/contact'); }}>
+              <Ionicons name="call" size={22} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.menuItemText}>Contact Us</Text>
+            </TouchableOpacity>
             
             <View style={{ height: 40 }} />
           </ScrollView>

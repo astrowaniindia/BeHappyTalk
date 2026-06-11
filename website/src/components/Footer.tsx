@@ -18,6 +18,7 @@ export default function Footer() {
             <li><Link to="/#features">Features</Link></li>
             <li><Link to="/provider">Provider Portal</Link></li>
             <li><Link to="/about">About Us</Link></li>
+            <li><Link to="/contact">Contact Us</Link></li>
           </ul>
         </div>
         <div className="footer-links">

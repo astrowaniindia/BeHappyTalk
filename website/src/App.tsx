@@ -10,6 +10,7 @@ import Terms from './pages/Terms';
 import Safety from './pages/Safety';
 import ChildSafety from './pages/ChildSafety';
 import ReportVulnerability from './pages/ReportVulnerability';
+import ContactUs from './pages/ContactUs';
 import './index.css';
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
             <Route path="/safety" element={<Safety />} />
             <Route path="/child-safety" element={<ChildSafety />} />
             <Route path="/report-vulnerability" element={<ReportVulnerability />} />
+            <Route path="/contact" element={<ContactUs />} />
           </Routes>
         </main>
         <Footer />

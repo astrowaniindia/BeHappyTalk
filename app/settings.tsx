@@ -72,6 +72,12 @@ export default function SettingsScreen() {
           <Text style={styles.menuItemText}>Report Vulnerability</Text>
           <MaterialIcons name="keyboard-arrow-right" size={24} color="rgba(255,255,255,0.30)" />
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/contact')}>
+          <MaterialIcons name="contact-support" size={24} color="rgba(255,255,255,0.70)" />
+          <Text style={styles.menuItemText}>Contact Us</Text>
+          <MaterialIcons name="keyboard-arrow-right" size={24} color="rgba(255,255,255,0.30)" />
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
