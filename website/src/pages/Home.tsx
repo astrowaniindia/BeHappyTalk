@@ -1,44 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
 export default function Home() {
   const { hash } = useLocation();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const scrollYRef = useRef(0);
-
-  useEffect(() => {
-    let ticking = false;
-    const updateDOM = () => {
-      const scrollY = scrollYRef.current;
-      
-      const bg = document.getElementById('hero-bg');
-      if (bg) bg.style.opacity = String(Math.min(0.6, Math.max(0, (scrollY - 50) / 300)));
-
-      const content = document.getElementById('hero-content');
-      if (content) {
-        content.style.opacity = String(Math.min(1, Math.max(0, (scrollY - 100) / 400)));
-        content.style.pointerEvents = scrollY > 200 ? 'auto' : 'none';
-      }
-
-      const reveal = document.getElementById('scroll-reveal');
-      if (reveal) reveal.style.opacity = String(Math.max(0, 1 - scrollY / 150));
-      ticking = false;
-    };
-
-    const handleScroll = () => {
-      scrollYRef.current = window.scrollY;
-      if (!ticking) {
-        window.requestAnimationFrame(updateDOM);
-        ticking = true;
-      }
-    };
-    
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    // Trigger initial state
-    updateDOM();
-    
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   useEffect(() => {
     if (hash) {
@@ -68,25 +32,25 @@ export default function Home() {
 
   return (
     <>
-      <div className="hero-scroll-track" style={{ height: '300vh' }}>
-        <header className="hero" style={{ position: 'sticky', top: 0, height: '100vh', overflow: 'hidden' }}>
+      <div className="hero-scroll-track">
+        <header className="hero" style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
           
           <div id="hero-bg" style={{
-            position: 'fixed',
-            top: 0, left: 0, width: '100vw', height: '100vh',
+            position: 'absolute',
+            top: 0, left: 0, width: '100%', height: '100%',
             background: "linear-gradient(to bottom, rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('/main.png') no-repeat top center",
             backgroundSize: 'cover',
-            opacity: 0,
+            opacity: 0.6,
             zIndex: -1,
             pointerEvents: 'none'
           }}></div>
 
-          <div id="hero-content" className="hero-content" style={{ position: 'relative', zIndex: 30, opacity: 0, pointerEvents: 'none', transition: 'opacity 0.1s ease-out' }}>
+          <div id="hero-content" className="hero-content" style={{ position: 'relative', zIndex: 30, opacity: 1, pointerEvents: 'auto', textAlign: 'center' }}>
             <h1 className="hero-title">
             Talk to a relationship coach.<br/>
             <span>Feel better.</span>
           </h1>
-          <p className="hero-desc">
+          <p className="hero-desc" style={{ margin: '0 auto 2.5rem' }}>
             We understand, and you're not alone. Try BeHappyTalk, a completely anonymous platform for mental wellbeing. Connect with volunteers or certified providers securely via chat, voice, or video.
           </p>
           <div className="hero-actions" id="download">
@@ -96,35 +60,6 @@ export default function Home() {
               </svg>
               Download it from Google Play Store
             </a>
-          </div>
-        </div>
-
-
-        
-        <div id="scroll-reveal" style={{
-          position: 'absolute',
-          bottom: '80px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          opacity: 1,
-          zIndex: 999,
-          pointerEvents: 'none'
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            background: 'rgba(20, 20, 20, 0.95)',
-            border: '2px solid var(--primary)',
-            padding: '12px 28px',
-            borderRadius: '50px',
-            color: 'var(--primary)',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
-          }}>
-            <span style={{ fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.5px' }}>Scroll to reveal</span>
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
           </div>
         </div>
       </header>
