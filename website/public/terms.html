@@ -1,0 +1,233 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms & Conditions | BeHappyTalk Partner Hub</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --surface: #ffffff;
+      --surface-light: #f8fafc;
+      --surface-muted: #f1f5f9;
+      --primary: #1773fc;
+      --primary-hover: #125ccc;
+      --accent: #4ea5ff;
+      --text: #0f172a;
+      --text-dim: #475569;
+      --text-lighter: #64748b;
+      --border: #e2e8f0;
+    }
+
+    * { box-sizing: border-box; }
+    body, html {
+      margin: 0; padding: 0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+    
+    a { text-decoration: none; color: inherit; }
+
+    /* Navbar */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      padding: 24px 48px;
+      display: flex; justify-content: space-between; align-items: center;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(12px);
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.02);
+    }
+    .navbar.scrolled { 
+      padding: 12px 48px; 
+      background: #ffffff; 
+      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 0;
+      font-weight: 700; font-size: 20px;
+      letter-spacing: -0.5px; color: var(--text);
+    }
+    .logo img { 
+      height: 48px; width: auto; object-fit: contain;
+      margin-right: -4px;
+      filter: saturate(1.2) contrast(1.2) drop-shadow(0 2px 4px rgba(32, 123, 255, 0.15));
+    }
+    
+    .nav-links { display: flex; gap: 32px; align-items: center; }
+    .nav-link { color: var(--text-dim); font-weight: 500; transition: color 0.15s ease; font-size: 14px; }
+    .nav-link:hover { color: var(--text); }
+    
+    .btn-login {
+      background: var(--primary); color: #ffffff; font-weight: 500;
+      padding: 10px 18px; border-radius: 6px; font-size: 14px;
+      transition: background 0.15s ease;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-login:hover { background: var(--primary-hover); }
+
+    /* Footer */
+    footer {
+      padding: 60px 80px 40px;
+      background: #ffffff;
+      border-top: 1px solid var(--border);
+    }
+    .footer-content { display: flex; justify-content: space-between; margin-bottom: 60px; max-width: 1100px; margin-left: auto; margin-right: auto; }
+    .footer-brand { max-width: 300px; }
+    .footer-brand p { color: var(--text-dim); margin-top: 16px; font-size: 14px; line-height: 1.6; }
+    .footer-links h5 { font-size: 13px; font-weight: 600; margin: 0 0 16px; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px; }
+    .footer-links div { display: flex; flex-direction: column; gap: 12px; }
+    .footer-links a { color: var(--text-dim); transition: color 0.15s; font-size: 14px; }
+    .footer-links a:hover { color: var(--primary); }
+    
+    .copyright { text-align: center; padding-top: 32px; border-top: 1px solid var(--border); color: var(--text-lighter); font-size: 13px; max-width: 1100px; margin: 0 auto; }
+
+    /* Legal Content */
+    .legal-container {
+      max-width: 800px; margin: 140px auto 100px; padding: 0 40px;
+    }
+    .legal-header { margin-bottom: 48px; text-align: center; }
+    .legal-header h1 { font-size: 42px; font-weight: 800; color: var(--text); letter-spacing: -1px; margin-bottom: 12px; }
+    .legal-header p { font-size: 16px; color: var(--text-lighter); }
+    
+    .legal-content { font-size: 16px; line-height: 1.8; color: var(--text-dim); }
+    .legal-content h2 { font-size: 24px; font-weight: 700; margin: 48px 0 16px; color: var(--text); letter-spacing: -0.5px; }
+    .legal-content p { margin-bottom: 20px; }
+    .legal-content ul { margin-bottom: 24px; padding-left: 24px; }
+    .legal-content li { margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar" id="navbar">
+    <a href="/" class="logo">
+      <img src="assets/logo-blue.png" alt="BeHappyTalk Partner Hub Logo">
+      <span>BeHappyTalk Partner Hub</span>
+    </a>
+    <div class="nav-links">
+      <a href="/" class="nav-link">Home</a>
+      <a href="/portal.html" class="btn-login"><i class="fas fa-lock"></i> Host Login</a>
+    </div>
+  </nav>
+
+  <!-- Content -->
+  <div class="legal-container">
+    <div class="legal-header">
+      <h1>Terms & Conditions</h1>
+      <p>Last updated: May 28, 2026</p>
+    </div>
+    <div class="legal-content">
+      <p>These Terms and Conditions are a legal and binding Agreement between You ("the User") and NEXETERN (hereinafter referred to as "BeHappyTalk"). Terms and Conditions state the grounds on which the User can use and/or register with this BeHappyTalk.com ("Site"/"Website"/"Us"/"We"/"Our"/"BeHappyTalk"). Terms and Conditions are updated from time to time at Our sole discretion and the most updated version is available on the Site at all times. Continued use by the User of the Site after any revision indicates the User's acceptance of the updated Terms and Conditions.</p>
+
+      <p>By accessing the Site, and using the Services as offered in this Site, You become the User and become bound by, the terms and conditions of this Agreement and other Policies of BeHappyTalk for as long as You continue to use/visit the Site or Services. IF YOU DO NOT AGREE TO BE BOUND BY THESE TERMS AND CONDITIONS, DO NOT USE OR REGISTER WITH THE SITE OR FOR THE SERVICES.</p>
+
+      <h2>1. Eligibility</h2>
+      <p><strong>Minimum Age</strong><br>User of the Site must be at least 18 years old to use or to register at the Site for the Services. By using the Services on the Site, the User represents and warrants that he/she is a minimum 18 years old.</p>
+
+      <p><strong>Marital Status</strong><br>By requesting to use, registering to use, or using the Services, the User represents and warrants that the User is not married or is divorced.</p>
+
+      <p><strong>Criminal History</strong><br>By requesting to use, registering to use, and/or using the Service, the User represents and warrants that the User has never been convicted under any applicable law. BeHappyTalk reserves the right to conduct a criminal background check, at any time and using available public records.</p>
+
+      <p><strong>Verification</strong><br>By agreeing to the Terms and Conditions, User hereby authorises BeHappyTalk (and its third party authentication agency) to conduct verification checks on the User. The verification process is critical for receiving the complete set of Services offered at the Site.</p>
+
+      <h2>2. Use of Site and Service</h2>
+      <p>As a User of the Site or a Registered User, the User agrees to the following:</p>
+      <ul>
+        <li><strong>Exclusive Use:</strong> The account with the Site is for the User's personal use only. The User may not authorize others to use the account.</li>
+        <li><strong>Geographic Limitations:</strong> The Site and Services are currently intended for Users within India.</li>
+        <li><strong>Information Submitted:</strong> The User is solely responsible for the information and content provided at the Site for the Service.</li>
+        <li><strong>Risk Assumption:</strong> All risks when using the Services and the Site remain with the User.</li>
+        <li><strong>No Guarantees:</strong> BeHappyTalk does not make any representations or guarantees regarding the number or frequency of matches through the Service.</li>
+        <li><strong>No Tolerance for Objectionable Content:</strong> Abuse, trolling, inappropriate and objectionable content are an immediate violation of the Terms of Use.</li>
+        <li><strong>No False Information:</strong> By registering with the Site, the User undertakes not to provide inaccurate, misleading or false information to BeHappyTalk or to any other user.</li>
+        <li><strong>No Advertising or Commercial Solicitation:</strong> The User undertakes not to advertise or solicit any user to buy or sell any products or services through the Site.</li>
+        <li><strong>Single Bona Fide Profile:</strong> As a Registered User, the User is expected to create only one bona fide profile for genuine relationship-seeking purposes.</li>
+      </ul>
+
+      <h2>3. Proprietary Rights</h2>
+      <p>The User confirms and agrees that BeHappyTalk is the owner of highly valuable proprietary information, including without limitation, the patented compatibility matching system, compatibility profiles, and Personality Assessment. BeHappyTalk owns and hereby retains all proprietary rights in the Services, the information provided in the Site and the Site.</p>
+
+      <h2>4. Subscription and Payment</h2>
+      <p>BeHappyTalk offers both free and paid subscription plans. The free plan includes 11 days of access. Paid plans unlock full features including unlimited messaging, voice calls, and priority matching. All payments are processed through authorized payment gateways. Subscription plans are non-refundable unless otherwise stated.</p>
+
+      <h2>5. Disclaimer of Warranties</h2>
+      <p>BeHappyTalk provides its Services on an "as is" and "as available" basis without any warranties of any kind, whether express or implied. BeHappyTalk does not warrant that the Services will be uninterrupted, error-free, or free of viruses or other harmful components.</p>
+
+      <h2>6. Limitation of Liability</h2>
+      <p>BeHappyTalk shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from User's access to or use of, or inability to access or use, the Services or any content on the Site.</p>
+
+      <h2>7. Governing Law</h2>
+      <p>These Terms and Conditions shall be governed by and construed in accordance with the laws of India. Any disputes arising under these Terms shall be subject to the exclusive jurisdiction of the courts of India.</p>
+
+      <h2>8. Contact</h2>
+      <p>If you have any questions about these Terms and Conditions, please contact us at care@BeHappyTalk.com</p>
+      
+      <p><em>By using BeHappyTalk.com, you agree to these Terms and Conditions. These terms were last updated on May 28, 2026.</em></p>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-content">
+      <div class="footer-brand">
+        <div class="logo">
+          <img src="assets/logo-blue.png" alt="BeHappyTalk Partner Hub Logo" style="height: 48px;">
+          <span>BeHappyTalk Partner Hub</span>
+        </div>
+        <p>The leading premium platform for modern female creators across India.</p>
+      </div>
+      <div class="footer-links">
+        <h5>Platform</h5>
+        <div>
+                    <a href="/join-as-host.html">Join as Host</a>
+          
+        </div>
+      </div>
+      <div class="footer-links">
+        <h5>Support</h5>
+        <div>
+          <a href="/host-guidelines.html">Host Guidelines</a>
+          <a href="/help-center.html">Help Center</a>
+          <a href="/contact.html">Contact Us</a>
+        </div>
+      </div>
+      <div class="footer-links">
+        <h5>Legal</h5>
+        <div>
+          <a href="/terms.html">Terms & Conditions</a>
+          <a href="/privacy.html">Privacy Policy</a>
+          <a href="/safety.html">Safety & Guidelines</a>
+          <a href="/child-safety.html">Child Safety</a>
+          <a href="/report-vulnerability.html">Report Vulnerability</a>
+          <a href="/refund-policy.html">Cancellation & Refund Policy</a>
+          <a href="/shipping-policy.html">Shipping & Delivery Policy</a>
+        </div>
+      </div>
+    </div>
+    <div class="copyright">
+      &copy; 2026 BeHappyTalk Partner Hub by BeHappyTalk. Built for the elite.
+    </div>
+  </footer>
+
+  <script>
+    window.onscroll = function() {
+      const nav = document.getElementById('navbar');
+      if (window.pageYOffset > 20) {
+        nav.classList.add('scrolled');
+      } else {
+        nav.classList.remove('scrolled');
+      }
+    };
+  </script>
+</body>
+</html>
+
+
+
+
+

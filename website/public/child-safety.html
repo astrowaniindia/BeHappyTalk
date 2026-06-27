@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Child Safety Standards | BeHappyTalk</title>
+  <meta name="description" content="BeHappyTalk's Child Safety Standards explicitly prohibiting Child Sexual Abuse and Exploitation (CSAE). Learn about our zero-tolerance policy, reporting mechanisms, and CSAM handling procedures.">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --surface: #ffffff;
+      --surface-light: #f8fafc;
+      --surface-muted: #f1f5f9;
+      --primary: #1773fc;
+      --primary-hover: #125ccc;
+      --accent: #4ea5ff;
+      --text: #0f172a;
+      --text-dim: #475569;
+      --text-lighter: #64748b;
+      --border: #e2e8f0;
+      --danger: #dc2626;
+      --danger-bg: #fef2f2;
+      --danger-border: #fecaca;
+      --success: #16a34a;
+      --success-bg: #f0fdf4;
+      --success-border: #bbf7d0;
+    }
+
+    * { box-sizing: border-box; }
+    body, html {
+      margin: 0; padding: 0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+    
+    a { text-decoration: none; color: inherit; }
+
+    /* Navbar */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      padding: 24px 48px;
+      display: flex; justify-content: space-between; align-items: center;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(12px);
+      transition: all 0.2s ease;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.02);
+    }
+    .navbar.scrolled { 
+      padding: 12px 48px; 
+      background: #ffffff; 
+      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 0;
+      font-weight: 700; font-size: 20px;
+      letter-spacing: -0.5px; color: var(--text);
+    }
+    .logo img { 
+      height: 48px; width: auto; object-fit: contain;
+      margin-right: -4px;
+      filter: saturate(1.2) contrast(1.2) drop-shadow(0 2px 4px rgba(32, 123, 255, 0.15));
+    }
+    
+    .nav-links { display: flex; gap: 32px; align-items: center; }
+    .nav-link { color: var(--text-dim); font-weight: 500; transition: color 0.15s ease; font-size: 14px; }
+    .nav-link:hover { color: var(--text); }
+    
+    .btn-login {
+      background: var(--primary); color: #ffffff; font-weight: 500;
+      padding: 10px 18px; border-radius: 6px; font-size: 14px;
+      transition: background 0.15s ease;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .btn-login:hover { background: var(--primary-hover); }
+
+    /* Footer */
+    footer {
+      padding: 60px 80px 40px;
+      background: #ffffff;
+      border-top: 1px solid var(--border);
+    }
+    .footer-content { display: flex; justify-content: space-between; margin-bottom: 60px; max-width: 1100px; margin-left: auto; margin-right: auto; }
+    .footer-brand { max-width: 300px; }
+    .footer-brand p { color: var(--text-dim); margin-top: 16px; font-size: 14px; line-height: 1.6; }
+    .footer-links h5 { font-size: 13px; font-weight: 600; margin: 0 0 16px; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px; }
+    .footer-links div { display: flex; flex-direction: column; gap: 12px; }
+    .footer-links a { color: var(--text-dim); transition: color 0.15s; font-size: 14px; }
+    .footer-links a:hover { color: var(--primary); }
+    
+    .copyright { text-align: center; padding-top: 32px; border-top: 1px solid var(--border); color: var(--text-lighter); font-size: 13px; max-width: 1100px; margin: 0 auto; }
+
+    /* Legal Content */
+    .legal-container {
+      max-width: 860px; margin: 140px auto 100px; padding: 0 40px;
+    }
+    .legal-header { margin-bottom: 48px; text-align: center; }
+    .legal-header h1 { font-size: 42px; font-weight: 800; color: var(--text); letter-spacing: -1px; margin-bottom: 12px; }
+    .legal-header .subtitle { font-size: 16px; color: var(--text-lighter); margin-bottom: 8px; }
+    .legal-header .app-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--surface-muted); border: 1px solid var(--border);
+      border-radius: 100px; padding: 6px 16px; font-size: 13px;
+      color: var(--text-dim); margin-top: 8px;
+    }
+    
+    .legal-content { font-size: 16px; line-height: 1.8; color: var(--text-dim); }
+    .legal-content h2 { font-size: 22px; font-weight: 700; margin: 48px 0 16px; color: var(--text); letter-spacing: -0.5px; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
+    .legal-content p { margin-bottom: 20px; }
+    .legal-content ul { margin-bottom: 24px; padding-left: 24px; }
+    .legal-content li { margin-bottom: 12px; }
+
+    /* Alert Boxes */
+    .alert-box {
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 28px;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .alert-box.danger {
+      background: var(--danger-bg);
+      border: 1px solid var(--danger-border);
+    }
+    .alert-box.success {
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+    }
+    .alert-box .icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+    .alert-box.danger .icon { color: var(--danger); }
+    .alert-box.success .icon { color: var(--success); }
+    .alert-box .content h4 { margin: 0 0 6px; font-size: 15px; font-weight: 700; }
+    .alert-box.danger .content h4 { color: var(--danger); }
+    .alert-box.success .content h4 { color: var(--success); }
+    .alert-box .content p { margin: 0; font-size: 14px; line-height: 1.6; }
+
+    /* Contact Card */
+    .contact-card {
+      background: var(--surface-light);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 32px;
+      margin: 28px 0;
+    }
+    .contact-card h3 { margin: 0 0 6px; font-size: 18px; font-weight: 700; color: var(--text); }
+    .contact-card .role { font-size: 13px; color: var(--text-lighter); margin-bottom: 16px; }
+    .contact-card .detail { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 14px; color: var(--text-dim); }
+    .contact-card .detail i { color: var(--primary); width: 18px; }
+    .contact-card .detail a { color: var(--primary); font-weight: 500; }
+
+    /* Highlight term */
+    .term-highlight {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+      font-weight: 600;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 0.95em;
+    }
+
+    /* Steps */
+    .steps { margin: 0; padding: 0; list-style: none; }
+    .steps li {
+      display: flex; gap: 16px; margin-bottom: 20px; align-items: flex-start;
+    }
+    .step-num {
+      background: var(--primary); color: #fff;
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 2px;
+    }
+    .steps li .step-text { font-size: 15px; line-height: 1.7; color: var(--text-dim); }
+
+    @media (max-width: 768px) {
+      .navbar { padding: 16px 20px; }
+      .navbar.scrolled { padding: 12px 20px; }
+      .legal-container { margin: 100px auto 60px; padding: 0 20px; }
+      .legal-header h1 { font-size: 30px; }
+      footer { padding: 40px 20px; }
+      .footer-content { flex-direction: column; gap: 32px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar" id="navbar">
+    <a href="/" class="logo">
+      <img src="assets/logo-blue.png" alt="BeHappyTalk Logo">
+      <span>BeHappyTalk</span>
+    </a>
+    <div class="nav-links">
+      <a href="/" class="nav-link">Home</a>
+      <a href="/portal.html" class="btn-login"><i class="fas fa-lock"></i> Host Login</a>
+    </div>
+  </nav>
+
+  <!-- Content -->
+  <div class="legal-container">
+    <div class="legal-header">
+      <h1>Child Safety Standards</h1>
+      <p class="subtitle">Published by BeHappyTalk &nbsp;|&nbsp; Effective Date: January 1, 2025 &nbsp;|&nbsp; Last Updated: June 27, 2026</p>
+      <span class="app-badge"><i class="fas fa-mobile-alt"></i> Applies to: BeHappyTalk (com.behappytalk.app) on Google Play</span>
+    </div>
+
+    <div class="legal-content">
+
+      <div class="alert-box danger">
+        <div class="icon"><i class="fas fa-ban"></i></div>
+        <div class="content">
+          <h4>Zero Tolerance for CSAE</h4>
+          <p><strong>BeHappyTalk</strong> maintains a strict, zero-tolerance policy against <strong>Child Sexual Abuse and Exploitation (CSAE)</strong> in any form. Any user found engaging in CSAE-related conduct will be immediately banned and reported to the appropriate law enforcement authorities.</p>
+        </div>
+      </div>
+
+      <h2>1. Scope and Purpose</h2>
+      <p>This Child Safety Standards document applies to all users of <strong>BeHappyTalk</strong> (available on Google Play as <code>com.behappytalk.app</code>), its associated web platform at behappytalk.com, and any related services operated by BeHappyTalk.</p>
+      <p>These standards are published to explicitly prohibit <span class="term-highlight">Child Sexual Abuse and Exploitation (CSAE)</span> and to outline the mechanisms we have in place to detect, prevent, and respond to such conduct. This document is globally accessible and publicly available.</p>
+
+      <h2>2. Prohibition of CSAE</h2>
+      <p><strong>BeHappyTalk explicitly prohibits all forms of Child Sexual Abuse and Exploitation (CSAE)</strong>, including but not limited to:</p>
+      <ul>
+        <li>Production, distribution, possession, or solicitation of <span class="term-highlight">Child Sexual Abuse Material (CSAM)</span> — including images, videos, text, or any other format.</li>
+        <li>Grooming of minors — any communication, gift-giving, or relationship-building intended to facilitate sexual access to a child.</li>
+        <li>Sexual solicitation of minors, or sharing of sexually explicit content with any individual under 18 years of age.</li>
+        <li>Trafficking of children for sexual purposes or any form of sexual exploitation.</li>
+        <li>Facilitating access to minors for the purpose of sexual abuse or exploitation by third parties.</li>
+        <li>Any conduct, content, or communication that sexualizes individuals under 18 years of age.</li>
+      </ul>
+      <p>These prohibitions apply universally across all in-app features of BeHappyTalk including live video sessions, private messaging, profile content, and any user-generated material.</p>
+
+      <h2>3. Platform Eligibility — Adults Only</h2>
+      <ul>
+        <li><strong>BeHappyTalk is strictly intended for users aged 18 and above.</strong> Minors are not permitted to register, access, or use the platform.</li>
+        <li>Users must confirm they are 18 or older during account registration.</li>
+        <li>Accounts suspected of being operated by minors are suspended immediately pending verification.</li>
+        <li>BeHappyTalk reserves the right to terminate any account whose user is found to be under the age of 18, without notice.</li>
+      </ul>
+
+      <h2>4. In-App Mechanism for User Feedback and Reporting</h2>
+      <p><strong>BeHappyTalk provides multiple in-app mechanisms</strong> for users to report CSAE, CSAM, or any conduct they believe violates these Child Safety Standards:</p>
+      <ul>
+        <li><strong>In-App Report Button:</strong> Every user profile and live session has a visible "Report" button. Users can report any content or conduct violating child safety with a dedicated "Child Safety / CSAE" category.</li>
+        <li><strong>In-App Support Chat:</strong> Users can contact BeHappyTalk support directly within the app to escalate child safety concerns.</li>
+        <li><strong>Email Reporting:</strong> Reports can be submitted to <a href="mailto:childsafety@behappytalk.com">childsafety@behappytalk.com</a> — this inbox is monitored by our dedicated Child Safety team.</li>
+      </ul>
+      <p>All reports related to child safety are treated as the highest priority and are reviewed within 24 hours of receipt.</p>
+
+      <h2>5. CSAM Detection and Handling Process</h2>
+      <p>BeHappyTalk has established a clear process for identifying and addressing <span class="term-highlight">Child Sexual Abuse Material (CSAM)</span>:</p>
+      <ol class="steps">
+        <li><span class="step-num">1</span><span class="step-text"><strong>Detection:</strong> Automated content scanning tools are used to detect known CSAM using industry-standard hash-matching technology (including PhotoDNA or equivalent). All user-generated image and video content is scanned prior to or upon upload.</span></li>
+        <li><span class="step-num">2</span><span class="step-text"><strong>Immediate Removal:</strong> Any content identified as CSAM is immediately removed from the platform without prior notice to the user.</span></li>
+        <li><span class="step-num">3</span><span class="step-text"><strong>Account Suspension:</strong> The account associated with the CSAM is immediately suspended and permanently banned.</span></li>
+        <li><span class="step-num">4</span><span class="step-text"><strong>Mandatory Reporting:</strong> BeHappyTalk reports all confirmed CSAM incidents to the <strong>National Center for Missing &amp; Exploited Children (NCMEC)</strong> via the CyberTipline, as required by law (18 U.S.C. § 2258A), and to local law enforcement authorities as applicable.</span></li>
+        <li><span class="step-num">5</span><span class="step-text"><strong>Preservation of Evidence:</strong> All relevant data, logs, and evidence are preserved and provided to law enforcement agencies upon lawful request.</span></li>
+      </ol>
+
+      <h2>6. Cooperation with Law Enforcement</h2>
+      <ul>
+        <li>BeHappyTalk cooperates fully and promptly with all lawful law enforcement requests related to child safety investigations.</li>
+        <li>We will disclose user data and evidence to appropriate authorities when required to do so by law, or when we believe disclosure is necessary to protect a child from imminent harm.</li>
+        <li>BeHappyTalk maintains records sufficient to support law enforcement investigations for the legally required retention period.</li>
+      </ul>
+
+      <h2>7. Compliance with Applicable Laws</h2>
+      <p>BeHappyTalk is committed to full compliance with all applicable child safety laws and regulations, including:</p>
+      <ul>
+        <li>The <strong>PROTECTION OF CHILDREN FROM SEXUAL OFFENCES ACT, 2012 (POCSO Act)</strong> — India</li>
+        <li>The <strong>Information Technology Act, 2000</strong> and its amendments relating to child protection — India</li>
+        <li>The <strong>PROTECT Our Children Act</strong> and mandatory NCMEC reporting obligations (18 U.S.C. § 2258A) — United States</li>
+        <li><strong>Google Play's Child Safety Standards policy</strong> and all applicable platform policies.</li>
+        <li>All other applicable national and international laws and regulations related to child sexual abuse and exploitation.</li>
+      </ul>
+
+      <div class="alert-box success">
+        <div class="icon"><i class="fas fa-shield-alt"></i></div>
+        <div class="content">
+          <h4>Compliance Declaration</h4>
+          <p>BeHappyTalk (com.behappytalk.app) declares that: (1) it has an in-app mechanism for user feedback and reporting of CSAE; (2) it has a defined method for addressing CSAM, including mandatory NCMEC reporting; and (3) it complies with all applicable child safety laws and regulations.</p>
+        </div>
+      </div>
+
+      <h2>8. Child Safety Point of Contact</h2>
+      <p>BeHappyTalk has designated a dedicated Child Safety contact for all matters related to child safety, CSAE, and CSAM. External parties, researchers, law enforcement agencies, and users may contact our Child Safety team directly:</p>
+
+      <div class="contact-card">
+        <h3>Child Safety Team</h3>
+        <div class="role">Designated Child Safety Point of Contact — BeHappyTalk</div>
+        <div class="detail"><i class="fas fa-envelope"></i> <a href="mailto:childsafety@behappytalk.com">childsafety@behappytalk.com</a></div>
+        <div class="detail"><i class="fas fa-envelope"></i> <a href="mailto:care@behappytalk.com">care@behappytalk.com</a> (General Support)</div>
+        <div class="detail"><i class="fas fa-globe"></i> BeHappyTalk — behappytalk.com</div>
+        <div class="detail"><i class="fas fa-clock"></i> Response Time: Within 24 hours for child safety matters</div>
+      </div>
+
+      <p>Law enforcement agencies requiring emergency assistance or preservation requests related to child safety may contact us at <a href="mailto:childsafety@behappytalk.com" style="color: var(--primary); font-weight: 600;">childsafety@behappytalk.com</a> with "LAW ENFORCEMENT" in the subject line for expedited handling.</p>
+
+      <h2>9. Policy Updates</h2>
+      <p>BeHappyTalk is committed to continuously improving our child safety practices. These standards will be reviewed and updated at least annually, or whenever required by changes in law, platform features, or Google Play policies. The effective date at the top of this document reflects the most recent update.</p>
+      <p>By using BeHappyTalk, all users agree to abide by these Child Safety Standards. Violations will be taken seriously and addressed with the utmost urgency.</p>
+
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-content">
+      <div class="footer-brand">
+        <div class="logo">
+          <img src="assets/logo-blue.png" alt="BeHappyTalk Logo" style="height: 48px;">
+          <span>BeHappyTalk</span>
+        </div>
+        <p>The leading premium platform for modern female creators across India.</p>
+      </div>
+      <div class="footer-links">
+        <h5>Platform</h5>
+        <div>
+          <a href="/join-as-host.html">Join as Host</a>
+        </div>
+      </div>
+      <div class="footer-links">
+        <h5>Support</h5>
+        <div>
+          <a href="/host-guidelines.html">Host Guidelines</a>
+          <a href="/help-center.html">Help Center</a>
+          <a href="/contact.html">Contact Us</a>
+        </div>
+      </div>
+      <div class="footer-links">
+        <h5>Legal</h5>
+        <div>
+          <a href="/terms.html">Terms &amp; Conditions</a>
+          <a href="/privacy.html">Privacy Policy</a>
+          <a href="/safety.html">Safety &amp; Guidelines</a>
+          <a href="/child-safety.html">Child Safety</a>
+          <a href="/report-vulnerability.html">Report Vulnerability</a>
+          <a href="/refund-policy.html">Cancellation &amp; Refund Policy</a>
+          <a href="/shipping-policy.html">Shipping &amp; Delivery Policy</a>
+        </div>
+      </div>
+    </div>
+    <div class="copyright">
+      &copy; 2026 BeHappyTalk. Built for the elite.
+    </div>
+  </footer>
+
+  <script>
+    window.onscroll = function() {
+      const nav = document.getElementById('navbar');
+      if (window.pageYOffset > 20) {
+        nav.classList.add('scrolled');
+      } else {
+        nav.classList.remove('scrolled');
+      }
+    };
+  </script>
+</body>
+</html>
