@@ -10,7 +10,7 @@ import { RTCView } from 'react-native-webrtc';
 import { useAudioWebRTC } from '../hooks/useAudioWebRTC';
 
 const { width } = Dimensions.get('window');
-const SOCKET_URL = 'http://192.168.29.168:3000';
+const SOCKET_URL = 'https://provider.behappytalk.com';
 
 const Colors = {
   primary: '#1B76FF',

@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 // Replace with your local machine's IP, e.g. 192.168.x.x
-const API_URL = 'http://192.168.29.168:3000';
+const API_URL = 'https://provider.behappytalk.com';
 
 const Colors = {
   primary: '#1B76FF',

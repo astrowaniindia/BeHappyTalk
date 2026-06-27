@@ -31,9 +31,7 @@ const ProfileManager = () => {
   const fetchUserProfile = async (id: string) => {
     try {
       setLoading(true);
-      // Fallback API_URL if not defined
-      const baseUrl = API_URL || 'https://behappytalk-server-ipxj.onrender.com';
-      const response = await fetch(`${baseUrl}/api/users/${id}`);
+      const response = await fetch(`${API_URL}/users/${id}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -65,8 +63,7 @@ const ProfileManager = () => {
       setLoading(true);
       setSuccess('');
 
-      const baseUrl = API_URL || 'https://behappytalk-server-ipxj.onrender.com';
-      const response = await fetch(`${baseUrl}/api/users/${user.id}`, {
+      const response = await fetch(`${API_URL}/users/${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

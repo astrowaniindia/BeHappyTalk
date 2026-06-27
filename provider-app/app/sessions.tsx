@@ -17,7 +17,7 @@ const Colors = {
   pillText: '#6B7A99',
 };
 
-const API_URL = 'http://192.168.29.168:3000';
+const API_URL = 'https://provider.behappytalk.com';
 
 export default function SessionsScreen() {
   const router = useRouter();

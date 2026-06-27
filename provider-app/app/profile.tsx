@@ -32,7 +32,7 @@ export default function ProfileScreen() {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const API_URL = 'http://192.168.29.168:3000';
+  const API_URL = 'https://provider.behappytalk.com';
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);

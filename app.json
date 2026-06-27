@@ -2,18 +2,18 @@
   "expo": {
     "name": "behappytalk",
     "slug": "behappytalk",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "behappytalk",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bitcode": false
     },
     "android": {
-      "versionCode": 3,
+      "versionCode": 8,
       "adaptiveIcon": {
         "backgroundColor": "#000000",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -43,7 +43,11 @@
           "android": {
             "compileSdkVersion": 35,
             "targetSdkVersion": 35,
-            "buildToolsVersion": "35.0.0"
+            "buildToolsVersion": "35.0.0",
+            "ndkVersion": "27.0.12077973",
+            "extraGradleProperties": {
+              "android.experimental.enablePageAlignedLibraries": "true"
+            }
           }
         }
       ],
@@ -62,7 +66,8 @@
         {
           "photosPermission": "The app needs photo library access to allow you to send images in chat."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,

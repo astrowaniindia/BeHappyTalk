@@ -18,7 +18,7 @@ const Colors = {
   success: '#10b981',
 };
 
-const API_URL = 'http://192.168.29.168:3000';
+const API_URL = 'https://provider.behappytalk.com';
 
 export default function SetupScreen() {
   const [providerId, setProviderId] = useState('');

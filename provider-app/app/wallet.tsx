@@ -20,7 +20,7 @@ const Colors = {
   cardBg: '#2C3E50',
 };
 
-const API_URL = 'http://192.168.29.168:3000';
+const API_URL = 'https://provider.behappytalk.com';
 
 export default function WalletScreen() {
   const router = useRouter();

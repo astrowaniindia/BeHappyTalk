@@ -20,8 +20,8 @@ const Colors = {
   overlay: 'rgba(0,0,0,0.6)',
 };
 
-const SOCKET_URL = 'http://192.168.29.168:3000';
-const API_URL = 'http://192.168.29.168:3000/api';
+const SOCKET_URL = 'https://provider.behappytalk.com';
+const API_URL = 'https://provider.behappytalk.com/api';
 
 export default function ChatScreen() {
   const router = useRouter();

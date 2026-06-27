@@ -15,7 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
 // Get API URL from constants or use default
-const API_URL = 'http://192.168.29.168:3000/api';
+const API_URL = 'https://provider.behappytalk.com/api';
 
 export function useVideoWebRTC(socket: any, roomId: string | null) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);

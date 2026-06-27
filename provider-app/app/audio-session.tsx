@@ -22,8 +22,8 @@ import InCallManager from 'react-native-incall-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
-const SOCKET_URL = 'http://192.168.29.168:3000';
-const API_URL = 'http://192.168.29.168:3000/api';
+const SOCKET_URL = 'https://provider.behappytalk.com';
+const API_URL = 'https://provider.behappytalk.com/api';
 
 export default function AudioSessionScreen() {
   const router = useRouter();

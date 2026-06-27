@@ -14,7 +14,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 
-const API_URL = 'http://192.168.29.168:3000/api';
+const API_URL = 'https://provider.behappytalk.com/api';
 
 export function useAudioWebRTC(socket: any, roomId: string | null) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);

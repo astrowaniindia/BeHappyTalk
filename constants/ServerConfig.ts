@@ -1,13 +1,13 @@
 // ─── Central server config ────────────────────────────────────────────────────
 //
-// PRODUCTION: Replace RENDER_URL below with your actual Render.com URL
-//             after deploying the server. It looks like:
-//             https://behappytalk-server.onrender.com
+// PRODUCTION: Uses custom domain → provider.behappytalk.com
+//             DNS must point to the active Render server.
+//             Changing Render servers = just update DNS, no code change needed.
 //
-// LOCAL DEV:  Set EXPO_PUBLIC_API_URL in a .env file to override.
+// LOCAL DEV:  Swap RENDER_URL to http://192.168.x.x:3000 temporarily.
 
-const RENDER_URL = 'http://192.168.29.168:3000';
-// const RENDER_URL = 'https://behappytalk-server-ipxj.onrender.com';
+const RENDER_URL = 'https://provider.behappytalk.com';
+// const RENDER_URL = 'http://192.168.29.168:3000'; // ← local dev only
 
 // Wrapper to automatically bypass localtunnel and ngrok warning landing pages
 const originalFetch = global.fetch;

@@ -21,7 +21,7 @@ const Colors = {
 };
 
 // Use the live production backend that the main app uses
-const API_URL = 'http://192.168.29.168:3000';
+const API_URL = 'https://provider.behappytalk.com';
 
 export default function LoginScreen() {
   const router = useRouter();

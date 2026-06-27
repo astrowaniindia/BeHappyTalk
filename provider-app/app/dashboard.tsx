@@ -24,8 +24,8 @@ const Colors = {
   sidebarHover: 'rgba(255,255,255,0.1)'
 };
 
-const API_URL = 'http://192.168.29.168:3000';
-const SOCKET_URL = 'http://192.168.29.168:3000';
+const API_URL = 'https://provider.behappytalk.com';
+const SOCKET_URL = 'https://provider.behappytalk.com';
 
 export default function DashboardScreen() {
   const router = useRouter();
