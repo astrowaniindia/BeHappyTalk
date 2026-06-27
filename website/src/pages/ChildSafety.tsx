@@ -285,6 +285,7 @@ export default function ChildSafety() {
                 care@behappytalk.com
               </a>
             </p>
+            <p style={{ margin: '0 0 8px', fontSize: '14px' }}>📞 <strong>Phone:</strong> <a href="tel:+919829304067" style={{ color: '#facc15' }}>+91 98293 04067</a></p>
             <p style={{ margin: '0 0 8px', fontSize: '14px' }}>🌐 BeHappyTalk — behappytalk.com</p>
             <p style={{ margin: 0, fontSize: '14px' }}>⏱️ Response Time: Within 24 hours for child safety matters</p>
           </div>
