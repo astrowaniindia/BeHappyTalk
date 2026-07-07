@@ -34,6 +34,8 @@ export default function AudioSessionScreen() {
   // ── State ──────────────────────────────────────────────────────────────
   const [isConnected, setIsConnected] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
 
   // ── Refs ────────────────────────────────────────────────────────────────
   const socketRef = useRef<any>(null);
@@ -74,6 +76,21 @@ export default function AudioSessionScreen() {
       socketRef.current = null;
     }
   }, []);
+
+  // ── Mute / Speaker ─────────────────────────────────────────────────────
+  const toggleMute = useCallback(() => {
+    const stream = localStreamRef.current;
+    if (!stream) return;
+    const newMuted = !isMuted;
+    stream.getAudioTracks().forEach(track => { track.enabled = !newMuted; });
+    setIsMuted(newMuted);
+  }, [isMuted]);
+
+  const toggleSpeaker = useCallback(() => {
+    const newSpeakerOn = !isSpeakerOn;
+    try { InCallManager.setForceSpeakerphoneOn(newSpeakerOn); } catch (_) {}
+    setIsSpeakerOn(newSpeakerOn);
+  }, [isSpeakerOn]);
 
   // ── End call ───────────────────────────────────────────────────────────
   const endCall = useCallback(() => {
@@ -272,8 +289,11 @@ export default function AudioSessionScreen() {
         </View>
 
         <View style={styles.controls}>
-          <TouchableOpacity style={styles.controlBtn}>
-            <Ionicons name="mic-off" size={28} color="#FFF" />
+          <TouchableOpacity
+            style={[styles.controlBtn, isMuted && styles.controlBtnActive]}
+            onPress={toggleMute}
+          >
+            <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={28} color="#FFF" />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.controlBtn, styles.endBtn]}
@@ -281,8 +301,11 @@ export default function AudioSessionScreen() {
           >
             <MaterialIcons name="call-end" size={36} color="#FFF" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.controlBtn}>
-            <Ionicons name="volume-high" size={28} color="#FFF" />
+          <TouchableOpacity
+            style={[styles.controlBtn, isSpeakerOn && styles.controlBtnActive]}
+            onPress={toggleSpeaker}
+          >
+            <Ionicons name={isSpeakerOn ? 'volume-high' : 'volume-mute'} size={28} color="#FFF" />
           </TouchableOpacity>
         </View>
       </View>
@@ -312,5 +335,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center', alignItems: 'center',
   },
+  controlBtnActive: { backgroundColor: '#1B76FF' },
   endBtn: { backgroundColor: '#EF4444', width: 72, height: 72, borderRadius: 36 },
 });

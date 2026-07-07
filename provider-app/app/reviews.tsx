@@ -31,16 +31,16 @@ export default function ReviewsScreen() {
       const dataStr = await AsyncStorage.getItem('providerData');
       if (dataStr) {
         const data = JSON.parse(dataStr);
-        // Assuming an API endpoint exists for fetching reviews
-        const res = await axios.get(`${API_URL}/api/provider/${data.id}/reviews`);
-        if (res.data && res.data.reviews) {
-          setReviews(res.data.reviews);
-          setAverageRating(res.data.averageRating || '0.0');
-          setTotalReviews(res.data.totalReviews || 0);
+        // The backend only tracks an aggregate rating/count per provider today —
+        // there is no endpoint for individual review entries yet.
+        const res = await axios.get(`${API_URL}/api/provider/${data.id}`);
+        if (res.data) {
+          setAverageRating(res.data.rating || '0.0');
+          setTotalReviews(Number(res.data.reviews) || 0);
         }
       }
     } catch (error) {
-      console.log('Skipping API fetch - endpoint not ready');
+      console.log('Failed to load review summary', error);
     } finally {
       setLoading(false);
     }
@@ -131,8 +131,12 @@ export default function ReviewsScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="star-half-outline" size={64} color={Colors.textLight} style={{ opacity: 0.3 }} />
-            <Text style={styles.emptyText}>No reviews yet</Text>
-            <Text style={styles.emptySubtitle}>Complete sessions with clients to start receiving ratings and reviews.</Text>
+            <Text style={styles.emptyText}>{totalReviews > 0 ? 'Reviews summary only' : 'No reviews yet'}</Text>
+            <Text style={styles.emptySubtitle}>
+              {totalReviews > 0
+                ? 'Individual review comments aren\'t available yet — see your average rating above.'
+                : 'Complete sessions with clients to start receiving ratings and reviews.'}
+            </Text>
           </View>
         }
       />

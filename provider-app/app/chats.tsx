@@ -35,7 +35,7 @@ export default function ChatsListScreen() {
       // map data to local state
       const mapped = res.data.map((u: any) => ({
         id: u.id,
-        userName: u.name,
+        userName: u.name || 'User',
         lastTime: 'Recent',
         lastMessage: 'Tap to view messages'
       }));

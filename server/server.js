@@ -163,13 +163,6 @@ app.post('/api/provider/signup', async (req, res) => {
   res.json(safeData);
 });
 
-app.post('/api/provider/update-profile', async (req, res) => {
-  const { providerId, demographic, tagline, langs, priceChat, priceCall, priceVideo } = req.body;
-  const { data, error } = await db.from('providers').update({ demographic, tagline, langs, priceChat, priceCall, priceVideo, verified: true }).eq('id', providerId).select('*').single();
-  if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
-});
-
 app.post('/api/provider/login', async (req, res) => {
   const { phone, password } = req.body;
   if (!phone || !password) return res.status(400).json({ error: 'Phone and password required.' });
@@ -260,16 +253,17 @@ app.get('/api/provider/:providerId', async (req, res) => {
 
 app.post('/api/provider/update-profile', authenticateToken, async (req, res) => {
   if (req.user.role !== 'provider') return res.status(403).json({ error: 'Forbidden' });
-  
-  const { tagline, bio, langs, exp, demographic, priceChat, priceCall, priceVideo } = req.body;
+
+  const { name, tagline, bio, langs, exp, demographic, priceChat, priceCall, priceVideo } = req.body;
   const providerId = req.user.id;
-  
-  const { error } = await db.from('providers').update({
-    tagline, bio, langs, exp, demographic, priceChat, priceCall, priceVideo
-  }).eq('id', providerId);
-  
+
+  const { data, error } = await db.from('providers').update({
+    name, tagline, bio, langs, exp, demographic, priceChat, priceCall, priceVideo, verified: true
+  }).eq('id', providerId).select('*').single();
+
   if (error) return res.status(500).json({ error: error.message });
-  res.json({ success: true, message: 'Profile updated successfully!' });
+  const { password, ...safeData } = data;
+  res.json({ success: true, message: 'Profile updated successfully!', ...safeData });
 });
 
 // NEW: Get user profile endpoint (as requested)

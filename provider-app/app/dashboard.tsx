@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Animated, Dimensions, Switch, RefreshControl, Image, Linking } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Animated, Dimensions, Switch, RefreshControl, Image, Linking, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,6 +34,7 @@ export default function DashboardScreen() {
   const [providerId, setProviderId] = useState(null);
   const [providerName, setProviderName] = useState('Provider');
   const [providerImage, setProviderImage] = useState<string | null>(null);
+  const [providerImageError, setProviderImageError] = useState(false);
   const [incomingRequest, setIncomingRequest] = useState<any>(null);
   
   // New State for Analytics & Online Status
@@ -58,9 +59,18 @@ export default function DashboardScreen() {
     }, 1000);
   }, [providerId]);
 
+  useEffect(() => {
+    setProviderImageError(false);
+  }, [providerImage]);
+
   // Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const isSidebarOpenRef = useRef(false);
   const slideAnim = useRef(new Animated.Value(-width * 0.75)).current;
+
+  useEffect(() => {
+    isSidebarOpenRef.current = isSidebarOpen;
+  }, [isSidebarOpen]);
 
   useEffect(() => {
     let socket: any;
@@ -196,11 +206,44 @@ export default function DashboardScreen() {
     setIncomingRequest(null);
   };
 
-  const toggleSidebar = () => {
-    const toValue = isSidebarOpen ? -width * 0.75 : 0;
-    Animated.timing(slideAnim, { toValue, duration: 300, useNativeDriver: true }).start();
-    setIsSidebarOpen(!isSidebarOpen);
+  const openSidebar = () => {
+    Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+    setIsSidebarOpen(true);
   };
+
+  const closeSidebar = () => {
+    Animated.timing(slideAnim, { toValue: -width * 0.75, duration: 300, useNativeDriver: true }).start();
+    setIsSidebarOpen(false);
+  };
+
+  const toggleSidebar = () => {
+    if (isSidebarOpenRef.current) closeSidebar(); else openSidebar();
+  };
+
+  // Edge-swipe gesture: swiping right from near the left screen edge opens the sidebar.
+  const edgeSwipePanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        if (isSidebarOpenRef.current) return false;
+        const { dx, dy, x0 } = gestureState;
+        return x0 < 40 && dx > 15 && Math.abs(dx) > Math.abs(dy) * 1.5;
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        const newX = Math.max(-width * 0.75, Math.min(0, -width * 0.75 + gestureState.dx));
+        slideAnim.setValue(newX);
+      },
+      onPanResponderRelease: (evt, gestureState) => {
+        if (gestureState.dx > (width * 0.75) / 3) {
+          openSidebar();
+        } else {
+          closeSidebar();
+        }
+      },
+      onPanResponderTerminate: () => {
+        closeSidebar();
+      },
+    })
+  ).current;
 
   const handleLogout = async () => {
     await AsyncStorage.removeItem('providerToken');
@@ -209,7 +252,7 @@ export default function DashboardScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['right', 'left']}>
+    <SafeAreaView style={styles.container} edges={['right', 'left']} {...edgeSwipePanResponder.panHandlers}>
       <StatusBar style="light" backgroundColor={Colors.primary} />
       
       {/* Top App Bar - Dual Row */}
@@ -233,8 +276,12 @@ export default function DashboardScreen() {
           </View>
           <TouchableOpacity onPress={() => router.push('/profile')}>
             <View style={styles.navAvatar}>
-              {providerImage ? (
-                <Image source={{ uri: providerImage }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
+              {providerImage && !providerImageError ? (
+                <Image
+                  source={{ uri: providerImage }}
+                  style={{ width: '100%', height: '100%', borderRadius: 20 }}
+                  onError={() => setProviderImageError(true)}
+                />
               ) : (
                 <Ionicons name="person" size={20} color={Colors.white} />
               )}
@@ -468,29 +515,34 @@ export default function DashboardScreen() {
               <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 'bold', letterSpacing: 1 }}>LEGAL</Text>
             </View>
             
-            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/terms'); }}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); Linking.openURL('https://provider.behappytalk.com/terms.html'); }}>
               <Ionicons name="document-text" size={22} color="rgba(255,255,255,0.7)" />
               <Text style={styles.menuItemText}>Terms & Conditions</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/privacy'); }}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); Linking.openURL('https://provider.behappytalk.com/privacy.html'); }}>
               <Ionicons name="shield-checkmark" size={22} color="rgba(255,255,255,0.7)" />
               <Text style={styles.menuItemText}>Privacy Policy</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/safety'); }}>
-              <Ionicons name="warning" size={22} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.menuItemText}>Safety & Guidelines</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/child-safety'); }}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); Linking.openURL('https://provider.behappytalk.com/child-safety.html'); }}>
               <Ionicons name="people" size={22} color="rgba(255,255,255,0.7)" />
               <Text style={styles.menuItemText}>Child Safety</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/report-vulnerability'); }}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); Linking.openURL('https://provider.behappytalk.com/report-vulnerability.html'); }}>
               <Ionicons name="bug" size={22} color="rgba(255,255,255,0.7)" />
               <Text style={styles.menuItemText}>Report Vulnerability</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); Linking.openURL('https://provider.behappytalk.com/refund-policy.html'); }}>
+              <Ionicons name="cash-outline" size={22} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.menuItemText}>Refund Policy</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); Linking.openURL('https://provider.behappytalk.com/shipping-policy.html'); }}>
+              <Ionicons name="cube-outline" size={22} color="rgba(255,255,255,0.7)" />
+              <Text style={styles.menuItemText}>Shipping Policy</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuItem} onPress={() => { toggleSidebar(); router.push('/contact'); }}>
@@ -504,8 +556,12 @@ export default function DashboardScreen() {
           <View style={styles.sidebarFooter}>
             <View style={styles.profileRow}>
               <View style={styles.avatar}>
-                {providerImage ? (
-                  <Image source={{ uri: providerImage }} style={{ width: '100%', height: '100%', borderRadius: 20 }} />
+                {providerImage && !providerImageError ? (
+                  <Image
+                    source={{ uri: providerImage }}
+                    style={{ width: '100%', height: '100%', borderRadius: 20 }}
+                    onError={() => setProviderImageError(true)}
+                  />
                 ) : (
                   <Text style={styles.avatarText}>{providerName.charAt(0).toUpperCase()}</Text>
                 )}

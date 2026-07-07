@@ -23,6 +23,26 @@ const Colors = {
 const SOCKET_URL = 'https://provider.behappytalk.com';
 const API_URL = 'https://provider.behappytalk.com/api';
 
+function ChatImage({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <View style={{ width: 220, height: 220, borderRadius: 12, backgroundColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center' }}>
+        <Ionicons name="image-outline" size={32} color={Colors.textLight} />
+        <Text style={{ color: Colors.textLight, fontSize: 12, marginTop: 6 }}>Image unavailable</Text>
+      </View>
+    );
+  }
+  return (
+    <Image
+      source={{ uri: url }}
+      style={{ width: 220, height: 220, borderRadius: 12, backgroundColor: '#E2E8F0' }}
+      resizeMode="cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export default function ChatScreen() {
   const router = useRouter();
   const { id, name } = useLocalSearchParams(); // user ID and Name
@@ -122,13 +142,14 @@ export default function ChatScreen() {
       }
     }
 
-    if (currentSessionId) {
-      console.log('Emitting end_interaction for session:', currentSessionId);
-      socket.emit('end_interaction', { sessionId: currentSessionId });
-    } else {
+    if (!currentSessionId) {
       console.warn('Could not find active session ID to end.');
+      Alert.alert('Unable to End Chat', 'Could not find the active session. Please check your connection and try again.');
+      return;
     }
-    
+
+    console.log('Emitting end_interaction for session:', currentSessionId);
+    socket.emit('end_interaction', { sessionId: currentSessionId });
     setSessionEnded(true);
   };
 
@@ -186,7 +207,7 @@ export default function ChatScreen() {
   const renderMessageContent = (text: string, isMine: boolean) => {
     if (text.startsWith('[IMAGE]')) {
       const url = text.replace('[IMAGE]', '');
-      return <Image source={{ uri: url }} style={{ width: 220, height: 220, borderRadius: 12, backgroundColor: '#E2E8F0' }} resizeMode="cover" />;
+      return <ChatImage url={url} />;
     }
     return <Text style={[styles.messageText, isMine ? styles.textProvider : styles.textUser]}>{text}</Text>;
   };

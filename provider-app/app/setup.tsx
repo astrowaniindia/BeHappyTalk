@@ -67,8 +67,8 @@ export default function SetupScreen() {
 
     setLoading(true);
     try {
+      const token = await AsyncStorage.getItem('providerToken');
       const payload = {
-        providerId,
         demographic,
         tagline,
         langs,
@@ -76,13 +76,14 @@ export default function SetupScreen() {
         priceCall: parseInt(priceCall, 10),
         priceVideo: parseInt(priceVideo, 10),
       };
-      const response = await axios.post(`${API_URL}/api/provider/update-profile`, payload);
-      
+      const response = await axios.post(`${API_URL}/api/provider/update-profile`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
       let newImage = null;
       if (profileImage) {
-        const token = await AsyncStorage.getItem('providerToken');
-        const imgRes = await axios.post(`${API_URL}/api/provider/upload-image`, 
-          { base64Image: profileImage }, 
+        const imgRes = await axios.post(`${API_URL}/api/provider/upload-image`,
+          { base64Image: profileImage },
           { headers: { Authorization: `Bearer ${token}` } }
         );
         newImage = imgRes.data.url;

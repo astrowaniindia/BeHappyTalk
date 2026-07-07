@@ -46,7 +46,7 @@ export default function WalletScreen() {
           const formattedTx = histRes.data.map((s: any) => ({
             id: s.id,
             type: s.type, // 'chat', 'audio', 'video'
-            amount: s.cost || 0,
+            amount: (s.cost || 0) / 2,
             date: new Date(s.startTime).toLocaleDateString() + ' ' + new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             status: 'completed',
           }));

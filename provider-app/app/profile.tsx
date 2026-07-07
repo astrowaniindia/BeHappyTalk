@@ -29,10 +29,19 @@ export default function ProfileScreen() {
   const [phone, setPhone] = useState('');
   const [bio, setBio] = useState('');
   const [specialty, setSpecialty] = useState('');
+  const [priceChat, setPriceChat] = useState('10');
+  const [priceCall, setPriceCall] = useState('20');
+  const [priceVideo, setPriceVideo] = useState('30');
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [profileImageError, setProfileImageError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const API_URL = 'https://provider.behappytalk.com';
+
+  useEffect(() => {
+    setProfileImageError(false);
+  }, [profileImage]);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -54,6 +63,9 @@ export default function ProfileScreen() {
         setPhone(data.phone || '');
         setBio(data.bio || data.tagline || 'Experienced consultant ready to help clients achieve their goals.');
         setSpecialty(data.specialty || data.demographic || 'General Consultation');
+        setPriceChat(String(data.priceChat ?? 10));
+        setPriceCall(String(data.priceCall ?? 20));
+        setPriceVideo(String(data.priceVideo ?? 30));
         setProfileImage(data.imagePath || null);
       }
     } catch (e) {
@@ -112,13 +124,28 @@ export default function ProfileScreen() {
   };
 
   const handleSave = async () => {
-    // In a real app, you would make an API call here to update the backend
-    Alert.alert('Success', 'Profile updated successfully!');
-    
-    // Update local storage
-    if (providerData) {
-      const updatedData = { ...providerData, name, bio, specialty };
-      await AsyncStorage.setItem('providerData', JSON.stringify(updatedData));
+    setSaving(true);
+    try {
+      const token = await AsyncStorage.getItem('providerToken');
+      await axios.post(`${API_URL}/api/provider/update-profile`, {
+        name,
+        bio,
+        demographic: specialty,
+        priceChat: Number(priceChat) || 0,
+        priceCall: Number(priceCall) || 0,
+        priceVideo: Number(priceVideo) || 0,
+      }, { headers: { Authorization: `Bearer ${token}` } });
+
+      if (providerData) {
+        const updatedData = { ...providerData, name, bio, specialty, demographic: specialty, priceChat, priceCall, priceVideo };
+        await AsyncStorage.setItem('providerData', JSON.stringify(updatedData));
+        setProviderData(updatedData);
+      }
+      Alert.alert('Success', 'Profile updated successfully!');
+    } catch (err) {
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -171,8 +198,12 @@ export default function ProfileScreen() {
           {/* Avatar Section */}
           <View style={styles.avatarSection}>
             <View style={styles.avatarContainer}>
-              {profileImage ? (
-                <Image source={{ uri: profileImage }} style={{ width: 100, height: 100, borderRadius: 50 }} />
+              {profileImage && !profileImageError ? (
+                <Image
+                  source={{ uri: profileImage }}
+                  style={{ width: 100, height: 100, borderRadius: 50 }}
+                  onError={() => setProfileImageError(true)}
+                />
               ) : (
                 <Text style={styles.avatarInitial}>{name.charAt(0).toUpperCase()}</Text>
               )}
@@ -244,22 +275,22 @@ export default function ProfileScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Chat Rate (₹)</Text>
-              <TextInput style={styles.input} placeholder="e.g. 15" keyboardType="numeric" defaultValue="15" />
+              <TextInput style={styles.input} placeholder="e.g. 15" keyboardType="numeric" value={priceChat} onChangeText={setPriceChat} />
             </View>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Audio Call Rate (₹)</Text>
-              <TextInput style={styles.input} placeholder="e.g. 20" keyboardType="numeric" defaultValue="25" />
+              <TextInput style={styles.input} placeholder="e.g. 20" keyboardType="numeric" value={priceCall} onChangeText={setPriceCall} />
             </View>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Video Call Rate (₹)</Text>
-              <TextInput style={styles.input} placeholder="e.g. 30" keyboardType="numeric" defaultValue="40" />
+              <TextInput style={styles.input} placeholder="e.g. 30" keyboardType="numeric" value={priceVideo} onChangeText={setPriceVideo} />
             </View>
           </View>
 
           {/* Action Buttons */}
           <View style={styles.actionSection}>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-              <Text style={styles.saveBtnText}>Save Changes</Text>
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+              <Text style={styles.saveBtnText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>

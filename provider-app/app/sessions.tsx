@@ -41,7 +41,7 @@ export default function SessionsScreen() {
             userName: s.userName || 'Unknown User',
             mediaType: s.type === 'video' ? 'Video Call' : s.type === 'audio' ? 'Audio Call' : 'Chat',
             duration: s.duration || 0,
-            earning: (s.rate * (s.duration || 0) * 0.5).toFixed(2),
+            earning: ((s.cost || 0) / 2).toFixed(2),
           }));
           setSessions(mapped);
         }

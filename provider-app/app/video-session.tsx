@@ -37,6 +37,7 @@ export default function VideoSessionScreen() {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
 
   // ── Refs (avoid stale closures) ────────────────────────────────────────
   const socketRef = useRef<any>(null);
@@ -78,6 +79,23 @@ export default function VideoSessionScreen() {
       socketRef.current.disconnect();
       socketRef.current = null;
     }
+  }, []);
+
+  // ── Mute / Camera flip ─────────────────────────────────────────────────
+  const toggleMute = useCallback(() => {
+    const stream = localStreamRef.current;
+    if (!stream) return;
+    const newMuted = !isMuted;
+    stream.getAudioTracks().forEach(track => { track.enabled = !newMuted; });
+    setIsMuted(newMuted);
+  }, [isMuted]);
+
+  const toggleCamera = useCallback(() => {
+    const stream = localStreamRef.current;
+    if (!stream) return;
+    stream.getVideoTracks().forEach((track: any) => {
+      if (typeof track._switchCamera === 'function') track._switchCamera();
+    });
   }, []);
 
   // ── End call (user-initiated) ──────────────────────────────────────────
@@ -321,8 +339,11 @@ export default function VideoSessionScreen() {
 
       {/* Bottom Controls */}
       <View style={styles.controls}>
-        <TouchableOpacity style={styles.controlBtn}>
-          <Ionicons name="mic-off" size={24} color="#FFF" />
+        <TouchableOpacity
+          style={[styles.controlBtn, isMuted && styles.controlBtnActive]}
+          onPress={toggleMute}
+        >
+          <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={24} color="#FFF" />
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.controlBtn, styles.endBtn]}
@@ -330,7 +351,7 @@ export default function VideoSessionScreen() {
         >
           <Ionicons name="call" size={32} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.controlBtn}>
+        <TouchableOpacity style={styles.controlBtn} onPress={toggleCamera}>
           <Ionicons name="camera-reverse" size={24} color="#FFF" />
         </TouchableOpacity>
       </View>
@@ -377,5 +398,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center', alignItems: 'center',
   },
+  controlBtnActive: { backgroundColor: '#1B76FF' },
   endBtn: { backgroundColor: '#EF4444', width: 64, height: 64, borderRadius: 32 },
 });
