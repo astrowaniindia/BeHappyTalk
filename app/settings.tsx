@@ -1,19 +1,52 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons, AntDesign } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useLanguage } from '../hooks/useLanguage';
-import { clearUser } from '../hooks/useAuth';
+import { useAuth, clearUser } from '../hooks/useAuth';
+import { API_URL, secureFetch } from '../constants/ServerConfig';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleLogout = async () => {
     setTimeout(async () => {
       await clearUser();
       router.replace('/login');
     }, 300);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account, wallet balance, and chat history. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete', style: 'destructive', onPress: async () => {
+            setIsDeleting(true);
+            try {
+              const res = await secureFetch(`${API_URL}/user/me`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${user?.token}` },
+              });
+              if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Failed to delete account.');
+              }
+              await clearUser();
+              router.replace('/login');
+            } catch (err: any) {
+              setIsDeleting(false);
+              Alert.alert('Error', err.message || 'Something went wrong. Please try again.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -29,10 +62,10 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.sectionTitle}>{t('account') || 'Account'}</Text>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity style={styles.menuItem} onPress={handleDeleteAccount} disabled={isDeleting}>
           <MaterialCommunityIcons name="trash-can-outline" size={24} color="#EF4444" />
           <Text style={[styles.menuItemText, { color: '#EF4444' }]}>{t('deleteAccount') || 'Delete Account'}</Text>
-          <MaterialIcons name="keyboard-arrow-right" size={24} color="rgba(255,255,255,0.30)" />
+          {isDeleting ? <ActivityIndicator size="small" color="#EF4444" /> : <MaterialIcons name="keyboard-arrow-right" size={24} color="rgba(255,255,255,0.30)" />}
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>

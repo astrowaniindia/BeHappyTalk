@@ -8,6 +8,7 @@ const cors = require('cors');
 const { Server } = require('socket.io');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
 const db = require('./db');
 const admin = require('firebase-admin');
 
@@ -54,6 +55,52 @@ if (!firebaseInitialized) {
 // â”€â”€â”€ Provider State Tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const providerStates = {};
 const pendingRequests = {}; // userId -> { providerId, userName, type, rate, duration }
+
+// â”€â”€â”€ OTP store (in-memory) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const otpStore = {}; // phone -> { otp, expiresAt }
+const OTP_TTL_MS = 5 * 60 * 1000;
+
+function generateOtp() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// â”€â”€â”€ EnableX SMS (OTP delivery) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Uses the "OTP Atrowani" EnableX project's BeHappyTalk-branded campaign,
+// template, and sender ID (BHPYTK) — not the Astrowani ones under the same project.
+const ENABLEX_APP_ID = process.env.ENABLEX_APP_ID;
+const ENABLEX_APP_KEY = process.env.ENABLEX_APP_KEY;
+const ENABLEX_CAMPAIGN_ID = process.env.ENABLEX_CAMPAIGN_ID;
+const ENABLEX_TEMPLATE_ID = process.env.ENABLEX_TEMPLATE_ID;
+const ENABLEX_SENDER_ID = process.env.ENABLEX_SENDER_ID;
+const enablexConfigured = !!(ENABLEX_APP_ID && ENABLEX_APP_KEY && ENABLEX_CAMPAIGN_ID && ENABLEX_TEMPLATE_ID);
+
+if (!enablexConfigured) {
+  console.log('âš ï¸ EnableX not configured â€” OTPs will be echoed in the API response instead of sent via SMS.');
+}
+
+// Sends the OTP via EnableX SMS. Returns true if the SMS was handed off successfully.
+// If EnableX isn't configured or the send fails, the caller falls back to echoing
+// the OTP in the API response so local dev/testing keeps working without real SMS.
+async function sendSmsOtp(phone, otp) {
+  if (!enablexConfigured) return false;
+  try {
+    await axios.post('https://api.enablex.io/sms/v1/messages/', {
+      from: ENABLEX_SENDER_ID,
+      to: [`+91${phone}`],
+      data: { var1: otp },
+      type: 'sms',
+      campaign_id: ENABLEX_CAMPAIGN_ID,
+      template_id: ENABLEX_TEMPLATE_ID,
+      data_coding: 'plain',
+    }, {
+      auth: { username: ENABLEX_APP_ID, password: ENABLEX_APP_KEY },
+    });
+    return true;
+  } catch (e) {
+    console.error('[EnableX] SMS send failed:', e.response?.data || e.message);
+    return false;
+  }
+}
 
 // â”€â”€â”€ App setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_local_dev_only';
@@ -148,6 +195,82 @@ app.post('/api/login', async (req, res) => {
   res.json(safeData);
 });
 
+// â”€â”€â”€ OTP-based login / signup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+app.post('/api/otp/send', async (req, res) => {
+  const { phone } = req.body;
+  const cleanPhone = (phone || '').replace('+91', '').replace(/\D/g, '');
+  if (cleanPhone.length !== 10) return res.status(400).json({ error: 'Enter a valid 10-digit mobile number.' });
+
+  const otp = generateOtp();
+  otpStore[cleanPhone] = { otp, expiresAt: Date.now() + OTP_TTL_MS };
+  const sent = await sendSmsOtp(cleanPhone, otp);
+  console.log(`[OTP] ${cleanPhone} -> ${otp} (expires in 5 min)${sent ? ' [sent via EnableX]' : ' [SMS not sent]'}`);
+
+  // `otp` is only echoed back when SMS delivery isn't configured or failed,
+  // so local dev/testing still works without a real SMS provider.
+  res.json({ success: true, otp: sent ? undefined : otp });
+});
+
+app.post('/api/otp/verify', async (req, res) => {
+  const { phone, otp } = req.body;
+  const cleanPhone = (phone || '').replace('+91', '').replace(/\D/g, '');
+  const entry = otpStore[cleanPhone];
+
+  if (!entry || entry.expiresAt < Date.now()) return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
+  if (entry.otp !== otp) return res.status(400).json({ error: 'Incorrect OTP. Please try again.' });
+
+  const { data: row, error } = await db.from('users').select('*').eq('phone', cleanPhone).maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+
+  if (!row) {
+    // New number — keep the OTP entry alive so /api/otp/signup can finish the flow.
+    return res.json({ isNewUser: true, phone: cleanPhone });
+  }
+
+  delete otpStore[cleanPhone];
+  const token = jwt.sign({ id: row.id, phone: row.phone }, JWT_SECRET, { expiresIn: '30d' });
+  const { password: _, ...safeData } = row;
+  safeData.token = token;
+  res.json({ isNewUser: false, ...safeData });
+});
+
+app.post('/api/otp/signup', async (req, res) => {
+  const { phone, otp, name } = req.body;
+  const cleanPhone = (phone || '').replace('+91', '').replace(/\D/g, '');
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Please enter your name.' });
+
+  const entry = otpStore[cleanPhone];
+  if (!entry || entry.expiresAt < Date.now()) return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
+  if (entry.otp !== otp) return res.status(400).json({ error: 'Incorrect OTP. Please try again.' });
+
+  const { data: existing } = await db.from('users').select('id').eq('phone', cleanPhone).maybeSingle();
+  if (existing) return res.status(400).json({ error: 'Phone already registered. Please log in.' });
+
+  try {
+    // `users.password` is NOT NULL in the schema; OTP accounts never use it, so store a random hash.
+    const randomPassword = await bcrypt.hash(cleanPhone + Date.now() + Math.random(), 10);
+    const newId = 'u' + Date.now();
+
+    const { error } = await db.from('users').insert({
+      id: newId, name: name.trim(), phone: cleanPhone, password: randomPassword, walletBalance: 20
+    });
+    if (error) throw error;
+
+    const sysId = `sys_${newId}`;
+    const today = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    await db.from('inbox').upsert({
+      id: sysId, userId: newId, providerId: 'p1', date: today, type: 'chat', status: 'online',
+      message: 'Hello! Welcome to BeHappyTalk. How can I help you today?', icon: 'circle', iconColor: '#34D399', isSystem: true
+    });
+
+    delete otpStore[cleanPhone];
+    const token = jwt.sign({ id: newId, phone: cleanPhone }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ id: newId, phone: cleanPhone, name: name.trim(), walletBalance: 20, token });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/provider/signup', async (req, res) => {
   const { phone, password, name } = req.body;
   if (!phone || !password || !name) return res.status(400).json({ error: 'Name, phone, and password required.' });
@@ -178,6 +301,78 @@ app.post('/api/provider/login', async (req, res) => {
   const { password: _, ...safeData } = row;
   safeData.token = token;
   res.json(safeData);
+});
+
+// ─── OTP-based provider login / signup ─────────────────────────────────────
+app.post('/api/provider/otp/send', async (req, res) => {
+  const { phone } = req.body;
+  const cleanPhone = (phone || '').replace('+91', '').replace(/\D/g, '');
+  if (cleanPhone.length !== 10) return res.status(400).json({ error: 'Enter a valid 10-digit mobile number.' });
+
+  const otp = generateOtp();
+  otpStore[cleanPhone] = { otp, expiresAt: Date.now() + OTP_TTL_MS };
+  const sent = await sendSmsOtp(cleanPhone, otp);
+  console.log(`[Provider OTP] ${cleanPhone} -> ${otp} (expires in 5 min)${sent ? ' [sent via EnableX]' : ' [SMS not sent]'}`);
+
+  // `otp` is only echoed back when SMS delivery isn't configured or failed,
+  // so local dev/testing still works without a real SMS provider.
+  res.json({ success: true, otp: sent ? undefined : otp });
+});
+
+app.post('/api/provider/otp/verify', async (req, res) => {
+  const { phone, otp } = req.body;
+  const cleanPhone = (phone || '').replace('+91', '').replace(/\D/g, '');
+  const entry = otpStore[cleanPhone];
+
+  if (!entry || entry.expiresAt < Date.now()) return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
+  if (entry.otp !== otp) return res.status(400).json({ error: 'Incorrect OTP. Please try again.' });
+
+  const { data: row, error } = await db.from('providers').select('*').eq('phone', cleanPhone).maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+
+  if (!row) {
+    // New number — keep the OTP entry alive so /api/provider/otp/signup can finish the flow.
+    return res.json({ isNewUser: true, phone: cleanPhone });
+  }
+
+  delete otpStore[cleanPhone];
+  const token = jwt.sign({ id: row.id, phone: row.phone, role: 'provider' }, JWT_SECRET, { expiresIn: '30d' });
+  const { password: _, ...safeData } = row;
+  safeData.token = token;
+  res.json({ isNewUser: false, ...safeData });
+});
+
+app.post('/api/provider/otp/signup', async (req, res) => {
+  const { phone, otp, name } = req.body;
+  const cleanPhone = (phone || '').replace('+91', '').replace(/\D/g, '');
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Please enter your name.' });
+
+  const entry = otpStore[cleanPhone];
+  if (!entry || entry.expiresAt < Date.now()) return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
+  if (entry.otp !== otp) return res.status(400).json({ error: 'Incorrect OTP. Please try again.' });
+
+  const { data: existing } = await db.from('providers').select('id').eq('phone', cleanPhone).maybeSingle();
+  if (existing) return res.status(400).json({ error: 'Phone already registered. Please log in.' });
+
+  try {
+    // `providers.password` is NOT NULL in the schema; OTP accounts never use it, so store a random hash.
+    const randomPassword = await bcrypt.hash(cleanPhone + Date.now() + Math.random(), 10);
+    const id = 'p_' + Date.now();
+
+    const { data, error } = await db.from('providers').insert([{
+      id, name: name.trim(), phone: cleanPhone, password: randomPassword,
+      status: 'offline', verified: false, priceChat: 10, priceCall: 20, priceVideo: 30
+    }]).select('*').single();
+    if (error) throw error;
+
+    delete otpStore[cleanPhone];
+    const token = jwt.sign({ id: data.id, phone: data.phone, role: 'provider' }, JWT_SECRET, { expiresIn: '30d' });
+    const { password: _, ...safeData } = data;
+    safeData.token = token;
+    res.json(safeData);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/provider/firebase-login', async (req, res) => {
@@ -430,6 +625,33 @@ app.post('/api/user/update-profile', authenticateToken, async (req, res) => {
 
     await db.from('users').update(updates).eq('id', req.user.id);
     res.json({ success: true, ...updates });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/user/me', authenticateToken, async (req, res) => {
+  if (req.user.role === 'provider') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { error } = await db.from('users').delete().eq('id', req.user.id);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Requires a `provider_ratings` table — see server/supabase_schema.sql for the CREATE TABLE statement.
+app.post('/api/providers/:id/rating', authenticateToken, async (req, res) => {
+  const { stars } = req.body;
+  if (!Number.isInteger(stars) || stars < 1 || stars > 5) return res.status(400).json({ error: 'stars must be an integer between 1 and 5.' });
+
+  try {
+    const { error } = await db.from('provider_ratings').insert({
+      providerId: req.params.id, userId: req.user.id, stars
+    });
+    if (error) throw error;
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar, TouchableOpacity, ScrollView, Animated, ActivityIndicator, Dimensions, RefreshControl, TextInput } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar, TouchableOpacity, ScrollView, Animated, ActivityIndicator, Dimensions, RefreshControl, TextInput, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -183,7 +183,7 @@ export default function Wallet() {
                    </View>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.paymentButton}>
+                <TouchableOpacity style={styles.paymentButton} onPress={() => Alert.alert('Coming Soon', 'More UPI apps will be available soon. You can continue with the default payment option for now.')}>
                    <View style={styles.paymentRowLeft}>
                       <View style={styles.upiIconBox}>
                         <FontAwesome5 name="google-pay" size={16} color="rgba(255, 255, 255, 0.92)" />

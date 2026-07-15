@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialCommunityIcons, MaterialIcons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { API_URL, SOCKET_URL, secureFetch } from '../../constants/ServerConfig';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth, clearUser } from '../../hooks/useAuth';
 import io from 'socket.io-client';
 
 const { width, height } = Dimensions.get('window');
@@ -246,7 +246,7 @@ export default function ProviderProfile() {
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <MaterialCommunityIcons name="briefcase-clock" size={22} color="#FACC15" />
-              <Text style={styles.statValue}>{provider.exp || '3+'} Yrs</Text>
+              <Text style={styles.statValue}>{provider.exp || '3+'} Hrs</Text>
               <Text style={styles.statLabel}>Experience</Text>
             </View>
             <View style={styles.statDivider} />
@@ -378,7 +378,7 @@ export default function ProviderProfile() {
           <View style={[styles.modalContent, { alignItems: 'center' }]}>
             <View style={styles.bottomSheetHandle} />
             <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
-               <MaterialCommunityIcons name="wallet-remove" size={32} color="#EF4444" />
+               <MaterialCommunityIcons name="cash-remove" size={32} color="#EF4444" />
             </View>
             <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFF', marginBottom: 8, textAlign: 'center' }}>Insufficient Balance</Text>
             <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginBottom: 24, lineHeight: 22 }}>

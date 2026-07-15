@@ -221,6 +221,7 @@ export default function DedicatedAudioCallScreen() {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
+      socketInitialized.current = false;
     };
   }, [userId, providerId]);
 

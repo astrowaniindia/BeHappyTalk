@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Image, Linking } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ActivityIndicator, Image, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
 
 // SaaS Theme Colors matching the web portal
 const Colors = {
@@ -23,17 +21,36 @@ const Colors = {
 // Use the live production backend that the main app uses
 const API_URL = 'https://provider.behappytalk.com';
 
+type Step = 'phone' | 'otp' | 'name';
+type Status = 'idle' | 'loading' | 'error';
+
+const RESEND_SECONDS = 30;
+
 export default function LoginScreen() {
   const router = useRouter();
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  const [step, setStep] = useState<Step>('phone');
+  const [status, setStatus] = useState<Status>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const [phone, setPhone] = useState('');
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
+  const [name, setName] = useState('');
+  const [devOtp, setDevOtp] = useState('');
+  const [resendIn, setResendIn] = useState(0);
+
+  const otpInputs = useRef<Array<TextInput | null>>([]);
 
   useEffect(() => {
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setInterval(() => setResendIn(s => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [resendIn]);
 
   const checkAuth = async () => {
     try {
@@ -50,6 +67,135 @@ export default function LoginScreen() {
     }
   };
 
+  const otp = otpDigits.join('');
+
+  const routeAfterAuth = (data: any) => {
+    if (data.verified === false) { router.replace('/setup'); } else { router.replace('/dashboard'); }
+  };
+
+  const sendOtp = async () => {
+    if (phone.length !== 10) {
+      setErrorMsg('Enter a valid 10-digit mobile number.');
+      return;
+    }
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const res = await fetch(`${API_URL}/api/provider/otp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus('error');
+        setErrorMsg(data.error || 'Something went wrong. Try again.');
+        return;
+      }
+      setDevOtp(data.otp || '');
+      setOtpDigits(['', '', '', '', '', '']);
+      setStep('otp');
+      setResendIn(RESEND_SECONDS);
+      setStatus('idle');
+      setTimeout(() => otpInputs.current[0]?.focus(), 300);
+    } catch {
+      setStatus('error');
+      setErrorMsg('Network error — make sure the server is running.');
+    }
+  };
+
+  const verifyOtp = async (code: string) => {
+    if (code.length !== 6) {
+      setErrorMsg('Enter the 6-digit code.');
+      return;
+    }
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const res = await fetch(`${API_URL}/api/provider/otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, otp: code }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus('error');
+        setErrorMsg(data.error || 'Incorrect OTP. Please try again.');
+        return;
+      }
+      if (data.isNewUser) {
+        setStatus('idle');
+        setStep('name');
+        return;
+      }
+      await AsyncStorage.setItem('providerToken', data.token);
+      await AsyncStorage.setItem('providerData', JSON.stringify(data));
+      setStatus('idle');
+      routeAfterAuth(data);
+    } catch {
+      setStatus('error');
+      setErrorMsg('Network error — make sure the server is running.');
+    }
+  };
+
+  const completeSignup = async () => {
+    if (name.trim().length < 2) {
+      setErrorMsg('Please enter your full name.');
+      return;
+    }
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const res = await fetch(`${API_URL}/api/provider/otp/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, otp, name: name.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus('error');
+        setErrorMsg(data.error || 'Something went wrong. Try again.');
+        return;
+      }
+      await AsyncStorage.setItem('providerToken', data.token);
+      await AsyncStorage.setItem('providerData', JSON.stringify(data));
+      setStatus('idle');
+      routeAfterAuth(data);
+    } catch {
+      setStatus('error');
+      setErrorMsg('Network error — make sure the server is running.');
+    }
+  };
+
+  const handleOtpChange = (text: string, idx: number) => {
+    const digit = text.replace(/\D/g, '').slice(-1);
+    const next = [...otpDigits];
+    next[idx] = digit;
+    setOtpDigits(next);
+    setErrorMsg('');
+
+    if (digit && idx < 5) {
+      otpInputs.current[idx + 1]?.focus();
+    }
+    const joined = next.join('');
+    if (joined.length === 6) {
+      verifyOtp(joined);
+    }
+  };
+
+  const handleOtpKeyPress = (e: any, idx: number) => {
+    if (e.nativeEvent.key === 'Backspace' && !otpDigits[idx] && idx > 0) {
+      otpInputs.current[idx - 1]?.focus();
+    }
+  };
+
+  const goBackToPhone = () => {
+    setStep('phone');
+    setOtpDigits(['', '', '', '', '', '']);
+    setDevOtp('');
+    setErrorMsg('');
+  };
+
   if (isCheckingAuth) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg }}>
@@ -58,118 +204,157 @@ export default function LoginScreen() {
     );
   }
 
-
-  const handleLogin = async () => {
-    if (!phone || !password) {
-      Alert.alert('Error', 'Please enter both phone and password.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      console.log('Attempting login to:', `${API_URL}/api/provider/login`);
-      const response = await fetch(`${API_URL}/api/provider/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ phone, password })
-      });
-      
-      const data = await response.json();
-      console.log('Login Response:', data);
-
-      if (response.ok && data.token) {
-        await AsyncStorage.setItem('providerToken', data.token);
-        await AsyncStorage.setItem('providerData', JSON.stringify(data));
-        
-        // Success! Go to dashboard
-        if (data.verified === false) { router.replace('/setup'); } else { router.replace('/dashboard'); }
-      } else {
-        Alert.alert('Login Failed', data.error || 'Invalid credentials');
-      }
-    } catch (error) {
-      console.error('Login error details:', error);
-      Alert.alert('Login Failed', 'Failed to log in. Please check your network connection.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const isLoading = status === 'loading';
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <View style={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.loginBox}>
-            {/* Header Section */}
             <View style={styles.header}>
               <View style={{ marginBottom: 20, alignItems: 'center', justifyContent: 'center' }}>
-                <Image 
-                  source={require('../assets/icon.png')} 
-                  style={{ width: 80, height: 80, resizeMode: 'contain', borderRadius: 20 }} 
+                <Image
+                  source={require('../assets/icon.png')}
+                  style={{ width: 80, height: 80, resizeMode: 'contain', borderRadius: 20 }}
                 />
               </View>
-              <Text style={styles.title}>BeHappyTalk Provider Login</Text>
-              <Text style={styles.subtitle}>Manage your professional creator studio</Text>
+              <Text style={styles.title}>BeHappyTalk Provider</Text>
+              <Text style={styles.subtitle}>
+                {step === 'phone' && "Manage your professional creator studio"}
+                {step === 'otp' && `Enter the 6-digit code sent to +91 ${phone}`}
+                {step === 'name' && "You're new here — what should we call you?"}
+              </Text>
             </View>
 
-            {/* Form Section */}
             <View style={styles.formContainer}>
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>PHONE NUMBER</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. 1111111111"
-                  placeholderTextColor={Colors.textDim}
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  autoCapitalize="none"
-                />
-              </View>
+              {step === 'phone' && (
+                <>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>PHONE NUMBER</Text>
+                    <View style={styles.phoneRow}>
+                      <View style={styles.countryCode}>
+                        <Text style={styles.countryCodeText}>+91</Text>
+                      </View>
+                      <TextInput
+                        style={[styles.input, { flex: 1 }]}
+                        placeholder="10-digit number"
+                        placeholderTextColor={Colors.textDim}
+                        value={phone}
+                        onChangeText={t => { setPhone(t.replace(/\D/g, '').slice(0, 10)); setErrorMsg(''); }}
+                        keyboardType="phone-pad"
+                        maxLength={10}
+                        autoFocus
+                      />
+                    </View>
+                  </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>PASSWORD</Text>
-                <View style={styles.passwordRow}>
-                  <TextInput
-                    style={styles.passwordInput}
-                    placeholder="Enter your secret key"
-                    placeholderTextColor={Colors.textDim}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                    <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color={Colors.textDim} />
+                  {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+
+                  <TouchableOpacity
+                    style={[styles.loginButton, isLoading && { opacity: 0.7 }]}
+                    onPress={sendOtp}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Text style={styles.loginButtonText}>Send OTP</Text>
+                    )}
                   </TouchableOpacity>
-                </View>
-              </View>
 
-              <TouchableOpacity 
-                style={[styles.loginButton, loading && { opacity: 0.7 }]} 
-                onPress={handleLogin}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.loginButtonText}>Secure Login</Text>
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity onPress={() => router.push('/signup')}>
-                <Text style={styles.authToggle}>
-                  Don't have an account? Join as a Provider
-                </Text>
-              </TouchableOpacity>
+                  <Text style={styles.helperText}>
+                    We'll send a one-time code to log in or join as a provider — no password needed.
+                  </Text>
+                </>
+              )}
+
+              {step === 'otp' && (
+                <>
+                  <TouchableOpacity onPress={goBackToPhone} style={styles.backRow}>
+                    <Text style={styles.backRowText}>← Change Number</Text>
+                  </TouchableOpacity>
+
+                  {!!devOtp && (
+                    <View style={styles.devBanner}>
+                      <Text style={styles.devBannerText}>Dev mode — no SMS sent yet. Your code: {devOtp}</Text>
+                    </View>
+                  )}
+
+                  <View style={styles.otpRow}>
+                    {otpDigits.map((d, idx) => (
+                      <TextInput
+                        key={idx}
+                        ref={r => { otpInputs.current[idx] = r; }}
+                        style={styles.otpBox}
+                        value={d}
+                        onChangeText={t => handleOtpChange(t, idx)}
+                        onKeyPress={e => handleOtpKeyPress(e, idx)}
+                        keyboardType="number-pad"
+                        maxLength={1}
+                        selectionColor={Colors.primary}
+                      />
+                    ))}
+                  </View>
+
+                  {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+
+                  <TouchableOpacity
+                    style={[styles.loginButton, isLoading && { opacity: 0.7 }]}
+                    onPress={() => verifyOtp(otp)}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Text style={styles.loginButtonText}>Verify & Continue</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={sendOtp} disabled={resendIn > 0 || isLoading} style={styles.resendRow}>
+                    <Text style={[styles.resendText, resendIn > 0 && { opacity: 0.4 }]}>
+                      {resendIn > 0 ? `Resend OTP in ${resendIn}s` : 'Resend OTP'}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {step === 'name' && (
+                <>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.label}>FULL NAME</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. Priya Sharma"
+                      placeholderTextColor={Colors.textDim}
+                      value={name}
+                      onChangeText={t => { setName(t); setErrorMsg(''); }}
+                      autoCapitalize="words"
+                      autoFocus
+                    />
+                  </View>
+
+                  {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+
+                  <TouchableOpacity
+                    style={[styles.loginButton, isLoading && { opacity: 0.7 }]}
+                    onPress={completeSignup}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="#ffffff" />
+                    ) : (
+                      <Text style={styles.loginButtonText}>Create Provider Account</Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -184,7 +369,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     padding: 24,
     justifyContent: 'center',
     alignItems: 'center',
@@ -206,15 +391,6 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 40,
-  },
-  logoPlaceholder: {
-    width: 80,
-    height: 80,
-    backgroundColor: 'rgba(23, 115, 252, 0.1)',
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
   },
   title: {
     fontSize: 26,
@@ -252,27 +428,43 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.text,
   },
-  passwordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  phoneRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  countryCode: {
     backgroundColor: Colors.bgDarker,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 12,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    height: 52,
   },
-  passwordInput: {
-    flex: 1,
-    padding: 16,
-    fontSize: 15,
-    color: Colors.text,
+  countryCodeText: { color: Colors.text, fontSize: 15, fontWeight: '600' },
+
+  backRow: { marginBottom: 16 },
+  backRowText: { color: Colors.primary, fontSize: 14, fontWeight: '600' },
+
+  otpRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  otpBox: {
+    width: 46, height: 54, borderRadius: 12, backgroundColor: Colors.bgDarker,
+    borderWidth: 1, borderColor: Colors.border, color: Colors.text,
+    fontSize: 22, fontWeight: '700', textAlign: 'center'
   },
-  eyeBtn: {
-    padding: 16,
-  },
+
+  devBanner: { backgroundColor: 'rgba(23, 115, 252, 0.08)', borderWidth: 1, borderColor: 'rgba(23, 115, 252, 0.25)', borderRadius: 10, padding: 10, marginBottom: 16 },
+  devBannerText: { color: Colors.primary, fontSize: 12, fontWeight: '600', textAlign: 'center' },
+
+  resendRow: { alignItems: 'center', marginTop: 4 },
+  resendText: { color: Colors.primary, fontSize: 13, fontWeight: '700' },
+
+  errorText: { color: Colors.danger, fontSize: 13, marginBottom: 16, textAlign: 'center', lineHeight: 18 },
+
+  helperText: { color: Colors.textDim, fontSize: 12, textAlign: 'center', marginTop: 16, lineHeight: 18 },
+
   loginButton: {
     backgroundColor: Colors.primary,
+    height: 52,
     borderRadius: 12,
-    padding: 16,
+    justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
   },
@@ -280,13 +472,5 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  authToggle: {
-    marginTop: 24,
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.primary,
-    textAlign: 'center',
-    textDecorationLine: 'underline',
   },
 });

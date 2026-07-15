@@ -1,11 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Platform, StatusBar as RNStatusBar, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 
 export default function Offers() {
   const router = useRouter();
   const [coupon, setCoupon] = useState('');
+
+  const handleApply = () => {
+    if (!coupon.trim()) {
+      Alert.alert('Enter a Code', 'Please enter a coupon code first.');
+      return;
+    }
+    Alert.alert('Invalid Code', 'This coupon code is invalid or expired.');
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -26,7 +34,7 @@ export default function Offers() {
             value={coupon}
             onChangeText={setCoupon}
           />
-          <TouchableOpacity style={styles.applyButton}>
+          <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
             <Text style={styles.applyButtonText}>APPLY</Text>
           </TouchableOpacity>
         </View>

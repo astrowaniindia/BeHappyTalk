@@ -30,7 +30,13 @@ const translations = {
     talkNow: 'TALK NOW',
     noMessages: 'No messages yet.\nStart chatting with a listener!',
     myProfile: 'My Profile',
-    changeLanguage: 'Switch to Hindi (हिंदी)'
+    changeLanguage: 'Switch to Hindi (हिंदी)',
+    terms: 'Terms & Conditions',
+    privacy: 'Privacy Policy',
+    safety: 'Safety Policy',
+    legal: 'Legal',
+    account: 'Account',
+    callSummary: 'Call Summary'
   },
   hi: {
     communicate: 'संपर्क करें',
@@ -46,7 +52,13 @@ const translations = {
     talkNow: 'अभी बात करें',
     noMessages: 'अभी तक कोई संदेश नहीं।\nकिसी श्रोता से बात करना शुरू करें!',
     myProfile: 'मेरी प्रोफाइल',
-    changeLanguage: 'Switch to English'
+    changeLanguage: 'Switch to English',
+    terms: 'नियम एवं शर्तें',
+    privacy: 'गोपनीयता नीति',
+    safety: 'सुरक्षा नीति',
+    legal: 'कानूनी',
+    account: 'खाता',
+    callSummary: 'कॉल सारांश'
   }
 };
 

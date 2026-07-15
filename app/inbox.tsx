@@ -49,7 +49,7 @@ export default function InboxScreen() {
           <Image source={item.image} style={styles.inboxAvatar} />
         ) : (
           <View style={styles.inboxAvatarPlaceholder}>
-            <MaterialIcons name="person" size={32} color="#000000" />
+            <MaterialIcons name="person" size={32} color="rgba(255,255,255,0.5)" />
           </View>
         )}
         {!item.isSystem && (

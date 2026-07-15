@@ -16,7 +16,7 @@ export default function Search() {
   useEffect(() => {
     fetchProviders();
 
-    const socket = io(SOCKET_URL);
+    const socket = io(SOCKET_URL, { transports: ['websocket'] });
     socket.on('provider_status_changed', ({ providerId, state }) => {
       setProviders(prev => prev.map(p => {
         if (p.id === providerId) {
@@ -36,7 +36,7 @@ export default function Search() {
       const providerList = data.providers || data;
       const formattedProviders = providerList.map(p => ({
         ...p,
-        image: p.imagePath ? { uri: p.imagePath } : require('../assets/images/placeholder.png'),
+        image: p.imagePath ? { uri: p.imagePath } : require('../assets/images/girl_smiling_1775250936696.png'),
         exp: p.experience || p.exp || 0,
         langs: p.language || p.langs || 'English'
       }));

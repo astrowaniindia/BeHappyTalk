@@ -90,7 +90,7 @@ export default function ReferScreen() {
           <Text style={styles.whatsappText}>Refer Via Whatsapp</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.haveCodeBtn}>
+        <TouchableOpacity style={styles.haveCodeBtn} onPress={() => Alert.alert('Coming Soon', 'Redeeming another user\'s referral code will be available soon.')}>
           <Text style={styles.haveCodeText}>Have a referral code?</Text>
         </TouchableOpacity>
 

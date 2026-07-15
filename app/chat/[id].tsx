@@ -138,6 +138,7 @@ export default function ChatScreen() {
       .catch(console.error);
 
     // 4. Setup socket
+    let activeTimeouts: any[] = [];
     socketRef.current = io(SOCKET_URL, {
       transports: ['websocket'],
       reconnection: true,
@@ -153,7 +154,7 @@ export default function ChatScreen() {
     socketRef.current.on('receive_message', (newMsg: any) => {
       if (newMsg.senderId === providerId) {
         setIsTyping(true);
-        setTimeout(() => {
+        activeTimeouts.push(setTimeout(() => {
           setIsTyping(false);
           setMessages(prev => {
             if (prev.find(m => m.id === newMsg.id.toString())) return prev;
@@ -167,8 +168,8 @@ export default function ChatScreen() {
               },
             ];
           });
-          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
-        }, 600);
+          activeTimeouts.push(setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80));
+        }, 600));
       } else {
         setMessages(prev => {
           if (prev.find(m => m.id === newMsg.id.toString())) return prev;
@@ -183,7 +184,7 @@ export default function ChatScreen() {
           ];
         });
         setIsSending(false);
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+        activeTimeouts.push(setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80));
       }
     });
 
@@ -206,6 +207,7 @@ export default function ChatScreen() {
 
     return () => {
       backHandler.remove();
+      activeTimeouts.forEach(clearTimeout);
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;

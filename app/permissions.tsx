@@ -43,18 +43,6 @@ export default function Permissions() {
       icon: 'video',
       title: 'Camera',
       subtitle: 'so that you can Video Call'
-    },
-    {
-      id: 'phone',
-      icon: 'phone',
-      title: 'Phone',
-      subtitle: 'so that you can receive Call'
-    },
-    {
-      id: 'notification',
-      icon: 'bell',
-      title: 'Notification',
-      subtitle: 'so that you can receive Chat'
     }
   ];
 

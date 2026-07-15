@@ -13,6 +13,7 @@ import { useLanguage } from '../hooks/useLanguage';
 import { API_URL, SOCKET_URL, secureFetch } from '../constants/ServerConfig';
 import io from 'socket.io-client';
 import * as ImagePicker from 'expo-image-picker';
+import Constants from 'expo-constants';
 
 const { width } = Dimensions.get('window');
 
@@ -395,9 +396,9 @@ export default function Home() {
           </View>
           <Text style={styles.providerDemo}>{item.demographic}</Text>
           <Text style={styles.providerRating}>
-            {item.rating}{' '}
+            {item.rating || '5.0'}{' '}
             <MaterialIcons name="star" size={12} color="rgba(255,255,255,0.45)" />{' '}
-            <Text style={styles.reviewsText}>({item.reviews})</Text>
+            <Text style={styles.reviewsText}>({item.reviews || '0'})</Text>
           </Text>
         </View>
       </View>
@@ -406,13 +407,13 @@ export default function Home() {
 
       <View style={styles.providerFooter}>
         <View style={styles.providerStats}>
-          <Text style={styles.providerStatText}>Exp: {item.exp} hrs</Text>
-          <Text style={styles.providerStatText}>{item.langs}</Text>
+          <Text style={styles.providerStatText}>Exp: {item.exp || '3+'} hrs</Text>
+          <Text style={styles.providerStatText}>{item.langs || 'English'}</Text>
         </View>
         {item.status === 'busy' ? (
           <View style={styles.busyAction}>
-            <Text style={styles.waitTime}>Wait ~ {item.waitTime}</Text>
-            <TouchableOpacity style={styles.bellButton}>
+            <Text style={styles.waitTime}>Wait ~ {item.waitTime || '5 min'}</Text>
+            <TouchableOpacity style={styles.bellButton} onPress={() => handleTalkNow(item)}>
               <MaterialCommunityIcons name="bell" size={24} color="#FBBF24" />
             </TouchableOpacity>
           </View>
@@ -536,8 +537,8 @@ export default function Home() {
                   <Image source={user.profileImage.startsWith('avatar_') ? PREDEFINED_AVATARS.find(a => a.id === user.profileImage)?.source : { uri: user.profileImage }} style={{ width: 80, height: 80, borderRadius: 40 }} />
                 ) : (
                   <>
-                    <MaterialIcons name="person" size={50} color="#000000" />
-                    <View style={{ position: 'absolute', bottom: -5, right: -5, backgroundColor: '#FACC15', borderRadius: 12, padding: 4, borderWidth: 2, borderColor: '#000000' }}>
+                    <MaterialIcons name="person" size={50} color="rgba(255,255,255,0.5)" />
+                    <View style={{ position: 'absolute', bottom: -5, right: -5, width: 26, height: 26, borderRadius: 13, backgroundColor: '#FACC15', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#000000' }}>
                       <MaterialIcons name="add-a-photo" size={14} color="#000000" />
                     </View>
                   </>
@@ -573,7 +574,7 @@ export default function Home() {
 
               <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/history'); }}>
                 <MaterialCommunityIcons name="history" size={24} color="rgba(255,255,255,0.70)" />
-                <Text style={styles.drawerMenuText}>{t('usage') || 'Call Summary'}</Text>
+                <Text style={styles.drawerMenuText}>{t('callSummary')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.drawerMenuItem} onPress={() => { toggleDrawer(); router.push('/support'); }}>
@@ -625,7 +626,7 @@ export default function Home() {
             </View>
 
             <View style={styles.drawerFooter}>
-              <Text style={styles.versionText}>App v341: 3.44.0</Text>
+              <Text style={styles.versionText}>App v{Constants.expoConfig?.version ?? '1.0.2'} ({Constants.expoConfig?.android?.versionCode ?? Constants.nativeBuildVersion ?? '—'})</Text>
             </View>
             </ScrollView>
           </Animated.View>
@@ -829,7 +830,7 @@ export default function Home() {
           <View style={[styles.bottomSheetContent, { alignItems: 'center' }]}>
             <View style={styles.bottomSheetHandle} />
             <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(239, 68, 68, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
-               <MaterialCommunityIcons name="wallet-remove" size={32} color="#EF4444" />
+               <MaterialCommunityIcons name="cash-remove" size={32} color="#EF4444" />
             </View>
             <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#FFF', marginBottom: 8, textAlign: 'center' }}>Insufficient Balance</Text>
             <Text style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginBottom: 24, lineHeight: 22 }}>
@@ -1038,7 +1039,7 @@ const styles = StyleSheet.create({
   recStatusDot: { position: 'absolute', bottom: 0, right: 0, width: 14, height: 14, borderRadius: 7, backgroundColor: '#34D399', borderWidth: 2, borderColor: '#0A0A0A' },
   recName: { color: 'rgba(255,255,255,0.92)', fontSize: 13, fontWeight: 'bold' },
   recDemo: { color: 'rgba(255,255,255,0.35)', fontSize: 11, marginBottom: 12, marginTop: 2, textAlign: 'center' },
-  recTalkBtn: { borderWidth: 1, borderColor: '#FACC15', borderRadius: 6, paddingVertical: 6, width: '100%', alignItems: 'center' },
+  recTalkBtn: { borderWidth: 1, borderColor: '#FACC15', borderRadius: 8, paddingVertical: 6, width: '100%', alignItems: 'center' },
   recTalkText: { color: '#FACC15', fontSize: 11, fontWeight: 'bold' },
 
   interactionOption: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E2028', padding: 16, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },

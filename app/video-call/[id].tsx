@@ -41,6 +41,7 @@ export default function VideoCallScreen() {
   const [wallet, setWallet] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [callDuration, setCallDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
 
   // ── Refs ────────────────────────────────────────────────────────────────
   const socketRef = useRef<any>(null);
@@ -52,6 +53,7 @@ export default function VideoCallScreen() {
   const cleanedUp = useRef(false);
   const disconnectTimer = useRef<any>(null);
   const socketInitialized = useRef(false);
+  const startCallTimer = useRef<any>(null);
 
   const userId = user?.id;
   const roomId = `chat_${userId}_${providerId}`;
@@ -73,6 +75,10 @@ export default function VideoCallScreen() {
       clearTimeout(disconnectTimer.current);
       disconnectTimer.current = null;
     }
+    if (startCallTimer.current) {
+      clearTimeout(startCallTimer.current);
+      startCallTimer.current = null;
+    }
     if (pcRef.current) {
       pcRef.current.close();
       pcRef.current = null;
@@ -93,6 +99,16 @@ export default function VideoCallScreen() {
     }
   }, []);
 
+  // ── Local media controls ───────────────────────────────────────────────
+  const toggleMute = useCallback(() => {
+    localStreamRef.current?.getAudioTracks().forEach(t => { t.enabled = !t.enabled; });
+    setIsMuted(m => !m);
+  }, []);
+
+  const flipCamera = useCallback(() => {
+    localStreamRef.current?.getVideoTracks().forEach((t: any) => { t._switchCamera?.(); });
+  }, []);
+
   // ── End session ────────────────────────────────────────────────────────
   const endSession = useCallback(() => {
     console.log('[VideoCall] endSession');
@@ -105,7 +121,7 @@ export default function VideoCallScreen() {
 
   // ── Start call (CALLER side) ───────────────────────────────────────────
   const startCall = useCallback(async () => {
-    if (callStarted.current) return;
+    if (callStarted.current || cleanedUp.current) return;
     callStarted.current = true;
     console.log('[VideoCall] startCall');
 
@@ -311,7 +327,7 @@ export default function VideoCallScreen() {
 
       // Give the provider time to navigate to their session screen and join the room
       if (!callStarted.current) {
-        setTimeout(() => startCall(), 2000);
+        startCallTimer.current = setTimeout(() => startCall(), 2000);
       }
     });
 
@@ -336,6 +352,7 @@ export default function VideoCallScreen() {
     return () => {
       bh.remove();
       cleanup();
+      socketInitialized.current = false;
     };
   }, [userId, providerId]);
 
@@ -382,13 +399,13 @@ export default function VideoCallScreen() {
 
         {/* Bottom Controls */}
         <View style={st.controls}>
-          <TouchableOpacity style={st.controlBtn}>
-            <Ionicons name="mic-off" size={24} color="#FFF" />
+          <TouchableOpacity style={[st.controlBtn, isMuted && st.controlBtnActive]} onPress={toggleMute}>
+            <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={24} color="#FFF" />
           </TouchableOpacity>
           <TouchableOpacity style={[st.controlBtn, st.endBtn]} onPress={endSession}>
             <Ionicons name="call" size={32} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
           </TouchableOpacity>
-          <TouchableOpacity style={st.controlBtn}>
+          <TouchableOpacity style={st.controlBtn} onPress={flipCamera}>
             <Ionicons name="camera-reverse" size={24} color="#FFF" />
           </TouchableOpacity>
         </View>
@@ -451,6 +468,7 @@ const st = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center', alignItems: 'center',
   },
+  controlBtnActive: { backgroundColor: '#EF4444' },
   endBtn: { backgroundColor: '#EF4444', width: 64, height: 64, borderRadius: 32 },
   overlay: {
     ...StyleSheet.absoluteFillObject,

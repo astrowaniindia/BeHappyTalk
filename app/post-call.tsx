@@ -5,10 +5,12 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, secureFetch } from '../constants/ServerConfig';
+import { useAuth } from '../hooks/useAuth';
 
 export default function PostCallScreen() {
   const router = useRouter();
   const { providerId, duration, type, reason } = useLocalSearchParams();
+  const { user } = useAuth();
   const [provider, setProvider] = useState<any>(null);
   const [rating, setRating] = useState(0);
   const [hasRatedBefore, setHasRatedBefore] = useState(true);
@@ -37,6 +39,16 @@ export default function PostCallScreen() {
         await AsyncStorage.setItem('rated_providers', JSON.stringify(ratedArr));
       }
     } catch (e) {}
+
+    try {
+      await secureFetch(`${API_URL}/providers/${providerId}/rating`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` },
+        body: JSON.stringify({ stars: star }),
+      });
+    } catch (e) {
+      console.error('Failed to submit rating:', e);
+    }
   };
 
   useEffect(() => {

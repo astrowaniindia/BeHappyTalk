@@ -11,8 +11,6 @@ import { API_URL, secureFetch } from '../constants/ServerConfig';
 
 const { width } = Dimensions.get('window');
 
-
-
 const slides = [
   {
     title: 'Judgement Free Zone!',
@@ -31,24 +29,26 @@ const slides = [
   },
 ];
 
-type Mode = 'login' | 'signup';
+type Step = 'phone' | 'otp' | 'name';
 type Status = 'idle' | 'loading' | 'error';
+
+const RESEND_SECONDS = 30;
 
 export default function Login() {
   const router = useRouter();
   const [slide, setSlide] = useState(0);
-  const [mode, setMode] = useState<Mode>('login');
+  const [step, setStep] = useState<Step>('phone');
   const [status, setStatus] = useState<Status>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
-  // Form fields
   const [phone, setPhone] = useState('');
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
   const [name, setName] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [devOtp, setDevOtp] = useState('');
+  const [resendIn, setResendIn] = useState(0);
+
+  const otpInputs = useRef<Array<TextInput | null>>([]);
 
   // Carousel auto-cycle
   useEffect(() => {
@@ -62,51 +62,70 @@ export default function Login() {
     return () => clearInterval(t);
   }, []);
 
-  const switchMode = (m: Mode) => {
-    setMode(m);
-    setErrorMsg('');
-    setPassword('');
-    setConfirmPassword('');
-    setName('');
-  };
+  // Resend cooldown ticker
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setInterval(() => setResendIn(s => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [resendIn]);
 
-  const validate = (): string | null => {
-    if (phone.length < 10) return 'Enter a valid 10-digit mobile number.';
-    if (mode === 'signup' && name.trim().length < 2) return 'Please enter your full name.';
-    if (password.length < 4) return 'Password must be at least 4 characters.';
-    if (mode === 'signup' && password !== confirmPassword)
-      return 'Passwords do not match.';
-    return null;
-  };
+  const otp = otpDigits.join('');
 
-  const handleSubmit = async () => {
-    const err = validate();
-    if (err) { setErrorMsg(err); return; }
-
+  const sendOtp = async () => {
+    if (phone.length !== 10) {
+      setErrorMsg('Enter a valid 10-digit mobile number.');
+      return;
+    }
     setStatus('loading');
     setErrorMsg('');
-
-    const endpoint = mode === 'signup' ? 'register' : 'login';
-    const body: any = { phone: '+91' + phone, password };
-    if (mode === 'signup') body.name = name.trim();
-
     try {
-      const res = await secureFetch(`${API_URL}/${endpoint}`, {
+      const res = await secureFetch(`${API_URL}/otp/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ phone }),
       });
       const data = await res.json();
-
       if (!res.ok) {
         setStatus('error');
-        if (res.status === 400) setErrorMsg('Phone number already registered. Please log in.');
-        else if (res.status === 404) setErrorMsg('Account not found. Please sign up first.');
-        else if (res.status === 401) setErrorMsg('Incorrect password. Please try again.');
-        else setErrorMsg(data.error || 'Something went wrong. Try again.');
+        setErrorMsg(data.error || 'Something went wrong. Try again.');
         return;
       }
+      setDevOtp(data.otp || '');
+      setOtpDigits(['', '', '', '', '', '']);
+      setStep('otp');
+      setResendIn(RESEND_SECONDS);
+      setStatus('idle');
+      setTimeout(() => otpInputs.current[0]?.focus(), 300);
+    } catch {
+      setStatus('error');
+      setErrorMsg('Network error — make sure the server is running.');
+    }
+  };
 
+  const verifyOtp = async (code: string) => {
+    if (code.length !== 6) {
+      setErrorMsg('Enter the 6-digit code.');
+      return;
+    }
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const res = await secureFetch(`${API_URL}/otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, otp: code }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus('error');
+        setErrorMsg(data.error || 'Incorrect OTP. Please try again.');
+        return;
+      }
+      if (data.isNewUser) {
+        setStatus('idle');
+        setStep('name');
+        return;
+      }
       await saveUser({ id: data.id, name: data.name, phone: data.phone, token: data.token });
       setStatus('idle');
       router.replace('/home');
@@ -114,6 +133,63 @@ export default function Login() {
       setStatus('error');
       setErrorMsg('Network error — make sure the server is running.');
     }
+  };
+
+  const completeSignup = async () => {
+    if (name.trim().length < 2) {
+      setErrorMsg('Please enter your full name.');
+      return;
+    }
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const res = await secureFetch(`${API_URL}/otp/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, otp, name: name.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus('error');
+        setErrorMsg(data.error || 'Something went wrong. Try again.');
+        return;
+      }
+      await saveUser({ id: data.id, name: data.name, phone: data.phone, token: data.token });
+      setStatus('idle');
+      router.replace('/home');
+    } catch {
+      setStatus('error');
+      setErrorMsg('Network error — make sure the server is running.');
+    }
+  };
+
+  const handleOtpChange = (text: string, idx: number) => {
+    const digit = text.replace(/\D/g, '').slice(-1);
+    const next = [...otpDigits];
+    next[idx] = digit;
+    setOtpDigits(next);
+    setErrorMsg('');
+
+    if (digit && idx < 5) {
+      otpInputs.current[idx + 1]?.focus();
+    }
+    const joined = next.join('');
+    if (joined.length === 6) {
+      verifyOtp(joined);
+    }
+  };
+
+  const handleOtpKeyPress = (e: any, idx: number) => {
+    if (e.nativeEvent.key === 'Backspace' && !otpDigits[idx] && idx > 0) {
+      otpInputs.current[idx - 1]?.focus();
+    }
+  };
+
+  const goBackToPhone = () => {
+    setStep('phone');
+    setOtpDigits(['', '', '', '', '', '']);
+    setDevOtp('');
+    setErrorMsg('');
   };
 
   const cur = slides[slide];
@@ -145,128 +221,141 @@ export default function Login() {
 
       {/* Bottom Sheet */}
       <View style={styles.bottomSheet}>
-        {/* Tab Switcher */}
-        <View style={styles.tabRow}>
-          <TouchableOpacity
-            style={[styles.tab, mode === 'login' && styles.activeTab]}
-            onPress={() => switchMode('login')}
-          >
-            <Text style={[styles.tabText, mode === 'login' && styles.activeTabText]}>Log In</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, mode === 'signup' && styles.activeTab]}
-            onPress={() => switchMode('signup')}
-          >
-            <Text style={[styles.tabText, mode === 'signup' && styles.activeTabText]}>Sign Up</Text>
-          </TouchableOpacity>
-        </View>
-
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          {/* Name — signup only */}
-          {mode === 'signup' && (
-            <View style={styles.fieldWrapper}>
-              <Text style={styles.fieldLabel}>Your Name</Text>
-              <TextInput
-                style={styles.fieldInput}
-                placeholder="e.g. Ansh Sharma"
-                placeholderTextColor="rgba(255,255,255,0.25)"
-                value={name}
-                onChangeText={setName}
-                autoCapitalize="words"
-                selectionColor="#FACC15"
-              />
-            </View>
-          )}
+          {step === 'phone' && (
+            <>
+              <Text style={styles.stepTitle}>Enter Your Number</Text>
+              <Text style={styles.stepSubtitle}>We'll send you a one-time code to log in or sign up.</Text>
 
-          {/* Phone */}
-          <View style={styles.fieldWrapper}>
-            <Text style={styles.fieldLabel}>Mobile Number</Text>
-            <View style={styles.phoneRow}>
-              <View style={styles.countryCode}>
-                <Text style={styles.countryCodeText}>+91</Text>
+              <View style={styles.fieldWrapper}>
+                <Text style={styles.fieldLabel}>Mobile Number</Text>
+                <View style={styles.phoneRow}>
+                  <View style={styles.countryCode}>
+                    <Text style={styles.countryCodeText}>+91</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.fieldInput, { flex: 1 }]}
+                    placeholder="10-digit number"
+                    placeholderTextColor="rgba(255,255,255,0.25)"
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                    value={phone}
+                    onChangeText={t => { setPhone(t.replace(/\D/g, '')); setErrorMsg(''); }}
+                    selectionColor="#FACC15"
+                    autoFocus
+                  />
+                </View>
               </View>
-              <TextInput
-                style={[styles.fieldInput, { flex: 1 }]}
-                placeholder="10-digit number"
-                placeholderTextColor="rgba(255,255,255,0.25)"
-                keyboardType="phone-pad"
-                maxLength={10}
-                value={phone}
-                onChangeText={setPhone}
-                selectionColor="#FACC15"
-              />
-            </View>
-          </View>
 
-          {/* Password */}
-          <View style={styles.fieldWrapper}>
-            <Text style={styles.fieldLabel}>{mode === 'signup' ? 'Create Password' : 'Password'}</Text>
-            <View style={styles.passRow}>
-              <TextInput
-                style={[styles.fieldInput, { flex: 1 }]}
-                placeholder="Min 4 characters"
-                placeholderTextColor="rgba(255,255,255,0.25)"
-                secureTextEntry={!showPass}
-                value={password}
-                onChangeText={setPassword}
-                selectionColor="#FACC15"
-              />
-              <TouchableOpacity onPress={() => setShowPass(p => !p)} style={styles.eyeBtn}>
-                <Text style={styles.eyeText}>{showPass ? '🙈' : '👁️'}</Text>
+              {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : <View style={{ height: 16 }} />}
+
+              <TouchableOpacity
+                style={[styles.submitBtn, isLoading && styles.submitBtnDisabled]}
+                onPress={sendOtp}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#000000" />
+                ) : (
+                  <Text style={styles.submitBtnText}>Send OTP</Text>
+                )}
               </TouchableOpacity>
-            </View>
-          </View>
 
-          {/* Confirm Password — signup only */}
-          {mode === 'signup' && (
-            <View style={styles.fieldWrapper}>
-              <Text style={styles.fieldLabel}>Confirm Password</Text>
-              <View style={styles.passRow}>
-                <TextInput
-                  style={[styles.fieldInput, { flex: 1 }]}
-                  placeholder="Re-enter password"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
-                  secureTextEntry={!showConfirm}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  selectionColor="#FACC15"
-                />
-                <TouchableOpacity onPress={() => setShowConfirm(p => !p)} style={styles.eyeBtn}>
-                  <Text style={styles.eyeText}>{showConfirm ? '🙈' : '👁️'}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* Error */}
-          {errorMsg ? (
-            <Text style={styles.errorText}>{errorMsg}</Text>
-          ) : (
-            <View style={{ height: 16 }} />
-          )}
-
-          {/* Submit Button */}
-          <TouchableOpacity
-            style={[styles.submitBtn, isLoading && styles.submitBtnDisabled]}
-            onPress={handleSubmit}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#000000" />
-            ) : (
-              <Text style={styles.submitBtnText}>
-                {mode === 'login' ? 'Log In Securely' : 'Create Account'}
+              <Text style={styles.termsText}>
+                By continuing, you agree to our{' '}
+                <Text style={styles.termsLink}>Terms & Conditions</Text> and{' '}
+                <Text style={styles.termsLink}>Privacy Policy</Text>
               </Text>
-            )}
-          </TouchableOpacity>
+            </>
+          )}
 
-          {mode === 'signup' && (
-            <Text style={styles.termsText}>
-              By signing up, you agree to our{' '}
-              <Text style={styles.termsLink}>Terms & Conditions</Text> and{' '}
-              <Text style={styles.termsLink}>Privacy Policy</Text>
-            </Text>
+          {step === 'otp' && (
+            <>
+              <TouchableOpacity onPress={goBackToPhone} style={styles.backRow}>
+                <Text style={styles.backRowText}>← Change Number</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.stepTitle}>Verify Your Number</Text>
+              <Text style={styles.stepSubtitle}>Enter the 6-digit code sent to +91 {phone}</Text>
+
+              {!!devOtp && (
+                <View style={styles.devBanner}>
+                  <Text style={styles.devBannerText}>Dev mode — no SMS sent yet. Your code: {devOtp}</Text>
+                </View>
+              )}
+
+              <View style={styles.otpRow}>
+                {otpDigits.map((d, idx) => (
+                  <TextInput
+                    key={idx}
+                    ref={r => { otpInputs.current[idx] = r; }}
+                    style={styles.otpBox}
+                    value={d}
+                    onChangeText={t => handleOtpChange(t, idx)}
+                    onKeyPress={e => handleOtpKeyPress(e, idx)}
+                    keyboardType="number-pad"
+                    maxLength={1}
+                    selectionColor="#FACC15"
+                  />
+                ))}
+              </View>
+
+              {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : <View style={{ height: 16 }} />}
+
+              <TouchableOpacity
+                style={[styles.submitBtn, isLoading && styles.submitBtnDisabled]}
+                onPress={() => verifyOtp(otp)}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#000000" />
+                ) : (
+                  <Text style={styles.submitBtnText}>Verify & Continue</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={sendOtp} disabled={resendIn > 0 || isLoading} style={styles.resendRow}>
+                <Text style={[styles.resendText, resendIn > 0 && { opacity: 0.4 }]}>
+                  {resendIn > 0 ? `Resend OTP in ${resendIn}s` : 'Resend OTP'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {step === 'name' && (
+            <>
+              <Text style={styles.stepTitle}>Welcome!</Text>
+              <Text style={styles.stepSubtitle}>You're new here — what should we call you?</Text>
+
+              <View style={styles.fieldWrapper}>
+                <Text style={styles.fieldLabel}>Your Name</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  placeholder="e.g. Ansh Sharma"
+                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  value={name}
+                  onChangeText={t => { setName(t); setErrorMsg(''); }}
+                  autoCapitalize="words"
+                  selectionColor="#FACC15"
+                  autoFocus
+                />
+              </View>
+
+              {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : <View style={{ height: 16 }} />}
+
+              <TouchableOpacity
+                style={[styles.submitBtn, isLoading && styles.submitBtnDisabled]}
+                onPress={completeSignup}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#000000" />
+                ) : (
+                  <Text style={styles.submitBtnText}>Create Account</Text>
+                )}
+              </TouchableOpacity>
+            </>
           )}
         </ScrollView>
       </View>
@@ -290,18 +379,15 @@ const styles = StyleSheet.create({
   bottomSheet: {
     backgroundColor: '#0A0A0A',
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 24, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    paddingHorizontal: 24, paddingTop: 24, paddingBottom: Platform.OS === 'ios' ? 36 : 24,
     maxHeight: '62%',
   },
 
-  tabRow: {
-    flexDirection: 'row', backgroundColor: '#111111',
-    borderRadius: 12, padding: 4, marginBottom: 24
-  },
-  tab: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center' },
-  activeTab: { backgroundColor: '#FACC15' },
-  tabText: { color: 'rgba(255,255,255,0.45)', fontWeight: '600', fontSize: 14 },
-  activeTabText: { color: '#000000', fontWeight: '700' },
+  stepTitle: { color: 'rgba(255,255,255,0.92)', fontSize: 22, fontWeight: '800', marginBottom: 6 },
+  stepSubtitle: { color: 'rgba(255,255,255,0.45)', fontSize: 14, marginBottom: 24, lineHeight: 20 },
+
+  backRow: { marginBottom: 16 },
+  backRowText: { color: '#FACC15', fontSize: 14, fontWeight: '600' },
 
   fieldWrapper: { marginBottom: 16 },
   fieldLabel: { color: 'rgba(255,255,255,0.45)', fontSize: 12, marginBottom: 6, marginLeft: 2, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -317,9 +403,19 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)'
   },
   countryCodeText: { color: 'rgba(255,255,255,0.92)', fontSize: 15, fontWeight: '600' },
-  passRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  eyeBtn: { width: 42, height: 50, justifyContent: 'center', alignItems: 'center' },
-  eyeText: { fontSize: 18 },
+
+  otpRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  otpBox: {
+    width: 46, height: 54, borderRadius: 10, backgroundColor: '#111111',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', color: '#fff',
+    fontSize: 22, fontWeight: '700', textAlign: 'center'
+  },
+
+  devBanner: { backgroundColor: 'rgba(250, 204, 21, 0.1)', borderWidth: 1, borderColor: 'rgba(250, 204, 21, 0.3)', borderRadius: 10, padding: 10, marginBottom: 16 },
+  devBannerText: { color: '#FACC15', fontSize: 12, fontWeight: '600', textAlign: 'center' },
+
+  resendRow: { alignItems: 'center', marginTop: 4, marginBottom: 8 },
+  resendText: { color: '#FACC15', fontSize: 13, fontWeight: '700' },
 
   errorText: { color: '#EF4444', fontSize: 13, marginBottom: 12, textAlign: 'center', lineHeight: 18 },
 
