@@ -54,7 +54,7 @@ export default function Home() {
             We understand, and you're not alone. Try BeHappyTalk, a completely anonymous platform for mental wellbeing. Connect with a mental wellbeing coach and relationship coach securely via chat, voice, or video.
           </p>
           <div className="hero-actions" id="download">
-            <a href="https://play.google.com/store/apps/details?id=com.behappytalk" target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.1rem' }}>
+            <a href="https://play.google.com/store/apps/details?id=com.behappytalk.app" target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.1rem' }}>
               <svg viewBox="0 0 512 512" width="24" height="24" fill="currentColor">
                 <path d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1zM47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0zm425.2 225.6l-58.9-34.1-65.7 64.5 65.7 64.5 60.1-34.1c18-14.3 18-46.5-1.2-60.8zM104.6 499l280.8-161.2-60.1-60.1L104.6 499z" />
               </svg>
