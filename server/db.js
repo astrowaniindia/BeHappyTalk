@@ -1,4 +1,11 @@
 require('dotenv').config();
+if (typeof global.WebSocket === 'undefined') {
+  try {
+    global.WebSocket = require('ws');
+  } catch (e) {
+    console.warn('ws package not installed. Supabase Realtime might not work on Node < 22.');
+  }
+}
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcryptjs');
 

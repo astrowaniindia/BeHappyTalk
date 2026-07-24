@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ActivityIndicator, Dimensions,
   ScrollView, Animated
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { saveUser } from '../hooks/useAuth';
@@ -29,7 +30,8 @@ const slides = [
   },
 ];
 
-type Step = 'phone' | 'otp' | 'name';
+type Step = 'phone' | 'otp';
+type Mode = 'otp' | 'password';
 type Status = 'idle' | 'loading' | 'error';
 
 const RESEND_SECONDS = 30;
@@ -38,13 +40,15 @@ export default function Login() {
   const router = useRouter();
   const [slide, setSlide] = useState(0);
   const [step, setStep] = useState<Step>('phone');
+  const [mode, setMode] = useState<Mode>('otp');
   const [status, setStatus] = useState<Status>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
-  const [name, setName] = useState('');
   const [devOtp, setDevOtp] = useState('');
   const [resendIn, setResendIn] = useState(0);
 
@@ -123,10 +127,10 @@ export default function Login() {
       }
       if (data.isNewUser) {
         setStatus('idle');
-        setStep('name');
+        router.replace({ pathname: '/signup', params: { phone } });
         return;
       }
-      await saveUser({ id: data.id, name: data.name, phone: data.phone, token: data.token });
+      await saveUser({ id: data.id, name: data.name, phone: data.phone, email: data.email, token: data.token });
       setStatus('idle');
       router.replace('/home');
     } catch {
@@ -135,26 +139,30 @@ export default function Login() {
     }
   };
 
-  const completeSignup = async () => {
-    if (name.trim().length < 2) {
-      setErrorMsg('Please enter your full name.');
+  const loginWithPassword = async () => {
+    if (phone.length !== 10) {
+      setErrorMsg('Enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (!password) {
+      setErrorMsg('Enter your password.');
       return;
     }
     setStatus('loading');
     setErrorMsg('');
     try {
-      const res = await secureFetch(`${API_URL}/otp/signup`, {
+      const res = await secureFetch(`${API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp, name: name.trim() }),
+        body: JSON.stringify({ phone, password }),
       });
       const data = await res.json();
       if (!res.ok) {
         setStatus('error');
-        setErrorMsg(data.error || 'Something went wrong. Try again.');
+        setErrorMsg(data.error || 'Incorrect phone or password.');
         return;
       }
-      await saveUser({ id: data.id, name: data.name, phone: data.phone, token: data.token });
+      await saveUser({ id: data.id, name: data.name, phone: data.phone, email: data.email, token: data.token });
       setStatus('idle');
       router.replace('/home');
     } catch {
@@ -192,6 +200,12 @@ export default function Login() {
     setErrorMsg('');
   };
 
+  const switchMode = (m: Mode) => {
+    setMode(m);
+    setPassword('');
+    setErrorMsg('');
+  };
+
   const cur = slides[slide];
   const isLoading = status === 'loading';
 
@@ -225,8 +239,10 @@ export default function Login() {
 
           {step === 'phone' && (
             <>
-              <Text style={styles.stepTitle}>Enter Your Number</Text>
-              <Text style={styles.stepSubtitle}>We'll send you a one-time code to log in or sign up.</Text>
+              <Text style={styles.stepTitle}>Welcome Back</Text>
+              <Text style={styles.stepSubtitle}>
+                {mode === 'otp' ? "We'll send you a one-time code to log in." : 'Log in with your phone and password.'}
+              </Text>
 
               <View style={styles.fieldWrapper}>
                 <Text style={styles.fieldLabel}>Mobile Number</Text>
@@ -248,18 +264,48 @@ export default function Login() {
                 </View>
               </View>
 
+              {mode === 'password' && (
+                <View style={styles.fieldWrapper}>
+                  <Text style={styles.fieldLabel}>Password</Text>
+                  <View style={styles.passwordRow}>
+                    <TextInput
+                      style={[styles.fieldInput, { flex: 1 }]}
+                      placeholder="Your password"
+                      placeholderTextColor="rgba(255,255,255,0.25)"
+                      secureTextEntry={!showPassword}
+                      value={password}
+                      onChangeText={t => { setPassword(t); setErrorMsg(''); }}
+                      selectionColor="#FACC15"
+                    />
+                    <TouchableOpacity onPress={() => setShowPassword(s => !s)} style={styles.eyeBtn}>
+                      <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color="rgba(255,255,255,0.45)" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
               {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : <View style={{ height: 16 }} />}
 
               <TouchableOpacity
                 style={[styles.submitBtn, isLoading && styles.submitBtnDisabled]}
-                onPress={sendOtp}
+                onPress={mode === 'otp' ? sendOtp : loginWithPassword}
                 disabled={isLoading}
               >
                 {isLoading ? (
                   <ActivityIndicator color="#000000" />
                 ) : (
-                  <Text style={styles.submitBtnText}>Send OTP</Text>
+                  <Text style={styles.submitBtnText}>{mode === 'otp' ? 'Send OTP' : 'Log In'}</Text>
                 )}
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => switchMode(mode === 'otp' ? 'password' : 'otp')} style={styles.switchModeRow}>
+                <Text style={styles.switchModeText}>
+                  {mode === 'otp' ? 'Login with password instead' : 'Login with OTP instead'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => router.push('/signup')} style={styles.switchModeRow}>
+                <Text style={styles.switchModeText}>New here? <Text style={styles.termsLink}>Create an account</Text></Text>
               </TouchableOpacity>
 
               <Text style={styles.termsText}>
@@ -322,41 +368,6 @@ export default function Login() {
               </TouchableOpacity>
             </>
           )}
-
-          {step === 'name' && (
-            <>
-              <Text style={styles.stepTitle}>Welcome!</Text>
-              <Text style={styles.stepSubtitle}>You're new here — what should we call you?</Text>
-
-              <View style={styles.fieldWrapper}>
-                <Text style={styles.fieldLabel}>Your Name</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  placeholder="e.g. Ansh Sharma"
-                  placeholderTextColor="rgba(255,255,255,0.25)"
-                  value={name}
-                  onChangeText={t => { setName(t); setErrorMsg(''); }}
-                  autoCapitalize="words"
-                  selectionColor="#FACC15"
-                  autoFocus
-                />
-              </View>
-
-              {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : <View style={{ height: 16 }} />}
-
-              <TouchableOpacity
-                style={[styles.submitBtn, isLoading && styles.submitBtnDisabled]}
-                onPress={completeSignup}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#000000" />
-                ) : (
-                  <Text style={styles.submitBtnText}>Create Account</Text>
-                )}
-              </TouchableOpacity>
-            </>
-          )}
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
@@ -380,7 +391,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A0A0A',
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
     paddingHorizontal: 24, paddingTop: 24, paddingBottom: Platform.OS === 'ios' ? 36 : 24,
-    maxHeight: '62%',
+    maxHeight: '68%',
   },
 
   stepTitle: { color: 'rgba(255,255,255,0.92)', fontSize: 22, fontWeight: '800', marginBottom: 6 },
@@ -404,6 +415,12 @@ const styles = StyleSheet.create({
   },
   countryCodeText: { color: 'rgba(255,255,255,0.92)', fontSize: 15, fontWeight: '600' },
 
+  passwordRow: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#111111',
+    borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)'
+  },
+  eyeBtn: { paddingHorizontal: 12 },
+
   otpRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   otpBox: {
     width: 46, height: 54, borderRadius: 10, backgroundColor: '#111111',
@@ -416,6 +433,9 @@ const styles = StyleSheet.create({
 
   resendRow: { alignItems: 'center', marginTop: 4, marginBottom: 8 },
   resendText: { color: '#FACC15', fontSize: 13, fontWeight: '700' },
+
+  switchModeRow: { alignItems: 'center', marginBottom: 12 },
+  switchModeText: { color: 'rgba(255,255,255,0.45)', fontSize: 13, fontWeight: '600' },
 
   errorText: { color: '#EF4444', fontSize: 13, marginBottom: 12, textAlign: 'center', lineHeight: 18 },
 

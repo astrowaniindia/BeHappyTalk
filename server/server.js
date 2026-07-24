@@ -235,9 +235,10 @@ app.post('/api/otp/verify', async (req, res) => {
 });
 
 app.post('/api/otp/signup', async (req, res) => {
-  const { phone, otp, name } = req.body;
+  const { phone, otp, name, email, password } = req.body;
   const cleanPhone = (phone || '').replace('+91', '').replace(/\D/g, '');
   if (!name || !name.trim()) return res.status(400).json({ error: 'Please enter your name.' });
+  if (!password || password.length < 4) return res.status(400).json({ error: 'Password must be at least 4 characters.' });
 
   const entry = otpStore[cleanPhone];
   if (!entry || entry.expiresAt < Date.now()) return res.status(400).json({ error: 'OTP expired. Please request a new one.' });
@@ -247,12 +248,11 @@ app.post('/api/otp/signup', async (req, res) => {
   if (existing) return res.status(400).json({ error: 'Phone already registered. Please log in.' });
 
   try {
-    // `users.password` is NOT NULL in the schema; OTP accounts never use it, so store a random hash.
-    const randomPassword = await bcrypt.hash(cleanPhone + Date.now() + Math.random(), 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
     const newId = 'u' + Date.now();
 
     const { error } = await db.from('users').insert({
-      id: newId, name: name.trim(), phone: cleanPhone, password: randomPassword, walletBalance: 20
+      id: newId, name: name.trim(), phone: cleanPhone, password: hashedPassword, email: email ? email.trim() : null, walletBalance: 20
     });
     if (error) throw error;
 
@@ -265,7 +265,7 @@ app.post('/api/otp/signup', async (req, res) => {
 
     delete otpStore[cleanPhone];
     const token = jwt.sign({ id: newId, phone: cleanPhone }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ id: newId, phone: cleanPhone, name: name.trim(), walletBalance: 20, token });
+    res.json({ id: newId, phone: cleanPhone, name: name.trim(), email: email ? email.trim() : null, walletBalance: 20, token });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

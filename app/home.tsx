@@ -38,6 +38,12 @@ export default function Home() {
   const { t, toggleLanguage, language } = useLanguage();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const drawerScrollRef = useRef<ScrollView>(null);
+  const drawerScrollY = useRef(0);
+  const scrollDrawer = (direction: 'up' | 'down') => {
+    const next = Math.max(0, drawerScrollY.current + (direction === 'down' ? 250 : -250));
+    drawerScrollRef.current?.scrollTo({ y: next, animated: true });
+  };
   const [showAnonModal, setShowAnonModal] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [showEditNameModal, setShowEditNameModal] = useState(false);
@@ -520,7 +526,14 @@ export default function Home() {
             <View style={StyleSheet.absoluteFillObject} />
           </TouchableWithoutFeedback>
           <Animated.View style={[styles.drawerContent, { transform: [{ translateX: slideAnim }] }]}>
-            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}>
+            <ScrollView
+              ref={drawerScrollRef}
+              style={{ flex: 1 }}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}
+              onScroll={e => { drawerScrollY.current = e.nativeEvent.contentOffset.y; }}
+              scrollEventThrottle={16}
+            >
             {/* Profile */}
             <View style={styles.drawerProfileSection}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, paddingHorizontal: 10 }}>
@@ -625,10 +638,26 @@ export default function Home() {
               </TouchableOpacity>
             </View>
 
+            <View style={styles.drawerListSection}>
+              <TouchableOpacity style={styles.drawerMenuItem} onPress={handleLogout}>
+                <MaterialIcons name="logout" size={24} color="#EF4444" />
+                <Text style={[styles.drawerMenuText, { color: '#EF4444' }]}>{t('logout') || 'Logout'}</Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.drawerFooter}>
               <Text style={styles.versionText}>App v{Constants.expoConfig?.version ?? '1.0.2'} ({Constants.expoConfig?.android?.versionCode ?? Constants.nativeBuildVersion ?? '—'})</Text>
             </View>
             </ScrollView>
+
+            <View style={styles.drawerScrollArrows}>
+              <TouchableOpacity style={styles.drawerScrollArrowBtn} onPress={() => scrollDrawer('up')}>
+                <MaterialIcons name="keyboard-arrow-up" size={22} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.drawerScrollArrowBtn} onPress={() => scrollDrawer('down')}>
+                <MaterialIcons name="keyboard-arrow-down" size={22} color="#fff" />
+              </TouchableOpacity>
+            </View>
           </Animated.View>
         </View>
       </Modal>
@@ -1006,6 +1035,11 @@ const styles = StyleSheet.create({
 
   drawerOverlay: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.6)' },
   drawerContent: { width: '75%', backgroundColor: '#000000', height: '100%', elevation: 8 },
+  drawerScrollArrows: { position: 'absolute', right: 10, top: '45%', gap: 10 },
+  drawerScrollArrowBtn: {
+    width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center'
+  },
   drawerProfileSection: { padding: 24, paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) + 20 : 60, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
   largeAvatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   drawerName: { color: 'rgba(255,255,255,0.92)', fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
@@ -1017,7 +1051,7 @@ const styles = StyleSheet.create({
   subMenu: { marginLeft: 40, marginTop: 8 },
   subMenuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   subMenuText: { color: 'rgba(255,255,255,0.45)', fontSize: 14 },
-  drawerFooter: { flex: 1, justifyContent: 'flex-end', padding: 24, paddingBottom: 40 },
+  drawerFooter: { padding: 24, paddingBottom: 40 },
   versionText: { color: 'rgba(255,255,255,0.15)', fontSize: 13, textAlign: 'center' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },

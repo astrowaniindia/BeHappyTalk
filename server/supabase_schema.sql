@@ -150,3 +150,7 @@ CREATE TABLE provider_ratings (
     stars INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- 10. Users email column (pending — required by the signup form's email field in POST /api/otp/signup)
+-- Run this once against the Supabase DB; nullable so existing OTP-only accounts aren't affected.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
